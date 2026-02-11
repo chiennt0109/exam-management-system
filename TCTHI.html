@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Nhập và lưu điểm thi</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial; background: #f2f2f2; padding: 20px; }
+    .section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 5px #ccc; margin-bottom: 20px; }
+    input, select, button { margin: 5px; padding: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    th { background-color: #007bff; color: white; }
+  </style>
+</head>
+<body>
+  <div class="section">
+    <h3>➀ Nhập thủ công</h3>
+    <input type="text" id="maKyThi" placeholder="Mã kỳ thi">
+    <input type="text" id="maHS" placeholder="Mã HS">
+    <input type="text" id="sbd" placeholder="SBD">
+    <input type="text" id="maMon" placeholder="Mã môn">
+    <input type="text" id="diem" placeholder="Điểm">
+    <button onclick="luuThuCong()">Lưu thủ công</button>
+  </div>
+
+  <div class="section">
+    <h3>➁ Import từ Excel</h3>
+    <input type="file" id="excelFile">
+    <button onclick="loadExcel()">Load</button>
+    <select id="colMaKyThi"><option value="">Cột Mã kỳ thi</option></select>
+    <select id="colMaHS"><option value="">Cột Mã HS</option></select>
+    <select id="colSBD"><option value="">Cột SBD</option></select>
+    <select id="colMaMon"><option value="">Cột Mã môn</option></select>
+    <select id="colDiem"><option value="">Cột Điểm</option></select>
+    <button onclick="apDung()">Áp dụng</button>
+    <button onclick="luuImport()">Lưu XML</button>
+    <table id="previewTable"></table>
+  </div>
+
+  <script>
+    let importedData = [];
+
+    function loadExcel() {
+  const file = document.getElementById('excelFile').files[0];
+  if (!file) return alert("Vui lòng chọn file.");
+  const reader = new FileReader();
+  reader.onload = e => {
+    const workbook = XLSX.read(e.target.result, { type: 'binary' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    excelRawData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    renderTable(excelRawData);
+    populateSelectOptions(excelRawData[0]);
+  };
+  reader.readAsBinaryString(file);
+}
+
+
+
+    function renderTable(data) {
+      const table = document.getElementById('previewTable');
+      table.innerHTML = '';
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        row.forEach(cell => {
+          const td = document.createElement('td');
+          td.textContent = cell;
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+      });
+    }
+
+    function populateSelectOptions(headers) {
+      const selects = ['colMaKyThi', 'colMaHS', 'colSBD', 'colMaMon', 'colDiem'];
+      selects.forEach(id => {
+        const select = document.getElementById(id);
+        select.innerHTML = `<option value="">${select.options[0].text}</option>`;
+        headers.forEach((header, i) => {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = `${i} - ${header}`;
+          select.appendChild(opt);
+        });
+      });
+    }
+
+    function renderMappedTable(data) {
+  const table = document.getElementById('previewTable');
+  table.innerHTML = '';
+  const header = `<tr>
+    <th>Mã kỳ thi</th><th>Mã HS</th><th>SBD</th><th>Mã môn</th><th>Điểm</th>
+  </tr>`;
+  table.innerHTML = header;
+
+  data.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row.MaKyThi}</td>
+      <td>${row.MaHS}</td>
+      <td>${row.SBD}</td>
+      <td>${row.MaMon}</td>
+      <td>${row.Diem}</td>
+    `;
+    table.appendChild(tr);
+  });
+}
+
+
+    
+function apDung() {
+  const getCol = id => parseInt(document.getElementById(id).value);
+  const colMaMon = getCol('colMaMon');
+  const colDiem = getCol('colDiem');
+
+  if (isNaN(colMaMon) || isNaN(colDiem)) {
+    alert("⚠️ Bạn cần chọn cột mã môn và điểm.");
+    return;
+  }
+
+  // Nếu là lần đầu: ánh xạ đầy đủ
+  if (importedData.length === 0) {
+    const col = {
+      MaKyThi: getCol('colMaKyThi'),
+      MaHS: getCol('colMaHS'),
+      SBD: getCol('colSBD'),
+      MaMon: colMaMon,
+      Diem: colDiem
+    };
+    if (Object.values(col).some(isNaN)) return alert("⚠️ Cần chọn đủ 5 cột lần đầu!");
+
+    importedData = [];
+
+    excelRawData.slice(1).forEach(row => {
+      const get = idx => row[idx]?.toString().trim();
+      if (!get(col.MaHS)) return;
+      importedData.push({
+        MaKyThi: get(col.MaKyThi),
+        MaHS: get(col.MaHS),
+        SBD: get(col.SBD),
+        MaMon: get(col.MaMon),
+        Diem: get(col.Diem)
+      });
+    });
+  } else {
+    // ✅ Cập nhật lại mã môn và điểm từ dòng gốc
+    excelRawData.slice(1).forEach((row, i) => {
+      if (!importedData[i]) return;
+      const get = idx => row[idx]?.toString().trim();
+      importedData[i].MaMon = get(colMaMon);
+      importedData[i].Diem = get(colDiem);
+    });
+  }
+
+  renderMappedTable(importedData);
+  alert("✅ Đã cập nhật mã môn và điểm mới.");
+}
+
+
+
+
+    function luuImport() {
+      if (importedData.length === 0) return alert("Chưa có dữ liệu import.");
+      let xml = `<TCTHI>\n`;
+      importedData.forEach(d => {
+        xml += `  <ThiSinh>\n`;
+        xml += `    <MaKyThi>${d.MaKyThi}</MaKyThi>\n`;
+        xml += `    <MaHS>${d.MaHS}</MaHS>\n`;
+        xml += `    <SBD>${d.SBD}</SBD>\n`;
+        xml += `    <MaMon>${d.MaMon}</MaMon>\n`;
+        xml += `    <Diem>${d.Diem}</Diem>\n`;
+        xml += `  </ThiSinh>\n`;
+      });
+      xml += `</TCTHI>`;
+
+      fetch("save_data.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ xmlData: xml })
+      }).then(res => res.text()).then(txt => alert(txt)).catch(err => alert("Lỗi khi lưu: " + err));
+    }
+
+    function luuThuCong() {
+      const d = {
+        MaKyThi: document.getElementById("maKyThi").value,
+        MaHS: document.getElementById("maHS").value,
+        SBD: document.getElementById("sbd").value,
+        MaMon: document.getElementById("maMon").value,
+        Diem: document.getElementById("diem").value
+      };
+      if (Object.values(d).some(v => !v)) return alert("Vui lòng nhập đủ các trường.");
+      fetch("save_data.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ xmlData: d })
+      }).then(res => res.text()).then(txt => alert(txt)).catch(err => alert("Lỗi: " + err));
+    }
+  </script>
+</body>
+</html>

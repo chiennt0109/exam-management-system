@@ -1,0 +1,4104 @@
+<Students>
+  <Student>
+    <MaHS>00012001</MaHS>
+    <HoDem>Bùi Thành</HoDem>
+    <Ten>An</Ten>
+    <NgaySinh>10/09/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012002</MaHS>
+    <HoDem>Đàm Khánh</HoDem>
+    <Ten>An</Ten>
+    <NgaySinh>13/04/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012003</MaHS>
+    <HoDem>Hoàng Bảo</HoDem>
+    <Ten>An</Ten>
+    <NgaySinh>04/08/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012004</MaHS>
+    <HoDem>Lê Hải</HoDem>
+    <Ten>An</Ten>
+    <NgaySinh>05/07/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012005</MaHS>
+    <HoDem>Nguyễn Bình</HoDem>
+    <Ten>An</Ten>
+    <NgaySinh>13/06/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012006</MaHS>
+    <HoDem>Nguyễn Đỗ Hoài</HoDem>
+    <Ten>An</Ten>
+    <NgaySinh>07/02/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012007</MaHS>
+    <HoDem>Nguyễn Khánh</HoDem>
+    <Ten>An</Ten>
+    <NgaySinh>30/12/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012009</MaHS>
+    <HoDem>Nguyễn Quốc</HoDem>
+    <Ten>An</Ten>
+    <NgaySinh>25/05/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012010</MaHS>
+    <HoDem>Nguyễn Thị Khánh</HoDem>
+    <Ten>An</Ten>
+    <NgaySinh>25/11/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012011</MaHS>
+    <HoDem>Phí Khoa Phúc</HoDem>
+    <Ten>An</Ten>
+    <NgaySinh>04/08/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012013</MaHS>
+    <HoDem>Bùi Thị Linh</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>22/08/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012014</MaHS>
+    <HoDem>Bùi Thị Nhật</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>10/09/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012015</MaHS>
+    <HoDem>Bùi Tuấn Hoàng</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>02/10/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012017</MaHS>
+    <HoDem>Đào Thị Mỹ</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>02/11/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012019</MaHS>
+    <HoDem>Đinh Phạm Nhi</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>29/07/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012020</MaHS>
+    <HoDem>Đoàn Nguyệt</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>05/09/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012022</MaHS>
+    <HoDem>Đỗ Nguyễn Tùng</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>22/07/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012023</MaHS>
+    <HoDem>Hoàng Ngọc</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>16/11/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012025</MaHS>
+    <HoDem>Hoàng Thu</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>16/03/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012026</MaHS>
+    <HoDem>Lã Vũ Minh</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>31/01/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012027</MaHS>
+    <HoDem>Lê Ngọc</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>07/07/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012028</MaHS>
+    <HoDem>Lê Thị Mai</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>24/04/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012029</MaHS>
+    <HoDem>Mai Châu</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>06/05/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012030</MaHS>
+    <HoDem>Ngô Công Đức</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>15/05/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012031</MaHS>
+    <HoDem>Ngô Đức</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>28/01/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012033</MaHS>
+    <HoDem>Nguyễn Danh Nhật</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>23/08/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012034</MaHS>
+    <HoDem>Nguyễn Duy</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>05/05/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012035</MaHS>
+    <HoDem>Nguyễn Dương Quang</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>02/07/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012036</MaHS>
+    <HoDem>Nguyễn Đình Việt</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>22/08/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012038</MaHS>
+    <HoDem>Nguyễn Hà Hải</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>06/11/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012039</MaHS>
+    <HoDem>Nguyễn Hoàng</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>25/03/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012040</MaHS>
+    <HoDem>Nguyễn Hoàng</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>21/04/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012041</MaHS>
+    <HoDem>Nguyễn Lê Phương</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>17/09/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012042</MaHS>
+    <HoDem>Nguyễn Minh</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>26/05/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012044</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>27/01/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012045</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>26/05/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012046</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>08/08/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012047</MaHS>
+    <HoDem>Nguyễn Ngọc Diệp</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>14/07/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012048</MaHS>
+    <HoDem>Nguyễn Ngọc Minh</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>26/08/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012049</MaHS>
+    <HoDem>Nguyễn Ngọc Trang</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>04/10/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012050</MaHS>
+    <HoDem>Nguyễn Thái</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>27/11/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012051</MaHS>
+    <HoDem>Nguyễn Thành Nhật</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>09/06/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012053</MaHS>
+    <HoDem>Nguyễn Thị Vân</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>07/01/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012054</MaHS>
+    <HoDem>Nguyễn Trang</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>25/11/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012055</MaHS>
+    <HoDem>Phạm Bảo</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>08/03/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012056</MaHS>
+    <HoDem>Phạm Hải</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>05/02/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012057</MaHS>
+    <HoDem>Phạm Hoàng</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>03/01/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012059</MaHS>
+    <HoDem>Phạm Nguyệt</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>07/10/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012060</MaHS>
+    <HoDem>Phạm Nhật</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>19/12/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012061</MaHS>
+    <HoDem>Phạm Quỳnh</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>18/05/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012062</MaHS>
+    <HoDem>Phạm Tâm</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>03/04/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012063</MaHS>
+    <HoDem>Phạm Thế</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>24/11/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012064</MaHS>
+    <HoDem>Phùng Quang</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>28/11/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012066</MaHS>
+    <HoDem>Trần Minh</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>23/11/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012067</MaHS>
+    <HoDem>Trần Quỳnh</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>11/01/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012068</MaHS>
+    <HoDem>Trần Quỳnh</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>07/04/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012069</MaHS>
+    <HoDem>Trần Thị Quỳnh</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>05/10/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012070</MaHS>
+    <HoDem>Trịnh Tuấn</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>12/12/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012072</MaHS>
+    <HoDem>Trương Mai</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>09/05/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012074</MaHS>
+    <HoDem>Vũ Lê Diệp</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>24/07/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012075</MaHS>
+    <HoDem>Vũ Lê Hiền</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>11/12/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012076</MaHS>
+    <HoDem>Vũ Minh</HoDem>
+    <Ten>Anh</Ten>
+    <NgaySinh>26/06/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012077</MaHS>
+    <HoDem>Nguyễn Phan Hồng</HoDem>
+    <Ten>Ánh</Ten>
+    <NgaySinh>15/02/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012078</MaHS>
+    <HoDem>Phạm Ngọc</HoDem>
+    <Ten>Ánh</Ten>
+    <NgaySinh>22/09/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012079</MaHS>
+    <HoDem>Bùi Văn</HoDem>
+    <Ten>Bách</Ten>
+    <NgaySinh>06/03/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012080</MaHS>
+    <HoDem>Nguyễn Huy</HoDem>
+    <Ten>Bách</Ten>
+    <NgaySinh>31/05/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012081</MaHS>
+    <HoDem>Bùi Dương Gia</HoDem>
+    <Ten>Bảo</Ten>
+    <NgaySinh>28/10/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012082</MaHS>
+    <HoDem>Bùi Trần Gia</HoDem>
+    <Ten>Bảo</Ten>
+    <NgaySinh>08/01/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012083</MaHS>
+    <HoDem>Dương Chí</HoDem>
+    <Ten>Bảo</Ten>
+    <NgaySinh>22/02/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012084</MaHS>
+    <HoDem>Đoàn Duy</HoDem>
+    <Ten>Bảo</Ten>
+    <NgaySinh>07/10/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012085</MaHS>
+    <HoDem>Đỗ Gia</HoDem>
+    <Ten>Bảo</Ten>
+    <NgaySinh>06/03/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012086</MaHS>
+    <HoDem>Hoàng Dương Quốc</HoDem>
+    <Ten>Bảo</Ten>
+    <NgaySinh>13/06/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012087</MaHS>
+    <HoDem>Hoàng Gia</HoDem>
+    <Ten>Bảo</Ten>
+    <NgaySinh>23/04/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012088</MaHS>
+    <HoDem>Phạm Văn Thái</HoDem>
+    <Ten>Bảo</Ten>
+    <NgaySinh>30/08/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012089</MaHS>
+    <HoDem>Trần Gia</HoDem>
+    <Ten>Bảo</Ten>
+    <NgaySinh>16/01/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012090</MaHS>
+    <HoDem>Trần Nguyễn Gia</HoDem>
+    <Ten>Bảo</Ten>
+    <NgaySinh>25/11/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012091</MaHS>
+    <HoDem>Lưu Băng</HoDem>
+    <Ten>Băng</Ten>
+    <NgaySinh>10/09/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012092</MaHS>
+    <HoDem>Vũ Văn</HoDem>
+    <Ten>Bính</Ten>
+    <NgaySinh>02/04/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012093</MaHS>
+    <HoDem>Bùi Thị Hải</HoDem>
+    <Ten>Bình</Ten>
+    <NgaySinh>12/09/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012094</MaHS>
+    <HoDem>Nguyễn Gia</HoDem>
+    <Ten>Bình</Ten>
+    <NgaySinh>12/11/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012095</MaHS>
+    <HoDem>Nguyễn Thanh</HoDem>
+    <Ten>Bình</Ten>
+    <NgaySinh>25/12/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012096</MaHS>
+    <HoDem>Phạm Nguyên</HoDem>
+    <Ten>Bình</Ten>
+    <NgaySinh>07/07/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012097</MaHS>
+    <HoDem>Phan Nguyễn Hải</HoDem>
+    <Ten>Bình</Ten>
+    <NgaySinh>29/06/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012098</MaHS>
+    <HoDem>Đồng Bảo</HoDem>
+    <Ten>Châu</Ten>
+    <NgaySinh>22/11/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012099</MaHS>
+    <HoDem>Hoàng Minh</HoDem>
+    <Ten>Châu</Ten>
+    <NgaySinh>18/11/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012102</MaHS>
+    <HoDem>Nguyễn Minh</HoDem>
+    <Ten>Châu</Ten>
+    <NgaySinh>19/05/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012103</MaHS>
+    <HoDem>Nguyễn Ngọc Minh</HoDem>
+    <Ten>Châu</Ten>
+    <NgaySinh>28/09/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012104</MaHS>
+    <HoDem>Nguyễn Ngọc Quế</HoDem>
+    <Ten>Châu</Ten>
+    <NgaySinh>02/12/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012105</MaHS>
+    <HoDem>Phạm Thị Minh</HoDem>
+    <Ten>Châu</Ten>
+    <NgaySinh>01/07/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012107</MaHS>
+    <HoDem>Trịnh Bảo</HoDem>
+    <Ten>Châu</Ten>
+    <NgaySinh>05/12/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012108</MaHS>
+    <HoDem>Vũ Thị Minh</HoDem>
+    <Ten>Châu</Ten>
+    <NgaySinh>25/02/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012110</MaHS>
+    <HoDem>Bùi Ngọc</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>03/01/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012111</MaHS>
+    <HoDem>Bùi Thị Tùng</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>04/10/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012112</MaHS>
+    <HoDem>Cao Khánh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>31/08/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012113</MaHS>
+    <HoDem>Mai Khánh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>08/05/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012114</MaHS>
+    <HoDem>Ngô An</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>14/07/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012115</MaHS>
+    <HoDem>Ngô Quỳnh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>19/08/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012116</MaHS>
+    <HoDem>Nguyễn Hà</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>27/04/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012117</MaHS>
+    <HoDem>Nguyễn Huyền</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>26/11/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012118</MaHS>
+    <HoDem>Nguyễn Khánh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>04/08/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012119</MaHS>
+    <HoDem>Nguyễn Khánh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>20/10/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012121</MaHS>
+    <HoDem>Nguyễn Quỳnh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>19/03/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012122</MaHS>
+    <HoDem>Nguyễn Quỳnh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>16/11/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012124</MaHS>
+    <HoDem>Phạm Ngọc Quỳnh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>14/07/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012125</MaHS>
+    <HoDem>Phạm Quỳnh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>29/11/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012126</MaHS>
+    <HoDem>Trần Khánh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>15/02/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012127</MaHS>
+    <HoDem>Vũ Thị Khánh</HoDem>
+    <Ten>Chi</Ten>
+    <NgaySinh>13/11/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012128</MaHS>
+    <HoDem>Nguyễn Thành</HoDem>
+    <Ten>Công</Ten>
+    <NgaySinh>22/04/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012129</MaHS>
+    <HoDem>Vũ Xuân</HoDem>
+    <Ten>Công</Ten>
+    <NgaySinh>17/11/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012130</MaHS>
+    <HoDem>Nguyễn Hoàng Kim</HoDem>
+    <Ten>Cương</Ten>
+    <NgaySinh>24/08/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012131</MaHS>
+    <HoDem>Cao Văn</HoDem>
+    <Ten>Cường</Ten>
+    <NgaySinh>20/12/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012132</MaHS>
+    <HoDem>Đặng Thịnh</HoDem>
+    <Ten>Cường</Ten>
+    <NgaySinh>15/09/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012133</MaHS>
+    <HoDem>Đoàn Minh</HoDem>
+    <Ten>Cường</Ten>
+    <NgaySinh>07/06/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012134</MaHS>
+    <HoDem>Lê Bách</HoDem>
+    <Ten>Cường</Ten>
+    <NgaySinh>01/08/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012136</MaHS>
+    <HoDem>Nguyễn Huy</HoDem>
+    <Ten>Cường</Ten>
+    <NgaySinh>29/09/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012137</MaHS>
+    <HoDem>Phạm Anh</HoDem>
+    <Ten>Cường</Ten>
+    <NgaySinh>05/11/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012138</MaHS>
+    <HoDem>Phạm Hoàng</HoDem>
+    <Ten>Cường</Ten>
+    <NgaySinh>22/09/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012139</MaHS>
+    <HoDem>Trần Việt</HoDem>
+    <Ten>Cường</Ten>
+    <NgaySinh>09/01/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012140</MaHS>
+    <HoDem>Phạm Thanh</HoDem>
+    <Ten>Danh</Ten>
+    <NgaySinh>03/10/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012141</MaHS>
+    <HoDem>Đào Ngọc</HoDem>
+    <Ten>Diệp</Ten>
+    <NgaySinh>01/10/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012142</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Diệp</Ten>
+    <NgaySinh>11/04/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012144</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Diệp</Ten>
+    <NgaySinh>01/11/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012145</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Diệp</Ten>
+    <NgaySinh>01/11/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012146</MaHS>
+    <HoDem>Trần Hải</HoDem>
+    <Ten>Diệp</Ten>
+    <NgaySinh>16/01/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012147</MaHS>
+    <HoDem>Vũ Tô Ngọc</HoDem>
+    <Ten>Diệp</Ten>
+    <NgaySinh>21/01/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012148</MaHS>
+    <HoDem>Nguyễn Thị Phương</HoDem>
+    <Ten>Dung</Ten>
+    <NgaySinh>23/07/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012149</MaHS>
+    <HoDem>Trần Minh</HoDem>
+    <Ten>Dung</Ten>
+    <NgaySinh>29/10/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012150</MaHS>
+    <HoDem>Đỗ Ngọc</HoDem>
+    <Ten>Dũng</Ten>
+    <NgaySinh>21/04/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012151</MaHS>
+    <HoDem>Đỗ Việt</HoDem>
+    <Ten>Dũng</Ten>
+    <NgaySinh>22/02/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012153</MaHS>
+    <HoDem>Hoàng Việt</HoDem>
+    <Ten>Dũng</Ten>
+    <NgaySinh>14/02/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012154</MaHS>
+    <HoDem>Hồ Tuấn</HoDem>
+    <Ten>Dũng</Ten>
+    <NgaySinh>28/06/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012158</MaHS>
+    <HoDem>Nguyễn Lê</HoDem>
+    <Ten>Dũng</Ten>
+    <NgaySinh>05/01/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012160</MaHS>
+    <HoDem>Nguyễn Việt</HoDem>
+    <Ten>Dũng</Ten>
+    <NgaySinh>29/06/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012161</MaHS>
+    <HoDem>Phạm Việt</HoDem>
+    <Ten>Dũng</Ten>
+    <NgaySinh>19/09/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012162</MaHS>
+    <HoDem>Trần Quốc</HoDem>
+    <Ten>Dũng</Ten>
+    <NgaySinh>07/09/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012164</MaHS>
+    <HoDem>Lê Khánh</HoDem>
+    <Ten>Duy</Ten>
+    <NgaySinh>18/08/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012165</MaHS>
+    <HoDem>Nguyễn Hoàng</HoDem>
+    <Ten>Duy</Ten>
+    <NgaySinh>20/06/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012167</MaHS>
+    <HoDem>Phạm Đức</HoDem>
+    <Ten>Duy</Ten>
+    <NgaySinh>14/11/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012168</MaHS>
+    <HoDem>Phạm Nguyễn Hồng</HoDem>
+    <Ten>Duyên</Ten>
+    <NgaySinh>22/02/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012169</MaHS>
+    <HoDem>Bùi Nhật</HoDem>
+    <Ten>Dương</Ten>
+    <NgaySinh>30/07/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012170</MaHS>
+    <HoDem>Đỗ Thùy</HoDem>
+    <Ten>Dương</Ten>
+    <NgaySinh>27/10/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012171</MaHS>
+    <HoDem>Ngô Minh</HoDem>
+    <Ten>Dương</Ten>
+    <NgaySinh>27/09/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012172</MaHS>
+    <HoDem>Nguyễn Ngọc Thùy</HoDem>
+    <Ten>Dương</Ten>
+    <NgaySinh>24/08/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012173</MaHS>
+    <HoDem>Phạm Bạch</HoDem>
+    <Ten>Dương</Ten>
+    <NgaySinh>18/11/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012174</MaHS>
+    <HoDem>Phạm Thùy</HoDem>
+    <Ten>Dương</Ten>
+    <NgaySinh>18/09/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012176</MaHS>
+    <HoDem>Trần Bá Đăng</HoDem>
+    <Ten>Dương</Ten>
+    <NgaySinh>10/07/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012177</MaHS>
+    <HoDem>Trần Hà</HoDem>
+    <Ten>Dương</Ten>
+    <NgaySinh>21/02/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012178</MaHS>
+    <HoDem>Trần Hồng</HoDem>
+    <Ten>Dương</Ten>
+    <NgaySinh>17/08/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012179</MaHS>
+    <HoDem>Hà Tương</HoDem>
+    <Ten>Dy</Ten>
+    <NgaySinh>22/02/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012180</MaHS>
+    <HoDem>Nguyễn Tâm</HoDem>
+    <Ten>Đan</Ten>
+    <NgaySinh>11/03/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012181</MaHS>
+    <HoDem>Phạm Hoa</HoDem>
+    <Ten>Đan</Ten>
+    <NgaySinh>25/09/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012182</MaHS>
+    <HoDem>Nguyễn Tiến</HoDem>
+    <Ten>Đạt</Ten>
+    <NgaySinh>21/03/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012183</MaHS>
+    <HoDem>Nguyễn Tiến</HoDem>
+    <Ten>Đạt</Ten>
+    <NgaySinh>16/02/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012184</MaHS>
+    <HoDem>Nguyễn Xuân Thành</HoDem>
+    <Ten>Đạt</Ten>
+    <NgaySinh>06/09/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012185</MaHS>
+    <HoDem>Phạm Tiến</HoDem>
+    <Ten>Đạt</Ten>
+    <NgaySinh>02/02/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012186</MaHS>
+    <HoDem>Phạm Tiến</HoDem>
+    <Ten>Đạt</Ten>
+    <NgaySinh>22/06/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012187</MaHS>
+    <HoDem>Trần Thành</HoDem>
+    <Ten>Đạt</Ten>
+    <NgaySinh>17/12/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012188</MaHS>
+    <HoDem>Trịnh Tiến</HoDem>
+    <Ten>Đạt</Ten>
+    <NgaySinh>21/04/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012189</MaHS>
+    <HoDem>Nguyễn Hải</HoDem>
+    <Ten>Đăng</Ten>
+    <NgaySinh>01/08/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012190</MaHS>
+    <HoDem>Trần</HoDem>
+    <Ten>Đăng</Ten>
+    <NgaySinh>04/01/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012191</MaHS>
+    <HoDem>Bùi Anh</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>09/03/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012192</MaHS>
+    <HoDem>Bùi Nguyên</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>21/02/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012193</MaHS>
+    <HoDem>Đỗ Anh</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>22/03/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012194</MaHS>
+    <HoDem>Đỗ Hữu</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>16/01/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012195</MaHS>
+    <HoDem>Hồ Minh</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>22/07/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012196</MaHS>
+    <HoDem>Lê Minh</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>07/04/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012197</MaHS>
+    <HoDem>Mai Trọng</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>10/09/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012198</MaHS>
+    <HoDem>Ngô Minh</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>13/02/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012200</MaHS>
+    <HoDem>Nguyễn Đình</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>22/04/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012201</MaHS>
+    <HoDem>Nguyễn Hoàng Trí</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>08/10/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012202</MaHS>
+    <HoDem>Nguyễn Hồng</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>28/01/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012205</MaHS>
+    <HoDem>Nguyễn Trung</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>04/02/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012206</MaHS>
+    <HoDem>Nguyễn Trung</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>04/12/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012207</MaHS>
+    <HoDem>Vũ Minh</HoDem>
+    <Ten>Đức</Ten>
+    <NgaySinh>24/09/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012208</MaHS>
+    <HoDem>Đoàn Hương</HoDem>
+    <Ten>Giang</Ten>
+    <NgaySinh>15/01/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012209</MaHS>
+    <HoDem>Đồng Hương</HoDem>
+    <Ten>Giang</Ten>
+    <NgaySinh>02/10/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012210</MaHS>
+    <HoDem>Hoàng Hương</HoDem>
+    <Ten>Giang</Ten>
+    <NgaySinh>12/06/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012211</MaHS>
+    <HoDem>Nguyễn Hoàng Ngân</HoDem>
+    <Ten>Giang</Ten>
+    <NgaySinh>08/06/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012212</MaHS>
+    <HoDem>Nguyễn Thị Mỹ</HoDem>
+    <Ten>Giang</Ten>
+    <NgaySinh>22/09/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012213</MaHS>
+    <HoDem>Phạm Công</HoDem>
+    <Ten>Giang</Ten>
+    <NgaySinh>07/10/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012214</MaHS>
+    <HoDem>Phan Hương</HoDem>
+    <Ten>Giang</Ten>
+    <NgaySinh>19/06/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012215</MaHS>
+    <HoDem>Trần Vũ Châu</HoDem>
+    <Ten>Giang</Ten>
+    <NgaySinh>03/07/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012216</MaHS>
+    <HoDem>Vũ Hoàng</HoDem>
+    <Ten>Giang</Ten>
+    <NgaySinh>28/10/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012217</MaHS>
+    <HoDem>Chử Thanh</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>24/10/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012218</MaHS>
+    <HoDem>Đinh Thị Vân</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>20/09/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012219</MaHS>
+    <HoDem>Lê Minh</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>02/08/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012220</MaHS>
+    <HoDem>Lương Trần Bảo</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>21/01/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012221</MaHS>
+    <HoDem>Ngô Ngọc</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>20/12/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012222</MaHS>
+    <HoDem>Nguyễn Ngân</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>16/08/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012223</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>27/05/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012224</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>16/10/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012225</MaHS>
+    <HoDem>Nguyễn Nguyên</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>02/03/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012226</MaHS>
+    <HoDem>Nguyễn Thu</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>02/07/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012227</MaHS>
+    <HoDem>Phạm Hoàng</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>22/06/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012230</MaHS>
+    <HoDem>Phạm Ngọc</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>27/02/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012231</MaHS>
+    <HoDem>Trần Lê Khánh</HoDem>
+    <Ten>Hà</Ten>
+    <NgaySinh>21/01/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012232</MaHS>
+    <HoDem>Đào Nhật</HoDem>
+    <Ten>Hạ</Ten>
+    <NgaySinh>29/05/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012233</MaHS>
+    <HoDem>Cao Hoàng Bắc</HoDem>
+    <Ten>Hải</Ten>
+    <NgaySinh>05/01/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012234</MaHS>
+    <HoDem>Hoàng Đình</HoDem>
+    <Ten>Hải</Ten>
+    <NgaySinh>19/07/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012235</MaHS>
+    <HoDem>Nguyễn Thạc</HoDem>
+    <Ten>Hải</Ten>
+    <NgaySinh>17/08/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012236</MaHS>
+    <HoDem>Nguyễn Xuân</HoDem>
+    <Ten>Hải</Ten>
+    <NgaySinh>10/08/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012237</MaHS>
+    <HoDem>Đào Thị Minh</HoDem>
+    <Ten>Hạnh</Ten>
+    <NgaySinh>21/01/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012238</MaHS>
+    <HoDem>Đinh Thu</HoDem>
+    <Ten>Hằng</Ten>
+    <NgaySinh>27/03/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012239</MaHS>
+    <HoDem>Lương Thị Thúy</HoDem>
+    <Ten>Hằng</Ten>
+    <NgaySinh>12/05/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012243</MaHS>
+    <HoDem>Phạm Nguyễn Bảo</HoDem>
+    <Ten>Hân</Ten>
+    <NgaySinh>13/11/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012244</MaHS>
+    <HoDem>Trần Đoàn Gia</HoDem>
+    <Ten>Hân</Ten>
+    <NgaySinh>01/08/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012245</MaHS>
+    <HoDem>Vũ Bảo</HoDem>
+    <Ten>Hân</Ten>
+    <NgaySinh>23/12/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012246</MaHS>
+    <HoDem>Giang Thu</HoDem>
+    <Ten>Hiền</Ten>
+    <NgaySinh>01/07/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012247</MaHS>
+    <HoDem>Nguyễn Thị Thảo</HoDem>
+    <Ten>Hiền</Ten>
+    <NgaySinh>31/07/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012248</MaHS>
+    <HoDem>Nguyễn Vũ Phương</HoDem>
+    <Ten>Hiền</Ten>
+    <NgaySinh>25/02/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012249</MaHS>
+    <HoDem>Trần Thị Minh</HoDem>
+    <Ten>Hiền</Ten>
+    <NgaySinh>26/07/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012250</MaHS>
+    <HoDem>Trương Đỗ Công</HoDem>
+    <Ten>Hiền</Ten>
+    <NgaySinh>06/06/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012251</MaHS>
+    <HoDem>Đỗ Quang</HoDem>
+    <Ten>Hiển</Ten>
+    <NgaySinh>27/04/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012252</MaHS>
+    <HoDem>Lê Phan</HoDem>
+    <Ten>Hiển</Ten>
+    <NgaySinh>17/11/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012254</MaHS>
+    <HoDem>Nguyễn Vinh</HoDem>
+    <Ten>Hiển</Ten>
+    <NgaySinh>21/09/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012255</MaHS>
+    <HoDem>Hoàng Trọng</HoDem>
+    <Ten>Hiệp</Ten>
+    <NgaySinh>08/09/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012256</MaHS>
+    <HoDem>Vũ Trọng</HoDem>
+    <Ten>Hiệp</Ten>
+    <NgaySinh>20/11/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012257</MaHS>
+    <HoDem>Bùi Trung</HoDem>
+    <Ten>Hiếu</Ten>
+    <NgaySinh>30/01/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012258</MaHS>
+    <HoDem>Bùi Vũ Trọng</HoDem>
+    <Ten>Hiếu</Ten>
+    <NgaySinh>24/05/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012259</MaHS>
+    <HoDem>Hà Vũ Mạnh</HoDem>
+    <Ten>Hiếu</Ten>
+    <NgaySinh>14/07/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012260</MaHS>
+    <HoDem>Hoàng Xuân</HoDem>
+    <Ten>Hiếu</Ten>
+    <NgaySinh>17/08/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012261</MaHS>
+    <HoDem>Khoa Năng Minh</HoDem>
+    <Ten>Hiếu</Ten>
+    <NgaySinh>24/11/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012263</MaHS>
+    <HoDem>Trịnh</HoDem>
+    <Ten>Hiếu</Ten>
+    <NgaySinh>16/10/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012264</MaHS>
+    <HoDem>Trần Mai</HoDem>
+    <Ten>Hoa</Ten>
+    <NgaySinh>09/12/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012265</MaHS>
+    <HoDem>Hoàng Thị Thanh</HoDem>
+    <Ten>Hòa</Ten>
+    <NgaySinh>15/06/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012266</MaHS>
+    <HoDem>Trần Minh</HoDem>
+    <Ten>Hòa</Ten>
+    <NgaySinh>21/11/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012267</MaHS>
+    <HoDem>Đặng Trần Việt</HoDem>
+    <Ten>Hoàng</Ten>
+    <NgaySinh>11/01/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012268</MaHS>
+    <HoDem>Đinh Huy</HoDem>
+    <Ten>Hoàng</Ten>
+    <NgaySinh>29/08/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012269</MaHS>
+    <HoDem>Khoa Minh</HoDem>
+    <Ten>Hoàng</Ten>
+    <NgaySinh>05/09/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012270</MaHS>
+    <HoDem>Nguyễn Minh</HoDem>
+    <Ten>Hoàng</Ten>
+    <NgaySinh>03/03/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012271</MaHS>
+    <HoDem>Nguyễn Văn Huy</HoDem>
+    <Ten>Hoàng</Ten>
+    <NgaySinh>27/11/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012272</MaHS>
+    <HoDem>Phạm Minh</HoDem>
+    <Ten>Hoàng</Ten>
+    <NgaySinh>13/03/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012273</MaHS>
+    <HoDem>Phạm Văn Trần</HoDem>
+    <Ten>Hoàng</Ten>
+    <NgaySinh>08/08/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012274</MaHS>
+    <HoDem>Phí Ngọc Huy</HoDem>
+    <Ten>Hoàng</Ten>
+    <NgaySinh>16/03/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012275</MaHS>
+    <HoDem>Vũ Minh</HoDem>
+    <Ten>Hoàng</Ten>
+    <NgaySinh>18/05/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012276</MaHS>
+    <HoDem>Hoàng Sỹ</HoDem>
+    <Ten>Hùng</Ten>
+    <NgaySinh>12/01/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012277</MaHS>
+    <HoDem>Mai Xuân</HoDem>
+    <Ten>Hùng</Ten>
+    <NgaySinh>27/05/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012279</MaHS>
+    <HoDem>Nguyễn Tuấn</HoDem>
+    <Ten>Hùng</Ten>
+    <NgaySinh>19/01/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012280</MaHS>
+    <HoDem>Đoàn Hữu Quang</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>31/07/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012281</MaHS>
+    <HoDem>Mai Ngọc</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>13/08/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012282</MaHS>
+    <HoDem>Nguyễn Quang</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>22/02/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012283</MaHS>
+    <HoDem>Nguyễn Quang</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>10/07/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012284</MaHS>
+    <HoDem>Nguyễn Quang</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>01/09/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012285</MaHS>
+    <HoDem>Nguyễn Quang</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>21/12/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012287</MaHS>
+    <HoDem>Phạm Quốc</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>15/09/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012288</MaHS>
+    <HoDem>Vũ Đức</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>29/02/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012289</MaHS>
+    <HoDem>Vũ Đức</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>24/01/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012290</MaHS>
+    <HoDem>Vũ Gia</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>19/01/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012291</MaHS>
+    <HoDem>Vũ Phùng Công</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>30/12/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012292</MaHS>
+    <HoDem>Vũ Quốc</HoDem>
+    <Ten>Huy</Ten>
+    <NgaySinh>14/02/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012293</MaHS>
+    <HoDem>Đào Khánh</HoDem>
+    <Ten>Huyền</Ten>
+    <NgaySinh>10/12/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012294</MaHS>
+    <HoDem>Nguyễn Khánh</HoDem>
+    <Ten>Huyền</Ten>
+    <NgaySinh>05/01/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012295</MaHS>
+    <HoDem>Vũ Ngọc</HoDem>
+    <Ten>Huyền</Ten>
+    <NgaySinh>25/11/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012296</MaHS>
+    <HoDem>Nguyễn Duy</HoDem>
+    <Ten>Hưng</Ten>
+    <NgaySinh>04/07/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012297</MaHS>
+    <HoDem>Nguyễn Đình</HoDem>
+    <Ten>Hưng</Ten>
+    <NgaySinh>25/10/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012298</MaHS>
+    <HoDem>Nguyễn Đức</HoDem>
+    <Ten>Hưng</Ten>
+    <NgaySinh>26/01/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012299</MaHS>
+    <HoDem>Nguyễn Quang</HoDem>
+    <Ten>Hưng</Ten>
+    <NgaySinh>30/01/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012300</MaHS>
+    <HoDem>Dương Quỳnh</HoDem>
+    <Ten>Hương</Ten>
+    <NgaySinh>02/06/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012302</MaHS>
+    <HoDem>Nguyễn Thùy</HoDem>
+    <Ten>Hương</Ten>
+    <NgaySinh>18/03/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012303</MaHS>
+    <HoDem>Bùi Vĩnh</HoDem>
+    <Ten>Khang</Ten>
+    <NgaySinh>07/02/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012304</MaHS>
+    <HoDem>Đinh Vũ Tấn</HoDem>
+    <Ten>Khang</Ten>
+    <NgaySinh>24/04/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012305</MaHS>
+    <HoDem>Đoàn Vĩnh</HoDem>
+    <Ten>Khang</Ten>
+    <NgaySinh>10/06/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012306</MaHS>
+    <HoDem>Nguyễn Đình Vĩnh</HoDem>
+    <Ten>Khang</Ten>
+    <NgaySinh>03/04/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012309</MaHS>
+    <HoDem>Đỗ Trung</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>23/10/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012311</MaHS>
+    <HoDem>Lê Dương</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>11/08/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012312</MaHS>
+    <HoDem>Lê Hoàng Kim</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>30/11/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012313</MaHS>
+    <HoDem>Lê Huy</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>15/07/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012314</MaHS>
+    <HoDem>Lê Ngọc Gia</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>27/12/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012315</MaHS>
+    <HoDem>Nguyễn Đức</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>12/02/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012316</MaHS>
+    <HoDem>Nguyễn Gia</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>11/02/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012317</MaHS>
+    <HoDem>Nguyễn Hoàng</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>06/08/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012319</MaHS>
+    <HoDem>Nguyễn Nam</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>15/03/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012320</MaHS>
+    <HoDem>Nguyễn Thị Ngọc</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>08/02/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012321</MaHS>
+    <HoDem>Trần Vân</HoDem>
+    <Ten>Khánh</Ten>
+    <NgaySinh>24/05/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012322</MaHS>
+    <HoDem>Đồng Xuân</HoDem>
+    <Ten>Khiêm</Ten>
+    <NgaySinh>21/03/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012324</MaHS>
+    <HoDem>Trần Bá Đăng</HoDem>
+    <Ten>Khoa</Ten>
+    <NgaySinh>10/07/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012325</MaHS>
+    <HoDem>Hà Thế</HoDem>
+    <Ten>Khôi</Ten>
+    <NgaySinh>08/06/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012326</MaHS>
+    <HoDem>Nguyễn Anh Minh</HoDem>
+    <Ten>Khôi</Ten>
+    <NgaySinh>29/12/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012329</MaHS>
+    <HoDem>Đỗ Minh</HoDem>
+    <Ten>Khuê</Ten>
+    <NgaySinh>23/05/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012330</MaHS>
+    <HoDem>Lại Vũ Lam</HoDem>
+    <Ten>Khuê</Ten>
+    <NgaySinh>23/09/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012331</MaHS>
+    <HoDem>Bùi Trí</HoDem>
+    <Ten>Kiên</Ten>
+    <NgaySinh>10/03/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012332</MaHS>
+    <HoDem>Nguyễn Chí</HoDem>
+    <Ten>Kiên</Ten>
+    <NgaySinh>11/04/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012333</MaHS>
+    <HoDem>Phạm Đức</HoDem>
+    <Ten>Kiên</Ten>
+    <NgaySinh>14/12/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012335</MaHS>
+    <HoDem>Vũ Trung</HoDem>
+    <Ten>Kiên</Ten>
+    <NgaySinh>13/01/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012336</MaHS>
+    <HoDem>Phạm Nhật</HoDem>
+    <Ten>Lam</Ten>
+    <NgaySinh>17/11/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012337</MaHS>
+    <HoDem>Phạm Trúc</HoDem>
+    <Ten>Lam</Ten>
+    <NgaySinh>07/02/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012338</MaHS>
+    <HoDem>Trần Quỳnh</HoDem>
+    <Ten>Lam</Ten>
+    <NgaySinh>04/09/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012340</MaHS>
+    <HoDem>Đặng Hoàng</HoDem>
+    <Ten>Lâm</Ten>
+    <NgaySinh>17/11/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012341</MaHS>
+    <HoDem>Hồ Việt Phúc</HoDem>
+    <Ten>Lâm</Ten>
+    <NgaySinh>14/11/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012342</MaHS>
+    <HoDem>Lê Huy Đại</HoDem>
+    <Ten>Lâm</Ten>
+    <NgaySinh>24/05/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012343</MaHS>
+    <HoDem>Lương Thiện</HoDem>
+    <Ten>Lâm</Ten>
+    <NgaySinh>12/11/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012344</MaHS>
+    <HoDem>Nguyễn Viết Tùng</HoDem>
+    <Ten>Lâm</Ten>
+    <NgaySinh>14/08/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012345</MaHS>
+    <HoDem>Vũ Tùng</HoDem>
+    <Ten>Lâm</Ten>
+    <NgaySinh>06/07/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012346</MaHS>
+    <HoDem>Mai Hoàng</HoDem>
+    <Ten>Lân</Ten>
+    <NgaySinh>12/07/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012347</MaHS>
+    <HoDem>Đàm Trần Mai</HoDem>
+    <Ten>Lê</Ten>
+    <NgaySinh>03/01/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012348</MaHS>
+    <HoDem>Cao Thị Hương</HoDem>
+    <Ten>Liên</Ten>
+    <NgaySinh>29/06/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012349</MaHS>
+    <HoDem>Bùi Phương</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>24/12/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012350</MaHS>
+    <HoDem>Bùi Thành</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>12/05/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012351</MaHS>
+    <HoDem>Đào Thùy</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>03/03/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012352</MaHS>
+    <HoDem>Đặng Thùy</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>11/11/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012353</MaHS>
+    <HoDem>Đinh Nhã</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>04/08/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012354</MaHS>
+    <HoDem>Đoàn Ngọc Phương</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>05/02/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012355</MaHS>
+    <HoDem>Đoàn Phạm Ngọc</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>23/03/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012356</MaHS>
+    <HoDem>Đoàn Phương</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>28/01/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012357</MaHS>
+    <HoDem>Giang Thùy</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>04/09/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012358</MaHS>
+    <HoDem>Hoàng Hà</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>20/07/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012360</MaHS>
+    <HoDem>Lưu Ngọc</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>02/10/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012361</MaHS>
+    <HoDem>Ngô Ngọc</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>29/12/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012362</MaHS>
+    <HoDem>Nguyễn Anh</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>14/01/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012364</MaHS>
+    <HoDem>Nguyễn Bùi Khánh</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>15/06/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012365</MaHS>
+    <HoDem>Nguyễn Diệp</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>01/10/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012366</MaHS>
+    <HoDem>Nguyễn Diệu</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>14/02/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012367</MaHS>
+    <HoDem>Nguyễn Diệu</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>18/06/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012368</MaHS>
+    <HoDem>Nguyễn Gia</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>16/07/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012369</MaHS>
+    <HoDem>Nguyễn Hà</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>24/06/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012370</MaHS>
+    <HoDem>Nguyễn Hà</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>17/08/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012371</MaHS>
+    <HoDem>Nguyễn Hà</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>25/09/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012372</MaHS>
+    <HoDem>Nguyễn Hoàng</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>20/07/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012373</MaHS>
+    <HoDem>Nguyễn Hoàng Hiểu</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>14/12/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012374</MaHS>
+    <HoDem>Nguyễn Khánh</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>07/09/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012375</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>13/01/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012376</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>24/03/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012378</MaHS>
+    <HoDem>Nguyễn Phạm Ngọc</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>16/03/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012380</MaHS>
+    <HoDem>Nguyễn Thị Hà</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>15/04/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012381</MaHS>
+    <HoDem>Nguyễn Thị Khánh</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>13/11/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012382</MaHS>
+    <HoDem>Nguyễn Thị Ngọc</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>12/12/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012383</MaHS>
+    <HoDem>Nguyễn Thị Phương</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>11/09/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012384</MaHS>
+    <HoDem>Phạm Hoàng</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>12/02/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012386</MaHS>
+    <HoDem>Phùng Khánh</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>19/10/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012387</MaHS>
+    <HoDem>Trần Hà Nhật</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>24/02/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012388</MaHS>
+    <HoDem>Trần Khánh</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>24/09/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012389</MaHS>
+    <HoDem>Trần Khánh</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>17/10/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012393</MaHS>
+    <HoDem>Trần Phương</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>19/02/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012394</MaHS>
+    <HoDem>Trần Thảo</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>11/08/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012395</MaHS>
+    <HoDem>Trần Thảo</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>25/08/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012396</MaHS>
+    <HoDem>Vũ Hà</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>07/11/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012397</MaHS>
+    <HoDem>Vũ Lương Diệu</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>16/02/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012398</MaHS>
+    <HoDem>Vũ Thái Dương</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>27/03/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012399</MaHS>
+    <HoDem>Vũ Thủy</HoDem>
+    <Ten>Linh</Ten>
+    <NgaySinh>21/03/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012400</MaHS>
+    <HoDem>Hoàng Bảo</HoDem>
+    <Ten>Long</Ten>
+    <NgaySinh>18/01/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012401</MaHS>
+    <HoDem>Hoàng Hải</HoDem>
+    <Ten>Long</Ten>
+    <NgaySinh>30/03/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012402</MaHS>
+    <HoDem>Hoàng Lê Minh</HoDem>
+    <Ten>Long</Ten>
+    <NgaySinh>17/12/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012403</MaHS>
+    <HoDem>Nguyễn Hải</HoDem>
+    <Ten>Long</Ten>
+    <NgaySinh>16/01/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012404</MaHS>
+    <HoDem>Nguyễn Hữu Tường</HoDem>
+    <Ten>Long</Ten>
+    <NgaySinh>12/02/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012405</MaHS>
+    <HoDem>Phạm Nguyễn Phúc</HoDem>
+    <Ten>Long</Ten>
+    <NgaySinh>25/01/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012406</MaHS>
+    <HoDem>Trần Đức</HoDem>
+    <Ten>Long</Ten>
+    <NgaySinh>08/06/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012407</MaHS>
+    <HoDem>Nguyễn Văn</HoDem>
+    <Ten>Lợi</Ten>
+    <NgaySinh>11/12/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012408</MaHS>
+    <HoDem>Phạm Khánh</HoDem>
+    <Ten>Ly</Ten>
+    <NgaySinh>31/03/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012409</MaHS>
+    <HoDem>Nguyễn Minh</HoDem>
+    <Ten>Lý</Ten>
+    <NgaySinh>24/08/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012410</MaHS>
+    <HoDem>Đoàn Thị Hoàng</HoDem>
+    <Ten>Mai</Ten>
+    <NgaySinh>28/12/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012411</MaHS>
+    <HoDem>Hoàng Nhật</HoDem>
+    <Ten>Mai</Ten>
+    <NgaySinh>28/07/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012412</MaHS>
+    <HoDem>Hồ Phương</HoDem>
+    <Ten>Mai</Ten>
+    <NgaySinh>06/02/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012413</MaHS>
+    <HoDem>Khương Thị Thanh</HoDem>
+    <Ten>Mai</Ten>
+    <NgaySinh>26/03/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012415</MaHS>
+    <HoDem>Nguyễn Thị Thanh</HoDem>
+    <Ten>Mai</Ten>
+    <NgaySinh>31/10/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012417</MaHS>
+    <HoDem>Nguyễn Tuyết</HoDem>
+    <Ten>Mai</Ten>
+    <NgaySinh>18/09/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012418</MaHS>
+    <HoDem>Nguyễn Xuân</HoDem>
+    <Ten>Mai</Ten>
+    <NgaySinh>09/07/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012419</MaHS>
+    <HoDem>Phạm Xuân</HoDem>
+    <Ten>Mai</Ten>
+    <NgaySinh>19/12/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012420</MaHS>
+    <HoDem>Trần Xuân</HoDem>
+    <Ten>Mai</Ten>
+    <NgaySinh>29/12/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012422</MaHS>
+    <HoDem>Bùi Đình Đức</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>14/04/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012423</MaHS>
+    <HoDem>Bùi Hoàng</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>11/09/2007</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012424</MaHS>
+    <HoDem>Đặng Khánh</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>02/09/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012425</MaHS>
+    <HoDem>Đỗ Quang</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>28/02/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012426</MaHS>
+    <HoDem>Đồng Tuấn</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>11/02/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012427</MaHS>
+    <HoDem>Hà Trần Thảo</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>19/05/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012429</MaHS>
+    <HoDem>Hoàng Tiến</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>25/07/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012430</MaHS>
+    <HoDem>Lê Hoàng Hải</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>25/09/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012431</MaHS>
+    <HoDem>Lê Nguyệt</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>24/11/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012432</MaHS>
+    <HoDem>Lê Thế</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>07/11/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012434</MaHS>
+    <HoDem>Nguyễn Bình</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>07/04/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012435</MaHS>
+    <HoDem>Nguyễn Bình</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>31/12/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012439</MaHS>
+    <HoDem>Nguyễn Đức Tuấn</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>07/09/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012440</MaHS>
+    <HoDem>Nguyễn Lê</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>08/10/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012441</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>17/08/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012442</MaHS>
+    <HoDem>Nguyễn Thị Tuyết</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>26/08/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012444</MaHS>
+    <HoDem>Phạm Gia</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>20/01/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012445</MaHS>
+    <HoDem>Phạm Quang</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>06/08/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012446</MaHS>
+    <HoDem>Phạm Tuệ</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>30/05/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012447</MaHS>
+    <HoDem>Trần Anh</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>20/05/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012448</MaHS>
+    <HoDem>Trần Duy</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>18/01/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012449</MaHS>
+    <HoDem>Trần Đức</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>27/01/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012450</MaHS>
+    <HoDem>Trần Hiểu</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>02/03/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012451</MaHS>
+    <HoDem>Trần Ngọc</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>24/09/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012452</MaHS>
+    <HoDem>Trần Tuấn</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>16/01/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012454</MaHS>
+    <HoDem>Võ Hồng</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>16/05/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012455</MaHS>
+    <HoDem>Vũ Bình</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>03/03/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012456</MaHS>
+    <HoDem>Vũ Bình Tuấn</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>24/11/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012457</MaHS>
+    <HoDem>Vũ Quang</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>22/04/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012458</MaHS>
+    <HoDem>Vũ Thị Tuệ</HoDem>
+    <Ten>Minh</Ten>
+    <NgaySinh>09/07/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012459</MaHS>
+    <HoDem>Đỗ Trà</HoDem>
+    <Ten>My</Ten>
+    <NgaySinh>10/09/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012460</MaHS>
+    <HoDem>Nguyễn Hà</HoDem>
+    <Ten>My</Ten>
+    <NgaySinh>22/02/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012461</MaHS>
+    <HoDem>Phạm Thị Hải</HoDem>
+    <Ten>My</Ten>
+    <NgaySinh>01/11/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012462</MaHS>
+    <HoDem>Phạm Trà</HoDem>
+    <Ten>My</Ten>
+    <NgaySinh>23/01/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012464</MaHS>
+    <HoDem>Bùi Hoàng</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>23/05/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012465</MaHS>
+    <HoDem>Đỗ Hải</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>08/08/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012466</MaHS>
+    <HoDem>Hoàng Hải</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>05/09/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012467</MaHS>
+    <HoDem>Nguyễn Bá Thành</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>18/04/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012468</MaHS>
+    <HoDem>Nguyễn Khánh</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>05/09/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012469</MaHS>
+    <HoDem>Nguyễn Vũ Hoàng</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>28/02/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012470</MaHS>
+    <HoDem>Phạm Hoàng</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>04/06/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012471</MaHS>
+    <HoDem>Phạm Nhật</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>06/09/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012472</MaHS>
+    <HoDem>Trần Hải</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>22/11/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012473</MaHS>
+    <HoDem>Trần Tiến</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>21/01/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012474</MaHS>
+    <HoDem>Trần Tuấn</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>17/06/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012476</MaHS>
+    <HoDem>Vũ Thành</HoDem>
+    <Ten>Nam</Ten>
+    <NgaySinh>19/12/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012477</MaHS>
+    <HoDem>Nguyễn Quỳnh</HoDem>
+    <Ten>Nga</Ten>
+    <NgaySinh>22/02/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012478</MaHS>
+    <HoDem>Phạm Linh</HoDem>
+    <Ten>Nga</Ten>
+    <NgaySinh>27/10/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012479</MaHS>
+    <HoDem>Phạm Thị Phương</HoDem>
+    <Ten>Nga</Ten>
+    <NgaySinh>30/12/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012480</MaHS>
+    <HoDem>Đào Thị Kim</HoDem>
+    <Ten>Ngân</Ten>
+    <NgaySinh>11/11/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012481</MaHS>
+    <HoDem>Nguyễn Mai</HoDem>
+    <Ten>Ngân</Ten>
+    <NgaySinh>17/05/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012483</MaHS>
+    <HoDem>Trần Bảo</HoDem>
+    <Ten>Ngân</Ten>
+    <NgaySinh>29/10/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012484</MaHS>
+    <HoDem>Trần Vũ Hà</HoDem>
+    <Ten>Ngân</Ten>
+    <NgaySinh>22/11/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012485</MaHS>
+    <HoDem>Vũ Kim</HoDem>
+    <Ten>Ngân</Ten>
+    <NgaySinh>21/11/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012486</MaHS>
+    <HoDem>Cao Thảo</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>19/09/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012487</MaHS>
+    <HoDem>Đỗ Minh</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>03/09/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012489</MaHS>
+    <HoDem>Lã Bảo</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>31/10/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012490</MaHS>
+    <HoDem>Lê Bảo</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>22/04/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012491</MaHS>
+    <HoDem>Lê Nguyễn Bảo</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>08/01/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012492</MaHS>
+    <HoDem>Lê Thị Bích</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>23/09/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012493</MaHS>
+    <HoDem>Mai Phương</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>25/01/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012494</MaHS>
+    <HoDem>Nguyễn Khánh</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>24/11/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012495</MaHS>
+    <HoDem>Nguyễn Phạm Khánh</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>20/04/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012496</MaHS>
+    <HoDem>Nguyễn Thị Minh</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>27/01/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012497</MaHS>
+    <HoDem>Nguyễn Võ Minh</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>08/03/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012498</MaHS>
+    <HoDem>Phạm Bảo</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>06/03/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012499</MaHS>
+    <HoDem>Phạm Bảo</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>26/06/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012500</MaHS>
+    <HoDem>Trịnh Khánh</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>28/12/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012502</MaHS>
+    <HoDem>Vũ Thị Bích</HoDem>
+    <Ten>Ngọc</Ten>
+    <NgaySinh>31/03/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012503</MaHS>
+    <HoDem>Đinh Lâm</HoDem>
+    <Ten>Nguyên</Ten>
+    <NgaySinh>22/07/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012504</MaHS>
+    <HoDem>Lê Hoàng</HoDem>
+    <Ten>Nguyên</Ten>
+    <NgaySinh>27/06/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012505</MaHS>
+    <HoDem>Phạm Ngọc Thảo</HoDem>
+    <Ten>Nguyên</Ten>
+    <NgaySinh>28/08/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012506</MaHS>
+    <HoDem>Phạm Vũ Thảo</HoDem>
+    <Ten>Nguyên</Ten>
+    <NgaySinh>27/12/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012507</MaHS>
+    <HoDem>Trần Lương</HoDem>
+    <Ten>Nguyên</Ten>
+    <NgaySinh>26/06/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012508</MaHS>
+    <HoDem>Vũ Hoàng</HoDem>
+    <Ten>Nguyên </Ten>
+    <NgaySinh>17/01/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012509</MaHS>
+    <HoDem>Lê Minh</HoDem>
+    <Ten>Nguyệt</Ten>
+    <NgaySinh>07/04/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012510</MaHS>
+    <HoDem>Bùi Minh</HoDem>
+    <Ten>Nhật</Ten>
+    <NgaySinh>28/02/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012511</MaHS>
+    <HoDem>Lê Nguyễn Minh</HoDem>
+    <Ten>Nhật</Ten>
+    <NgaySinh>26/09/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012512</MaHS>
+    <HoDem>Vũ Minh</HoDem>
+    <Ten>Nhật</Ten>
+    <NgaySinh>16/12/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012513</MaHS>
+    <HoDem>Hoàng Ý</HoDem>
+    <Ten>Nhi</Ten>
+    <NgaySinh>14/05/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012514</MaHS>
+    <HoDem>Nguyễn Hoàng Bảo</HoDem>
+    <Ten>Nhi</Ten>
+    <NgaySinh>18/06/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012516</MaHS>
+    <HoDem>Nguyễn Ngọc Phong</HoDem>
+    <Ten>Nhi</Ten>
+    <NgaySinh>02/02/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012517</MaHS>
+    <HoDem>Nguyễn Ngọc Yến</HoDem>
+    <Ten>Nhi</Ten>
+    <NgaySinh>03/02/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012518</MaHS>
+    <HoDem>Nguyễn Yến</HoDem>
+    <Ten>Nhi</Ten>
+    <NgaySinh>03/03/2008</NgaySinh>
+    <MaLop>12 Nhật</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012519</MaHS>
+    <HoDem>Nguyễn Yến</HoDem>
+    <Ten>Nhi</Ten>
+    <NgaySinh>04/07/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012520</MaHS>
+    <HoDem>Phạm Ngọc Bảo</HoDem>
+    <Ten>Nhi</Ten>
+    <NgaySinh>11/06/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012523</MaHS>
+    <HoDem>Lê Phương</HoDem>
+    <Ten>Nhung</Ten>
+    <NgaySinh>08/09/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012524</MaHS>
+    <HoDem>Vũ Hồng</HoDem>
+    <Ten>Nhung</Ten>
+    <NgaySinh>27/06/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012525</MaHS>
+    <HoDem>Vũ Khánh</HoDem>
+    <Ten>Nhung</Ten>
+    <NgaySinh>18/05/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012526</MaHS>
+    <HoDem>Lâm Tâm</HoDem>
+    <Ten>Như</Ten>
+    <NgaySinh>03/06/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012529</MaHS>
+    <HoDem>Phạm Hải Đức</HoDem>
+    <Ten>Phát</Ten>
+    <NgaySinh>10/01/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012530</MaHS>
+    <HoDem>Bùi Tuấn</HoDem>
+    <Ten>Phong</Ten>
+    <NgaySinh>04/06/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012531</MaHS>
+    <HoDem>Nguyễn Tuấn</HoDem>
+    <Ten>Phong</Ten>
+    <NgaySinh>14/02/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012532</MaHS>
+    <HoDem>Phạm Nguyễn Thanh</HoDem>
+    <Ten>Phong</Ten>
+    <NgaySinh>26/01/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012533</MaHS>
+    <HoDem>Đỗ Nguyên</HoDem>
+    <Ten>Phú</Ten>
+    <NgaySinh>15/02/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012534</MaHS>
+    <HoDem>Nguyễn Quốc</HoDem>
+    <Ten>Phú</Ten>
+    <NgaySinh>22/06/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012536</MaHS>
+    <HoDem>Phạm Bá</HoDem>
+    <Ten>Phú</Ten>
+    <NgaySinh>09/09/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012537</MaHS>
+    <HoDem>Bùi Gia</HoDem>
+    <Ten>Phúc</Ten>
+    <NgaySinh>22/11/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012540</MaHS>
+    <HoDem>Bùi Đàm Mai</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>31/05/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012541</MaHS>
+    <HoDem>Bùi Thị Mai</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>23/11/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012543</MaHS>
+    <HoDem>Đinh Vũ Hà</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>24/07/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012544</MaHS>
+    <HoDem>Hoàng Lan</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>04/02/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012546</MaHS>
+    <HoDem>Lê Trần</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>11/11/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012547</MaHS>
+    <HoDem>Ngô Mai</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>20/10/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012548</MaHS>
+    <HoDem>Nguyễn Hạnh</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>21/10/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012549</MaHS>
+    <HoDem>Nguyễn Minh</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>15/02/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012550</MaHS>
+    <HoDem>Nguyễn Phạm Hà</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>23/10/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012551</MaHS>
+    <HoDem>Phạm Hà</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>20/10/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012552</MaHS>
+    <HoDem>Phạm Hà</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>02/11/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012553</MaHS>
+    <HoDem>Phạm Lê Hiểu</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>25/01/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012554</MaHS>
+    <HoDem>Phạm Mai</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>07/08/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012556</MaHS>
+    <HoDem>Trần Huyền</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>12/11/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012558</MaHS>
+    <HoDem>Vũ Minh</HoDem>
+    <Ten>Phương</Ten>
+    <NgaySinh>19/07/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012559</MaHS>
+    <HoDem>Lưu Kim</HoDem>
+    <Ten>Phượng</Ten>
+    <NgaySinh>20/11/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012560</MaHS>
+    <HoDem>Nguyễn Hào</HoDem>
+    <Ten>Quang</Ten>
+    <NgaySinh>19/09/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012561</MaHS>
+    <HoDem>Nguyễn Minh</HoDem>
+    <Ten>Quang</Ten>
+    <NgaySinh>20/10/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012564</MaHS>
+    <HoDem>Đặng Minh</HoDem>
+    <Ten>Quân</Ten>
+    <NgaySinh>19/09/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012565</MaHS>
+    <HoDem>Hoàng Anh</HoDem>
+    <Ten>Quân</Ten>
+    <NgaySinh>13/02/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012566</MaHS>
+    <HoDem>Phan Vi</HoDem>
+    <Ten>Quyên</Ten>
+    <NgaySinh>10/10/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012567</MaHS>
+    <HoDem>Vũ Hà</HoDem>
+    <Ten>Quyên</Ten>
+    <NgaySinh>22/05/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012569</MaHS>
+    <HoDem>Nguyễn Mai</HoDem>
+    <Ten>Quỳnh</Ten>
+    <NgaySinh>18/02/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012570</MaHS>
+    <HoDem>Nguyễn Thái Diệp</HoDem>
+    <Ten>Quỳnh</Ten>
+    <NgaySinh>22/07/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012571</MaHS>
+    <HoDem>Phạm Như</HoDem>
+    <Ten>Quỳnh</Ten>
+    <NgaySinh>01/06/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012572</MaHS>
+    <HoDem>Phạm Vũ Gia</HoDem>
+    <Ten>Quỳnh</Ten>
+    <NgaySinh>11/12/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012574</MaHS>
+    <HoDem>Bùi Hữu Thành</HoDem>
+    <Ten>Sơn</Ten>
+    <NgaySinh>18/02/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012575</MaHS>
+    <HoDem>Lê Hà</HoDem>
+    <Ten>Sơn</Ten>
+    <NgaySinh>21/06/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012576</MaHS>
+    <HoDem>Nguyễn Trung</HoDem>
+    <Ten>Sơn</Ten>
+    <NgaySinh>08/06/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012577</MaHS>
+    <HoDem>Nguyễn Vũ Bảo</HoDem>
+    <Ten>Sơn</Ten>
+    <NgaySinh>22/11/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012578</MaHS>
+    <HoDem>Bùi Thế</HoDem>
+    <Ten>Tài</Ten>
+    <NgaySinh>25/10/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012579</MaHS>
+    <HoDem>Vũ Tuệ</HoDem>
+    <Ten>Tâm</Ten>
+    <NgaySinh>12/09/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012580</MaHS>
+    <HoDem>Đặng Việt</HoDem>
+    <Ten>Tấn</Ten>
+    <NgaySinh>30/06/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012581</MaHS>
+    <HoDem>Hà Quang</HoDem>
+    <Ten>Thái</Ten>
+    <NgaySinh>31/08/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012582</MaHS>
+    <HoDem>Ngô Thành</HoDem>
+    <Ten>Thái</Ten>
+    <NgaySinh>18/03/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012583</MaHS>
+    <HoDem>Nguyễn Vũ</HoDem>
+    <Ten>Thái</Ten>
+    <NgaySinh>25/09/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012584</MaHS>
+    <HoDem>Phạm Thành</HoDem>
+    <Ten>Thái</Ten>
+    <NgaySinh>27/09/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012586</MaHS>
+    <HoDem>Trương Xuân</HoDem>
+    <Ten>Thái</Ten>
+    <NgaySinh>24/09/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012587</MaHS>
+    <HoDem>Lê Nguyễn Hải</HoDem>
+    <Ten>Thanh</Ten>
+    <NgaySinh>14/10/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012588</MaHS>
+    <HoDem>Trần Quang</HoDem>
+    <Ten>Thanh</Ten>
+    <NgaySinh>25/08/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012589</MaHS>
+    <HoDem>Vũ Huyền</HoDem>
+    <Ten>Thanh</Ten>
+    <NgaySinh>20/04/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012590</MaHS>
+    <HoDem>Đoàn Công</HoDem>
+    <Ten>Thành</Ten>
+    <NgaySinh>01/07/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012591</MaHS>
+    <HoDem>Lê Công</HoDem>
+    <Ten>Thành</Ten>
+    <NgaySinh>16/03/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012593</MaHS>
+    <HoDem>Phạm Tiến</HoDem>
+    <Ten>Thành</Ten>
+    <NgaySinh>12/05/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012594</MaHS>
+    <HoDem>Tạ Tuấn</HoDem>
+    <Ten>Thành</Ten>
+    <NgaySinh>02/02/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012595</MaHS>
+    <HoDem>Trần Nam</HoDem>
+    <Ten>Thành</Ten>
+    <NgaySinh>24/02/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012597</MaHS>
+    <HoDem>Hoàng Lan</HoDem>
+    <Ten>Thảo</Ten>
+    <NgaySinh>30/03/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012598</MaHS>
+    <HoDem>Lê Phương</HoDem>
+    <Ten>Thảo</Ten>
+    <NgaySinh>26/11/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012599</MaHS>
+    <HoDem>Nguyễn Phương</HoDem>
+    <Ten>Thảo</Ten>
+    <NgaySinh>22/02/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012600</MaHS>
+    <HoDem>Nguyễn Phương</HoDem>
+    <Ten>Thảo</Ten>
+    <NgaySinh>02/03/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012601</MaHS>
+    <HoDem>Nguyễn Thu</HoDem>
+    <Ten>Thảo</Ten>
+    <NgaySinh>23/01/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012602</MaHS>
+    <HoDem>Phạm Hoàng Hương</HoDem>
+    <Ten>Thảo</Ten>
+    <NgaySinh>13/09/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012603</MaHS>
+    <HoDem>Đinh Gia</HoDem>
+    <Ten>Thắng</Ten>
+    <NgaySinh>14/05/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012604</MaHS>
+    <HoDem>Khổng Vũ</HoDem>
+    <Ten>Thắng</Ten>
+    <NgaySinh>19/04/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012605</MaHS>
+    <HoDem>Hoàng Đức</HoDem>
+    <Ten>Thịnh</Ten>
+    <NgaySinh>03/02/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012606</MaHS>
+    <HoDem>Vũ Hương</HoDem>
+    <Ten>Thùy</Ten>
+    <NgaySinh>15/01/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012607</MaHS>
+    <HoDem>Đào Anh</HoDem>
+    <Ten>Thư</Ten>
+    <NgaySinh>25/04/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012609</MaHS>
+    <HoDem>Đặng Nhật Minh</HoDem>
+    <Ten>Thư</Ten>
+    <NgaySinh>14/06/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012610</MaHS>
+    <HoDem>Hoàng Anh</HoDem>
+    <Ten>Thư</Ten>
+    <NgaySinh>11/07/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012611</MaHS>
+    <HoDem>Nguyễn Huyền</HoDem>
+    <Ten>Thư</Ten>
+    <NgaySinh>20/11/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012612</MaHS>
+    <HoDem>Nguyễn Thị Minh</HoDem>
+    <Ten>Thư</Ten>
+    <NgaySinh>24/01/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012613</MaHS>
+    <HoDem>Phạm Minh</HoDem>
+    <Ten>Thư</Ten>
+    <NgaySinh>10/12/2008</NgaySinh>
+    <MaLop>12 Anh1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012614</MaHS>
+    <HoDem>Phạm Thanh</HoDem>
+    <Ten>Thư</Ten>
+    <NgaySinh>20/06/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012615</MaHS>
+    <HoDem>Thái Hoàng Anh</HoDem>
+    <Ten>Thư</Ten>
+    <NgaySinh>17/11/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012616</MaHS>
+    <HoDem>Trần Thị Anh</HoDem>
+    <Ten>Thư</Ten>
+    <NgaySinh>27/07/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012617</MaHS>
+    <HoDem>Vũ Anh</HoDem>
+    <Ten>Thư</Ten>
+    <NgaySinh>28/08/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012618</MaHS>
+    <HoDem>Bùi Ngân</HoDem>
+    <Ten>Thương</Ten>
+    <NgaySinh>29/02/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012619</MaHS>
+    <HoDem>Nguyễn Thị Đan</HoDem>
+    <Ten>Thy</Ten>
+    <NgaySinh>25/04/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012620</MaHS>
+    <HoDem>Hoàng Nguyễn Thủy</HoDem>
+    <Ten>Tiên</Ten>
+    <NgaySinh>17/03/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012621</MaHS>
+    <HoDem>Bùi Quang</HoDem>
+    <Ten>Tín</Ten>
+    <NgaySinh>04/07/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012623</MaHS>
+    <HoDem>Nguyễn Hương</HoDem>
+    <Ten>Trà</Ten>
+    <NgaySinh>23/01/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012624</MaHS>
+    <HoDem>Nguyễn Thanh</HoDem>
+    <Ten>Trà</Ten>
+    <NgaySinh>25/01/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012625</MaHS>
+    <HoDem>Đàm Minh</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>09/12/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012626</MaHS>
+    <HoDem>Đặng Thị Thùy</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>01/11/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012627</MaHS>
+    <HoDem>Đỗ Đặng Quỳnh</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>19/06/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012628</MaHS>
+    <HoDem>Lê Minh</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>21/11/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012629</MaHS>
+    <HoDem>Nguyễn Ngọc</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>28/02/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012630</MaHS>
+    <HoDem>Nguyễn Thu</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>09/08/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012632</MaHS>
+    <HoDem>Phạm Hồng Đoan</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>05/02/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012633</MaHS>
+    <HoDem>Phạm Minh</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>05/11/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012634</MaHS>
+    <HoDem>Thái Thu</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>02/06/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012635</MaHS>
+    <HoDem>Tô Ngọc</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>20/12/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012636</MaHS>
+    <HoDem>Trần Minh</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>15/10/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012637</MaHS>
+    <HoDem>Trần Thị Thu</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>20/09/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012638</MaHS>
+    <HoDem>Vũ Mai</HoDem>
+    <Ten>Trang</Ten>
+    <NgaySinh>23/10/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012639</MaHS>
+    <HoDem>Nguyễn Bảo</HoDem>
+    <Ten>Trâm</Ten>
+    <NgaySinh>15/01/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012640</MaHS>
+    <HoDem>Nguyễn Ngọc Bảo</HoDem>
+    <Ten>Trâm</Ten>
+    <NgaySinh>02/07/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012641</MaHS>
+    <HoDem>Nguyễn Thị Quỳnh</HoDem>
+    <Ten>Trâm</Ten>
+    <NgaySinh>13/07/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012644</MaHS>
+    <HoDem>Lương Tuấn</HoDem>
+    <Ten>Trọng</Ten>
+    <NgaySinh>12/05/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012645</MaHS>
+    <HoDem>Nguyễn Văn</HoDem>
+    <Ten>Trọng</Ten>
+    <NgaySinh>10/10/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012646</MaHS>
+    <HoDem>Vũ Thanh</HoDem>
+    <Ten>Trúc</Ten>
+    <NgaySinh>04/12/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012647</MaHS>
+    <HoDem>Nguyễn Trí</HoDem>
+    <Ten>Trung</Ten>
+    <NgaySinh>16/05/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012648</MaHS>
+    <HoDem>Phạm Bá Việt</HoDem>
+    <Ten>Trung</Ten>
+    <NgaySinh>02/03/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012649</MaHS>
+    <HoDem>Phạm Đàm Kiên</HoDem>
+    <Ten>Trung</Ten>
+    <NgaySinh>02/10/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012650</MaHS>
+    <HoDem>Phạm Kiều</HoDem>
+    <Ten>Tú</Ten>
+    <NgaySinh>29/04/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012651</MaHS>
+    <HoDem>Vũ Cẩm</HoDem>
+    <Ten>Tú</Ten>
+    <NgaySinh>31/08/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012652</MaHS>
+    <HoDem>Đỗ Minh</HoDem>
+    <Ten>Tuấn</Ten>
+    <NgaySinh>18/01/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012653</MaHS>
+    <HoDem>Nguyễn Đức Minh</HoDem>
+    <Ten>Tuấn</Ten>
+    <NgaySinh>01/01/2008</NgaySinh>
+    <MaLop>12 TN2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012654</MaHS>
+    <HoDem>Phạm Thế Anh</HoDem>
+    <Ten>Tuấn</Ten>
+    <NgaySinh>10/01/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012655</MaHS>
+    <HoDem>Bùi Phương</HoDem>
+    <Ten>Tuệ</Ten>
+    <NgaySinh>14/11/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012657</MaHS>
+    <HoDem>Đào Minh</HoDem>
+    <Ten>Tùng</Ten>
+    <NgaySinh>22/04/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012658</MaHS>
+    <HoDem>Hoàng Thanh</HoDem>
+    <Ten>Tùng</Ten>
+    <NgaySinh>29/07/2008</NgaySinh>
+    <MaLop>12 Hóa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012660</MaHS>
+    <HoDem>Lê Trường Minh</HoDem>
+    <Ten>Tùng</Ten>
+    <NgaySinh>12/07/2008</NgaySinh>
+    <MaLop>12 Anh2</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012661</MaHS>
+    <HoDem>Lê Vũ</HoDem>
+    <Ten>Tùng</Ten>
+    <NgaySinh>08/07/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012662</MaHS>
+    <HoDem>Nguyễn Hoàng</HoDem>
+    <Ten>Tùng</Ten>
+    <NgaySinh>20/10/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012664</MaHS>
+    <HoDem>Phạm Duy</HoDem>
+    <Ten>Tùng</Ten>
+    <NgaySinh>14/05/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012665</MaHS>
+    <HoDem>Phan Quý</HoDem>
+    <Ten>Tùng</Ten>
+    <NgaySinh>09/11/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012668</MaHS>
+    <HoDem>Đặng Thị Phương</HoDem>
+    <Ten>Uyên</Ten>
+    <NgaySinh>21/10/2008</NgaySinh>
+    <MaLop>12 Hàn</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012670</MaHS>
+    <HoDem>Phùng Phương</HoDem>
+    <Ten>Uyên</Ten>
+    <NgaySinh>02/02/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012671</MaHS>
+    <HoDem>Trương Trần Phương</HoDem>
+    <Ten>Uyên</Ten>
+    <NgaySinh>27/07/2008</NgaySinh>
+    <MaLop>12 Sinh</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012672</MaHS>
+    <HoDem>Cao Hoàng</HoDem>
+    <Ten>Vân</Ten>
+    <NgaySinh>04/04/2008</NgaySinh>
+    <MaLop>12 Nga</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012673</MaHS>
+    <HoDem>Đoàn Thu</HoDem>
+    <Ten>Vân</Ten>
+    <NgaySinh>18/10/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012675</MaHS>
+    <HoDem>Tạ Ngọc Khánh</HoDem>
+    <Ten>Vân</Ten>
+    <NgaySinh>03/08/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012676</MaHS>
+    <HoDem>Vũ Thanh</HoDem>
+    <Ten>Vân</Ten>
+    <NgaySinh>16/01/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012677</MaHS>
+    <HoDem>Hoàng Đặng Đan</HoDem>
+    <Ten>Vi</Ten>
+    <NgaySinh>04/05/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012678</MaHS>
+    <HoDem>Phan Đặng Gia</HoDem>
+    <Ten>Vĩ</Ten>
+    <NgaySinh>23/11/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012679</MaHS>
+    <HoDem>Lê Ngọc</HoDem>
+    <Ten>Việt</Ten>
+    <NgaySinh>29/04/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012680</MaHS>
+    <HoDem>Đỗ Duy</HoDem>
+    <Ten>Vinh</Ten>
+    <NgaySinh>18/12/2008</NgaySinh>
+    <MaLop>12 TN1</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012681</MaHS>
+    <HoDem>Nguyễn Thành</HoDem>
+    <Ten>Vinh</Ten>
+    <NgaySinh>25/07/2008</NgaySinh>
+    <MaLop>12 Tin</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012682</MaHS>
+    <HoDem>Vũ Quang</HoDem>
+    <Ten>Vinh</Ten>
+    <NgaySinh>01/09/2008</NgaySinh>
+    <MaLop>12 XH</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012683</MaHS>
+    <HoDem>Vũ Thành</HoDem>
+    <Ten>Vinh</Ten>
+    <NgaySinh>28/01/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012684</MaHS>
+    <HoDem>Dương Khoa</HoDem>
+    <Ten>Vũ</Ten>
+    <NgaySinh>30/11/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012685</MaHS>
+    <HoDem>Đoàn Minh</HoDem>
+    <Ten>Vũ</Ten>
+    <NgaySinh>18/05/2008</NgaySinh>
+    <MaLop>12 Lý</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012688</MaHS>
+    <HoDem>Nguyễn Đức</HoDem>
+    <Ten>Vượng</Ten>
+    <NgaySinh>13/03/2008</NgaySinh>
+    <MaLop>12 Toán</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012690</MaHS>
+    <HoDem>Lê Khánh</HoDem>
+    <Ten>Vy</Ten>
+    <NgaySinh>07/11/2008</NgaySinh>
+    <MaLop>12 Sử</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012691</MaHS>
+    <HoDem>Lê Khánh Hà</HoDem>
+    <Ten>Vy</Ten>
+    <NgaySinh>02/12/2008</NgaySinh>
+    <MaLop>12 SN</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012693</MaHS>
+    <HoDem>Nguyễn Lê Nhật</HoDem>
+    <Ten>Vy</Ten>
+    <NgaySinh>29/01/2008</NgaySinh>
+    <MaLop>12 Trung</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012694</MaHS>
+    <HoDem>Nguyễn Nhật Yến</HoDem>
+    <Ten>Vy</Ten>
+    <NgaySinh>18/07/2008</NgaySinh>
+    <MaLop>12 Địa</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012695</MaHS>
+    <HoDem>Nguyễn Phương</HoDem>
+    <Ten>Vy</Ten>
+    <NgaySinh>05/10/2008</NgaySinh>
+    <MaLop>12 Pháp</MaLop>
+  </Student>
+  <Student>
+    <MaHS>00012696</MaHS>
+    <HoDem>Nguyễn Vũ Anh</HoDem>
+    <Ten>Vy</Ten>
+    <NgaySinh>12/11/2008</NgaySinh>
+    <MaLop>12 Văn</MaLop>
+  </Student>
+</Students>

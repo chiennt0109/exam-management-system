@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thống kê điểm theo MaMon</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f2f5;
+        }
+        select, button {
+            padding: 10px;
+            margin: 10px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h2>Thống kê tỷ lệ điểm theo MaMon</h2>
+    <label for="kythiSelect">Chọn Mã Kỳ Thi:</label>
+    <select id="kythiSelect" onchange="filterByMaKyThi()"></select>
+    <button onclick="exportToExcel()">Xuất Excel</button>
+    <table id="resultTable">
+        <thead>
+            <tr>
+                <th>MaMon</th>
+                <th>Tổng bài</th>
+                <th>0 - < 2</th>
+                <th>2 - < 4</th>
+                <th>4 - < 6</th>
+                <th>6 - < 8</th>
+                <th>8 - 10</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        let data = [];
+        let groupedData = {};
+
+        fetch("TCTHI.XML")
+            .then(res => res.text())
+            .then(str => (new window.DOMParser()).parseFromString(str, "text/xml"))
+            .then(xml => {
+                let records = xml.getElementsByTagName("ThiSinh");
+                for (let record of records) {
+                    let MaKyThi = record.getElementsByTagName("MaKyThi")[0].textContent;
+                    let MaMon = record.getElementsByTagName("MaMon")[0].textContent;
+                    let Diem = parseFloat(record.getElementsByTagName("Diem")[0].textContent);
+                    if (!isNaN(Diem)) {
+                        data.push({ MaKyThi, MaMon, Diem });
+                    }
+                }
+                populateMaKyThi();
+                filterByMaKyThi();
+            });
+
+        function populateMaKyThi() {
+            const select = document.getElementById("kythiSelect");
+            let uniqueKyThi = [...new Set(data.map(d => d.MaKyThi))];
+            uniqueKyThi.forEach(mkt => {
+                let option = document.createElement("option");
+                option.value = mkt;
+                option.textContent = mkt;
+                select.appendChild(option);
+            });
+        }
+
+        function filterByMaKyThi() {
+            let selected = document.getElementById("kythiSelect").value;
+            let filtered = data.filter(d => d.MaKyThi === selected);
+            let monMap = {};
+
+            for (let rec of filtered) {
+                if (!monMap[rec.MaMon]) {
+                    monMap[rec.MaMon] = [];
+                }
+                monMap[rec.MaMon].push(rec.Diem);
+            }
+
+            let tbody = document.querySelector("#resultTable tbody");
+            tbody.innerHTML = "";
+
+            for (let maMon in monMap) {
+                let scores = monMap[maMon];
+                let total = scores.length;
+                let ranges = [0, 0, 0, 0, 0];
+                for (let score of scores) {
+                    if (score < 2) ranges[0]++;
+                    else if (score < 4) ranges[1]++;
+                    else if (score < 6) ranges[2]++;
+                    else if (score < 8) ranges[3]++;
+                    else ranges[4]++;
+                }
+                let tr = document.createElement("tr");
+                tr.innerHTML = `<td>${maMon}</td>
+                    <td>${total}</td>
+                    <td>${percent(ranges[0], total)} (${ranges[0]})</td>
+                    <td>${percent(ranges[1], total)} (${ranges[1]})</td>
+                    <td>${percent(ranges[2], total)} (${ranges[2]})</td>
+                    <td>${percent(ranges[3], total)} (${ranges[3]})</td>
+                    <td>${percent(ranges[4], total)} (${ranges[4]})</td>`;
+                tbody.appendChild(tr);
+            }
+        }
+
+        function percent(count, total) {
+            return total === 0 ? "0%" : ((count / total) * 100).toFixed(1) + "%";
+        }
+
+        function exportToExcel() {
+            let table = document.getElementById("resultTable");
+            let wb = XLSX.utils.table_to_book(table, { sheet: "ThongKe" });
+            XLSX.writeFile(wb, `ThongKe_MaKyThi_${document.getElementById("kythiSelect").value}.xlsx`);
+        }
+    </script>
+</body>
+</html>

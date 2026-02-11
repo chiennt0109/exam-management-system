@@ -1,0 +1,89 @@
+<MON>
+<Subject>
+    <MaMon>VA</MaMon>
+    <TenMon>Văn</TenMon>
+	<STT>2</STT>
+  </Subject>
+	<Subject>
+    <MaMon>TI</MaMon>
+    <TenMon>Tin học</TenMon>
+<STT>6</STT>
+  </Subject>
+  <Subject>
+    <MaMon>RU</MaMon>
+    <TenMon>Tiếng Nga</TenMon>
+  </Subject>
+  <Subject>
+    <MaMon>CH</MaMon>
+    <TenMon>Tiếng Trung</TenMon>
+  </Subject>
+  <Subject>
+    <MaMon>KR</MaMon>
+    <TenMon>Tiếng Hàn</TenMon>
+  </Subject>
+  <Subject>
+    <MaMon>TO</MaMon>
+    <TenMon>Toán</TenMon>
+<STT>1</STT>
+  </Subject>
+  <Subject>
+    <MaMon>LI</MaMon>
+    <TenMon>Lí</TenMon>
+<STT>3</STT>
+  </Subject>
+  <Subject>
+    <MaMon>HO</MaMon>
+    <TenMon>Hóa</TenMon>
+<STT>4</STT>
+  </Subject>
+  <Subject>
+    <MaMon>SI</MaMon>
+    <TenMon>Sinh</TenMon>
+<STT>5</STT>
+  </Subject>
+  <Subject>
+    <MaMon>SU</MaMon>
+    <TenMon>Sử</TenMon>
+<STT>7</STT>
+  </Subject>
+  <Subject>
+    <MaMon>DI</MaMon>
+    <TenMon>Địa</TenMon>
+<STT>8</STT>
+  </Subject>
+  <Subject>
+    <MaMon>KTPL</MaMon>
+    <TenMon>KTPL</TenMon>
+<STT>9</STT>
+  </Subject>
+  <Subject>
+    <MaMon>EN</MaMon>
+    <TenMon>Tiếng Anh</TenMon>
+<STT>10</STT>
+  </Subject>
+  <Subject>
+    <MaMon>JA</MaMon>
+    <TenMon>Tiếng Nhật</TenMon>
+<STT>14</STT>
+  </Subject>
+  <Subject>
+    <MaMon>FR</MaMon>
+    <TenMon>Tiếng Pháp</TenMon>
+<STT>12</STT>
+  </Subject>
+  <Subject>
+    <MaMon>RU</MaMon>
+    <TenMon>Tiếng Nga</TenMon>
+<STT>11</STT>
+  </Subject>
+  <Subject>
+    <MaMon>CH</MaMon>
+    <TenMon>Tiếng Trung</TenMon>
+<STT>13</STT>
+  </Subject>
+  <Subject>
+    <MaMon>KR</MaMon>
+    <TenMon>Tiếng Hàn</TenMon>
+<STT>15</STT>
+  </Subject>
+</MON>

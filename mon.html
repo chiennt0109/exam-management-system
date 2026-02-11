@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhập thông tin môn học</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        h2 {
+            color: #333;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        input, button, select {
+            margin: 5px 0;
+            padding: 8px;
+            width: 100%;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h2>Nhập thông tin môn học</h2>
+    <div class="section">
+        <form id="subjectForm">
+            Mã môn: <input type="text" id="MaMon"><br>
+            Tên môn: <input type="text" id="TenMon"><br>
+            <button type="button" onclick="saveManualData()">Lưu dữ liệu</button>
+        </form>
+    </div>
+    
+    <h2>Import từ Excel</h2>
+    <div class="section">
+        <input type="file" id="excelFile" accept=".xlsx, .xls">
+        <button onclick="importExcel()">Load</button>
+        <div id="mappingSection"></div>
+        <button onclick="applyMapping()">Áp dụng</button>
+        <table border="1" id="previewTable"></table>
+        <div>
+            <button onclick="prevPage()">Trang trước</button>
+            <span id="pageInfo"></span>
+            <button onclick="nextPage()">Trang sau</button>
+        </div>
+        <button onclick="saveToXML()">Lưu XML</button>
+    </div>
+    
+    <script>
+        let importedData = [];
+        let subjectData = [];
+        let columnMapping = {}; 
+        let currentPage = 1;
+        let rowsPerPage = 5;
+
+        function saveManualData() {
+            let maMon = document.getElementById('MaMon').value;
+            let existingIndex = subjectData.findIndex(s => s.MaMon === maMon);
+            if (existingIndex !== -1) {
+                if (!confirm("Mã môn đã tồn tại. Ghi đè dữ liệu?")) {
+                    return;
+                }
+                subjectData[existingIndex] = getFormData();
+            } else {
+                subjectData.push(getFormData());
+            }
+            alert("Dữ liệu đã được lưu!");
+        }
+
+        function getFormData() {
+            return {
+                MaMon: document.getElementById('MaMon').value,
+                TenMon: document.getElementById('TenMon').value
+            };
+        }
+
+        function saveToXML() {
+            if (importedData.length > 0 && !confirm("Ghi đè dữ liệu cũ?")) {
+                return;
+            }
+            let xml = "<MON>\n";
+            let allData = [...subjectData, ...importedData];
+            allData.forEach(subject => {
+                xml += `  <Subject>\n    <MaMon>${subject.MaMon}</MaMon>\n    <TenMon>${subject.TenMon}</TenMon>\n  </Subject>\n`;
+            });
+            xml += "</MON>";
+            let blob = new Blob([xml], { type: 'application/xml' });
+            let link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'MON.xml';
+            link.click();
+        }
+
+        function importExcel() {
+            let file = document.getElementById('excelFile').files[0];
+            if (!file) return;
+            let reader = new FileReader();
+            reader.onload = function (e) {
+                let data = new Uint8Array(e.target.result);
+                let workbook = XLSX.read(data, { type: 'array' });
+                let sheetName = workbook.SheetNames[0];
+                let sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+                generateMappingOptions(sheet[0]);
+                importedData = sheet.slice(1);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function generateMappingOptions(headers) {
+            let fields = ['MaMon', 'TenMon'];
+            let mappingSection = document.getElementById('mappingSection');
+            mappingSection.innerHTML = '<h3>Chọn cột tương ứng:</h3>';
+            fields.forEach(field => {
+                let label = document.createElement('label');
+                label.textContent = field + ': ';
+                let select = document.createElement('select');
+                select.id = 'map_' + field;
+                headers.forEach((header, index) => {
+                    let option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = header;
+                    select.appendChild(option);
+                });
+                mappingSection.appendChild(label);
+                mappingSection.appendChild(select);
+                mappingSection.appendChild(document.createElement('br'));
+            });
+        }
+
+        function applyMapping() {
+            let fields = ['MaMon', 'TenMon'];
+            fields.forEach(field => {
+                columnMapping[field] = document.getElementById('map_' + field).value;
+            });
+            importedData = importedData.map(row => {
+                let obj = {};
+                fields.forEach(field => {
+                    let index = columnMapping[field];
+                    obj[field] = row[index] || "";
+                });
+                return obj;
+            });
+            currentPage = 1; 
+            renderTable();
+        }
+
+        function renderTable() {
+            let table = document.getElementById("previewTable");
+            table.innerHTML = "";
+            let header = `<tr><th>Mã Môn</th><th>Tên Môn</th></tr>`;
+            table.innerHTML += header;
+
+            let start = (currentPage - 1) * rowsPerPage;
+            let end = start + rowsPerPage;
+            let paginatedData = importedData.slice(start, end);
+
+            paginatedData.forEach(subject => {
+                let row = `<tr><td>${subject.MaMon}</td><td>${subject.TenMon}</td></tr>`;
+                table.innerHTML += row;
+            });
+
+            document.getElementById("pageInfo").innerText = `Trang ${currentPage} / ${Math.ceil(importedData.length / rowsPerPage)}`;
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < Math.ceil(importedData.length / rowsPerPage)) {
+                currentPage++;
+                renderTable();
+            }
+        }
+    </script>
+</body>
+</html>

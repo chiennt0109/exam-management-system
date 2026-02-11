@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Thống kê theo môn</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+      background: #f2f2f2;
+    }
+    .section {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    button, select, input[type="text"] {
+      margin: 5px;
+      padding: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background: #007bff;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="section">
+    <h2>Thống kê điểm theo từng môn</h2>
+    <label for="maKyThiSelect">Chọn kỳ thi:</label>
+    <select id="maKyThiSelect" onchange="thongKeTheoMon()">
+      <option value="">-- Tất cả --</option>
+    </select>
+    <button onclick="thongKeTheoMon()">Thống kê</button>
+    <button onclick="xuatExcel()">Xuất Excel</button>
+  </div>
+
+  <div class="section" id="tablesContainer"></div>
+
+  <script>
+    let tcthiData = [];
+
+    async function loadXML(url) {
+      try {
+        const res = await fetch(url);
+        const text = await res.text();
+        return (new window.DOMParser()).parseFromString(text, "text/xml");
+      } catch (e) {
+        alert("Không thể tải file " + url);
+        return null;
+      }
+    }
+
+    async function init() {
+      const tcthiXML = await loadXML("TCTHI.XML");
+      if (tcthiXML) {
+        const records = tcthiXML.getElementsByTagName("ThiSinh");
+        for (let r of records) {
+          const diemStr = r.getElementsByTagName("Diem")[0]?.textContent;
+          if (!diemStr || isNaN(parseFloat(diemStr))) continue;
+          let item = {
+            MaHS: r.getElementsByTagName("MaHS")[0].textContent,
+            MaMon: r.getElementsByTagName("MaMon")[0].textContent,
+            MaKyThi: r.getElementsByTagName("MaKyThi")[0]?.textContent || "",
+            Diem: parseFloat(diemStr),
+          };
+          tcthiData.push(item);
+        }
+
+        // Tạo danh sách kỳ thi
+        const kyThiSet = new Set(tcthiData.map(r => r.MaKyThi).filter(mkt => mkt));
+        const select = document.getElementById("maKyThiSelect");
+        for (let ma of kyThiSet) {
+          let opt = document.createElement("option");
+          opt.value = opt.textContent = ma;
+          select.appendChild(opt);
+        }
+      }
+      thongKeTheoMon();
+    }
+
+    function thongKeTheoMon() {
+      const selectedMaKyThi = document.getElementById("maKyThiSelect").value;
+      const tablesDiv = document.getElementById("tablesContainer");
+      tablesDiv.innerHTML = "";
+
+      let monData = {};
+      for (let record of tcthiData) {
+        if (selectedMaKyThi && record.MaKyThi !== selectedMaKyThi) continue;
+        if (!monData[record.MaMon]) monData[record.MaMon] = [];
+        monData[record.MaMon].push(record.Diem);
+      }
+
+      const table = document.createElement("table");
+      const thead = `<thead><tr>
+        <th>Mã môn</th><th>Điểm trung bình</th><th>Điểm trung vị</th><th>Điểm cao nhất</th><th>Điểm thấp nhất</th></tr></thead>`;
+      table.innerHTML = thead;
+
+      const tbody = document.createElement("tbody");
+
+      for (let maMon in monData) {
+        const diemList = monData[maMon];
+        const diemMax = Math.max(...diemList);
+        const diemMin = Math.min(...diemList);
+        const diemAvg = diemList.reduce((sum, diem) => sum + diem, 0) / diemList.length;
+        const diemMedian = tinhTrungVi(diemList);
+
+        const row = `<tr>
+          <td>${maMon}</td>
+          <td>${diemAvg.toFixed(2)}</td>
+          <td>${diemMedian}</td>
+          <td>${diemMax}</td>
+          <td>${diemMin}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+      }
+
+      table.appendChild(tbody);
+      tablesDiv.appendChild(table);
+    }
+
+    function tinhTrungVi(diemList) {
+      diemList.sort((a, b) => a - b);
+      const n = diemList.length;
+      if (n % 2 === 0) {
+        return (diemList[n / 2 - 1] + diemList[n / 2]) / 2;
+      } else {
+        return diemList[Math.floor(n / 2)];
+      }
+    }
+
+    function xuatExcel() {
+      const wb = XLSX.utils.book_new();
+      const tables = document.querySelectorAll("table");
+      const ws = XLSX.utils.table_to_sheet(tables[0]);
+      XLSX.utils.book_append_sheet(wb, ws, "ThongKeMon");
+      XLSX.writeFile(wb, "ThongKeTheoMon.xlsx");
+    }
+
+    init();
+  </script>
+</body>
+</html>
