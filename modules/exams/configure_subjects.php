@@ -48,17 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'delete') {
             $configId = (int) ($_POST['config_id'] ?? 0);
             $pdo->beginTransaction();
-            $getCfg = $pdo->prepare('SELECT subject_id, khoi FROM exam_subject_config WHERE id = :id AND exam_id = :exam_id LIMIT 1');
-            $getCfg->execute([':id' => $configId, ':exam_id' => $examId]);
-            $cfg = $getCfg->fetch(PDO::FETCH_ASSOC);
-            if ($cfg) {
-                $delClass = $pdo->prepare('DELETE FROM exam_subject_classes WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
-                $delClass->execute([
-                    ':exam_id' => $examId,
-                    ':subject_id' => (int) $cfg['subject_id'],
-                    ':khoi' => (string) $cfg['khoi'],
-                ]);
-            }
+            $delClass = $pdo->prepare('DELETE FROM exam_subject_classes WHERE exam_config_id = :config_id');
+            $delClass->execute([':config_id' => $configId]);
             $delCfg = $pdo->prepare('DELETE FROM exam_subject_config WHERE id = :id AND exam_id = :exam_id');
             $delCfg->execute([':id' => $configId, ':exam_id' => $examId]);
             $pdo->commit();
@@ -157,14 +148,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // Duplicate rule: only reject when new config is identical 100% to existing config
-            $findExistingStmt = $pdo->prepare('SELECT id, scope_mode FROM exam_subject_config WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi LIMIT 1');
-            $findExistingStmt->execute([
+            // Duplicate rule: only reject when new config is identical 100% to an existing record
+            $existingStmt = $pdo->prepare('SELECT id, scope_mode FROM exam_subject_config WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi ORDER BY id DESC');
+            $existingStmt->execute([
                 ':exam_id' => $examId,
                 ':subject_id' => $subjectId,
                 ':khoi' => $khoi,
             ]);
-            $existingCfg = $findExistingStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+            $existingRows = $existingStmt->fetchAll(PDO::FETCH_ASSOC);
 
             $newClassesForCompare = $selectedClasses;
             sort($newClassesForCompare);
@@ -172,20 +163,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ? 'specific_classes|' . implode(',', $newClassesForCompare)
                 : 'entire_grade';
 
-            $isUpdate = false;
-            $existingConfigId = 0;
-            if (is_array($existingCfg)) {
-                $existingConfigId = (int) ($existingCfg['id'] ?? 0);
+            foreach ($existingRows as $existingCfg) {
                 $existingScopeMode = (string) ($existingCfg['scope_mode'] ?? 'entire_grade');
                 $oldScopeSignature = 'entire_grade';
 
                 if ($existingScopeMode === 'specific_classes') {
-                    $oldClassStmt = $pdo->prepare('SELECT lop FROM exam_subject_classes WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi ORDER BY lop');
-                    $oldClassStmt->execute([
-                        ':exam_id' => $examId,
-                        ':subject_id' => $subjectId,
-                        ':khoi' => $khoi,
-                    ]);
+                    $oldClassStmt = $pdo->prepare('SELECT lop FROM exam_subject_classes WHERE exam_config_id = :config_id ORDER BY lop');
+                    $oldClassStmt->execute([':config_id' => (int) ($existingCfg['id'] ?? 0)]);
                     $oldClasses = array_map(static fn(array $r): string => (string) $r['lop'], $oldClassStmt->fetchAll(PDO::FETCH_ASSOC));
                     $oldScopeSignature = 'specific_classes|' . implode(',', $oldClasses);
                 }
@@ -193,72 +177,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($oldScopeSignature === $newScopeSignature) {
                     throw new RuntimeException('Cấu hình đã tồn tại 100% cho kỳ thi + môn + khối + phạm vi.');
                 }
-
-                // Existing config differs at least one factor (including scope detail) => accept by updating.
-                $isUpdate = true;
             }
 
             $pdo->beginTransaction();
-            if ($isUpdate) {
-                $updateCfg = $pdo->prepare('UPDATE exam_subject_config
-                    SET hinh_thuc_thi = :hinh_thuc_thi,
-                        component_count = :component_count,
-                        weight_1 = :weight_1,
-                        weight_2 = :weight_2,
-                        scope_mode = :scope_mode,
-                        tong_diem = :tong_diem,
-                        diem_tu_luan = :diem_tu_luan,
-                        diem_trac_nghiem = :diem_trac_nghiem,
-                        diem_noi = :diem_noi
-                    WHERE id = :id AND exam_id = :exam_id');
-                $updateCfg->execute([
-                    ':id' => $existingConfigId,
-                    ':exam_id' => $examId,
-                    ':hinh_thuc_thi' => $hinhThucThi,
-                    ':component_count' => $componentCount,
-                    ':weight_1' => $componentCount >= 1 ? $diemTuLuan : null,
-                    ':weight_2' => $componentCount >= 2 ? $diemTracNghiem : null,
-                    ':scope_mode' => $scopeMode,
-                    ':tong_diem' => $tongDiem,
-                    ':diem_tu_luan' => $componentCount >= 1 ? $diemTuLuan : null,
-                    ':diem_trac_nghiem' => $componentCount >= 2 ? $diemTracNghiem : null,
-                    ':diem_noi' => $componentCount >= 3 ? $diemNoi : null,
-                ]);
-
-                $delOldClass = $pdo->prepare('DELETE FROM exam_subject_classes WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
-                $delOldClass->execute([
-                    ':exam_id' => $examId,
-                    ':subject_id' => $subjectId,
-                    ':khoi' => $khoi,
-                ]);
-            } else {
-                $insertCfg = $pdo->prepare('INSERT INTO exam_subject_config (
-                        exam_id, subject_id, khoi, hinh_thuc_thi, component_count, weight_1, weight_2, scope_mode,
-                        tong_diem, diem_tu_luan, diem_trac_nghiem, diem_noi
-                    ) VALUES (
-                        :exam_id, :subject_id, :khoi, :hinh_thuc_thi, :component_count, :weight_1, :weight_2, :scope_mode,
-                        :tong_diem, :diem_tu_luan, :diem_trac_nghiem, :diem_noi
-                    )');
-                $insertCfg->execute([
-                    ':exam_id' => $examId,
-                    ':subject_id' => $subjectId,
-                    ':khoi' => $khoi,
-                    ':hinh_thuc_thi' => $hinhThucThi,
-                    ':component_count' => $componentCount,
-                    ':weight_1' => $componentCount >= 1 ? $diemTuLuan : null,
-                    ':weight_2' => $componentCount >= 2 ? $diemTracNghiem : null,
-                    ':scope_mode' => $scopeMode,
-                    ':tong_diem' => $tongDiem,
-                    ':diem_tu_luan' => $componentCount >= 1 ? $diemTuLuan : null,
-                    ':diem_trac_nghiem' => $componentCount >= 2 ? $diemTracNghiem : null,
-                    ':diem_noi' => $componentCount >= 3 ? $diemNoi : null,
-                ]);
-            }
+            $insertCfg = $pdo->prepare('INSERT INTO exam_subject_config (
+                    exam_id, subject_id, khoi, hinh_thuc_thi, component_count, weight_1, weight_2, scope_mode,
+                    tong_diem, diem_tu_luan, diem_trac_nghiem, diem_noi
+                ) VALUES (
+                    :exam_id, :subject_id, :khoi, :hinh_thuc_thi, :component_count, :weight_1, :weight_2, :scope_mode,
+                    :tong_diem, :diem_tu_luan, :diem_trac_nghiem, :diem_noi
+                )');
+            $insertCfg->execute([
+                ':exam_id' => $examId,
+                ':subject_id' => $subjectId,
+                ':khoi' => $khoi,
+                ':hinh_thuc_thi' => $hinhThucThi,
+                ':component_count' => $componentCount,
+                ':weight_1' => $componentCount >= 1 ? $diemTuLuan : null,
+                ':weight_2' => $componentCount >= 2 ? $diemTracNghiem : null,
+                ':scope_mode' => $scopeMode,
+                ':tong_diem' => $tongDiem,
+                ':diem_tu_luan' => $componentCount >= 1 ? $diemTuLuan : null,
+                ':diem_trac_nghiem' => $componentCount >= 2 ? $diemTracNghiem : null,
+                ':diem_noi' => $componentCount >= 3 ? $diemNoi : null,
+            ]);
+            $newConfigId = (int) $pdo->lastInsertId();
 
             if ($scopeMode === 'specific_classes') {
-                $insClass = $pdo->prepare('INSERT INTO exam_subject_classes (exam_id, subject_id, khoi, lop) VALUES (:exam_id, :subject_id, :khoi, :lop)');
+                $insClass = $pdo->prepare('INSERT INTO exam_subject_classes (exam_config_id, exam_id, subject_id, khoi, lop) VALUES (:exam_config_id, :exam_id, :subject_id, :khoi, :lop)');
                 foreach ($selectedClasses as $className) {
                     $insClass->execute([
+                        ':exam_config_id' => $newConfigId,
                         ':exam_id' => $examId,
                         ':subject_id' => $subjectId,
                         ':khoi' => $khoi,
@@ -268,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $pdo->commit();
-            exams_set_flash('success', $isUpdate ? 'Đã cập nhật cấu hình môn học theo khối.' : 'Đã lưu cấu hình môn học theo khối.');
+            exams_set_flash('success', 'Đã lưu cấu hình môn học theo khối.');
         }
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -301,17 +250,17 @@ if ($examId > 0) {
     $cfgStmt->execute([':exam_id' => $examId]);
     $configRows = $cfgStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $classListStmt = $pdo->prepare('SELECT subject_id, khoi, lop FROM exam_subject_classes WHERE exam_id = :exam_id');
+    $classListStmt = $pdo->prepare('SELECT exam_config_id, lop FROM exam_subject_classes WHERE exam_id = :exam_id');
     $classListStmt->execute([':exam_id' => $examId]);
     $classRows = $classListStmt->fetchAll(PDO::FETCH_ASSOC);
     $classMap = [];
     foreach ($classRows as $row) {
-        $key = (int) $row['subject_id'] . '|' . (string) $row['khoi'];
+        $key = (int) ($row['exam_config_id'] ?? 0);
         $classMap[$key][] = (string) $row['lop'];
     }
 
     foreach ($configRows as &$cfg) {
-        $key = (int) $cfg['subject_id'] . '|' . (string) $cfg['khoi'];
+        $key = (int) $cfg['id'];
         $cfg['class_list'] = implode(', ', $classMap[$key] ?? []);
     }
     unset($cfg);
