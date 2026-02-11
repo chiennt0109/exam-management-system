@@ -69,10 +69,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $scopeMode = trim((string) ($_POST['scope_mode'] ?? ''));
             $componentCount = (int) ($_POST['component_count'] ?? 1);
 
-            $tongDiem = (float) ($_POST['tong_diem'] ?? 0);
-            $diemTuLuan = (float) ($_POST['diem_tu_luan'] ?? 0);
-            $diemTracNghiem = (float) ($_POST['diem_trac_nghiem'] ?? 0);
-            $diemNoi = (float) ($_POST['diem_noi'] ?? 0);
+            $tongDiemRaw = trim((string) ($_POST['tong_diem'] ?? ''));
+            $diemTuLuanRaw = trim((string) ($_POST['diem_tu_luan'] ?? ''));
+            $diemTracNghiemRaw = trim((string) ($_POST['diem_trac_nghiem'] ?? ''));
+            $diemNoiRaw = trim((string) ($_POST['diem_noi'] ?? ''));
+
+            $tongDiem = $tongDiemRaw === '' ? 0.0 : (float) $tongDiemRaw;
+            $diemTuLuan = $diemTuLuanRaw === '' ? 0.0 : (float) $diemTuLuanRaw;
+            $diemTracNghiem = $diemTracNghiemRaw === '' ? 0.0 : (float) $diemTracNghiemRaw;
+            $diemNoi = $diemNoiRaw === '' ? 0.0 : (float) $diemNoiRaw;
 
             $hinhThucThi = match ($componentCount) {
                 1 => 'single_component',
@@ -97,32 +102,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Số thành phần điểm không hợp lệ.');
             }
 
-            // Score validation: all must be < 10 and > 0 where used
-            if ($tongDiem <= 0 || $tongDiem >= 10) {
-                throw new RuntimeException('Tổng điểm phải > 0 và < 10.');
+            // Score validation: all must be <= 10 and > 0 where used
+            if ($tongDiem <= 0 || $tongDiem > 10) {
+                throw new RuntimeException('Tổng điểm phải > 0 và <= 10.');
             }
 
             $sum = 0.0;
             if ($componentCount === 1) {
-                if ($diemTuLuan <= 0 || $diemTuLuan >= 10) {
-                    throw new RuntimeException('Điểm thành phần phải > 0 và < 10.');
+                if ($diemTuLuanRaw === '') {
+                    throw new RuntimeException('Vui lòng nhập đủ 1 thành phần điểm đã chọn.');
+                }
+                if ($diemTuLuan <= 0 || $diemTuLuan > 10) {
+                    throw new RuntimeException('Điểm thành phần phải > 0 và <= 10.');
                 }
                 $diemTracNghiem = 0;
                 $diemNoi = 0;
                 $sum = $diemTuLuan;
             } elseif ($componentCount === 2) {
-                if ($diemTuLuan <= 0 || $diemTuLuan >= 10 || $diemTracNghiem <= 0 || $diemTracNghiem >= 10) {
-                    throw new RuntimeException('Điểm Tự luận/Trắc nghiệm phải > 0 và < 10.');
+                if ($diemTuLuanRaw === '' || $diemTracNghiemRaw === '') {
+                    throw new RuntimeException('Vui lòng nhập đủ 2 thành phần điểm đã chọn.');
+                }
+                if ($diemTuLuan <= 0 || $diemTuLuan > 10 || $diemTracNghiem <= 0 || $diemTracNghiem > 10) {
+                    throw new RuntimeException('Điểm Tự luận/Trắc nghiệm phải > 0 và <= 10.');
                 }
                 $diemNoi = 0;
                 $sum = $diemTuLuan + $diemTracNghiem;
             } else {
+                if ($diemTuLuanRaw === '' || $diemTracNghiemRaw === '' || $diemNoiRaw === '') {
+                    throw new RuntimeException('Vui lòng nhập đủ 3 thành phần điểm đã chọn.');
+                }
                 if (
-                    $diemTuLuan <= 0 || $diemTuLuan >= 10 ||
-                    $diemTracNghiem <= 0 || $diemTracNghiem >= 10 ||
-                    $diemNoi <= 0 || $diemNoi >= 10
+                    $diemTuLuan <= 0 || $diemTuLuan > 10 ||
+                    $diemTracNghiem <= 0 || $diemTracNghiem > 10 ||
+                    $diemNoi <= 0 || $diemNoi > 10
                 ) {
-                    throw new RuntimeException('Điểm Tự luận/Trắc nghiệm/Nói phải > 0 và < 10.');
+                    throw new RuntimeException('Điểm Tự luận/Trắc nghiệm/Nói phải > 0 và <= 10.');
                 }
                 $sum = $diemTuLuan + $diemTracNghiem + $diemNoi;
             }
@@ -317,19 +331,19 @@ require_once __DIR__.'/../../layout/header.php';
 
                             <div class="col-md-3">
                                 <label class="form-label">Tổng điểm tối đa</label>
-                                <input class="form-control" type="number" step="0.01" min="0.01" max="9.99" name="tong_diem" id="tongDiem" required>
+                                <input class="form-control" type="number" step="0.01" min="0.01" max="10" name="tong_diem" id="tongDiem" required>
                             </div>
                             <div class="col-md-3" id="fieldTuLuan">
                                 <label class="form-label">Tự luận</label>
-                                <input class="form-control" type="number" step="0.01" min="0.01" max="9.99" name="diem_tu_luan" id="diemTuLuan" required>
+                                <input class="form-control" type="number" step="0.01" min="0.01" max="10" name="diem_tu_luan" id="diemTuLuan" required>
                             </div>
                             <div class="col-md-3" id="fieldTracNghiem" style="display:none;">
                                 <label class="form-label">Trắc nghiệm</label>
-                                <input class="form-control" type="number" step="0.01" min="0.01" max="9.99" name="diem_trac_nghiem" id="diemTracNghiem" value="0">
+                                <input class="form-control" type="number" step="0.01" min="0.01" max="10" name="diem_trac_nghiem" id="diemTracNghiem" value="0">
                             </div>
                             <div class="col-md-3" id="fieldNoi" style="display:none;">
                                 <label class="form-label">Nói</label>
-                                <input class="form-control" type="number" step="0.01" min="0.01" max="9.99" name="diem_noi" id="diemNoi" value="0">
+                                <input class="form-control" type="number" step="0.01" min="0.01" max="10" name="diem_noi" id="diemNoi" value="0">
                             </div>
                         </div>
 
