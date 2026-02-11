@@ -662,6 +662,32 @@ if ($subjectId <= 0) {
     $manualGrades = $allManualGrades;
 }
 
+// Fallback: derive manual subject/grade pairs from distributed data if config lacks khoi values.
+if ($examId > 0) {
+    $fallbackStmt = $pdo->prepare('SELECT DISTINCT subject_id, khoi FROM rooms WHERE exam_id = :exam_id AND khoi IS NOT NULL AND trim(khoi) <> "" UNION SELECT DISTINCT subject_id, khoi FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NOT NULL AND khoi IS NOT NULL AND trim(khoi) <> ""');
+    $fallbackStmt->execute([':exam_id' => $examId]);
+    foreach ($fallbackStmt->fetchAll(PDO::FETCH_ASSOC) as $fb) {
+        $sid = (int) ($fb['subject_id'] ?? 0);
+        $gr = trim((string) ($fb['khoi'] ?? ''));
+        if ($sid <= 0 || $gr === '') {
+            continue;
+        }
+        $manualSubjects[$sid] = true;
+        $manualGradesBySubject[$sid] = $manualGradesBySubject[$sid] ?? [];
+        if (!in_array($gr, $manualGradesBySubject[$sid], true)) {
+            $manualGradesBySubject[$sid][] = $gr;
+            sort($manualGradesBySubject[$sid]);
+        }
+        $allManualGrades[$gr] = true;
+        if ($subjectId > 0 && $subjectId === $sid) {
+            $manualGrades[$gr] = true;
+        }
+    }
+    if ($subjectId <= 0) {
+        $manualGrades = $allManualGrades;
+    }
+}
+
 $rooms = [];
 $roomSummary = [];
 $assignedStudents = [];

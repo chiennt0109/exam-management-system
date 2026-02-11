@@ -8,6 +8,31 @@ $exams = exams_get_all_exams($pdo);
 $examId = max(0, (int) ($_GET['exam_id'] ?? $_POST['exam_id'] ?? 0));
 $mode = (string) ($_POST['mode'] ?? 'manual');
 
+
+function backfillExamKhoi(PDO $pdo, int $examId): void
+{
+    if ($examId <= 0) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('SELECT id, lop FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND (khoi IS NULL OR trim(khoi) = "" OR lower(khoi) = "unknown")');
+    $stmt->execute([':exam_id' => $examId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($rows)) {
+        return;
+    }
+
+    $up = $pdo->prepare('UPDATE exam_students SET khoi = :khoi WHERE id = :id');
+    foreach ($rows as $row) {
+        $lop = (string) ($row['lop'] ?? '');
+        $detected = detectGradeFromClassName($lop);
+        if ($detected !== null && $detected !== '') {
+            $up->execute([':khoi' => $detected, ':id' => (int) $row['id']]);
+        }
+    }
+}
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         exams_set_flash('error', 'CSRF token không hợp lệ.');
@@ -20,6 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: assign_students.php');
         exit;
     }
+
+    backfillExamKhoi($pdo, $examId);
 
     /** @var array<int> $studentIds */
     $studentIds = [];
@@ -96,7 +123,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $lop = (string) ($student['lop'] ?? '');
-            $khoi = detectGradeFromClassName($lop) ?? 'unknown';
+            $khoi = detectGradeFromClassName($lop) ?? '';
+            if ($khoi === '') {
+                continue;
+            }
 
             $ins->execute([
                 ':exam_id' => $examId,
@@ -133,6 +163,7 @@ $classes = array_map(fn($row) => (string) $row['lop'], $classStmt->fetchAll(PDO:
 
 $students = [];
 if ($examId > 0) {
+    backfillExamKhoi($pdo, $examId);
     $stmt = $pdo->query('SELECT id, sbd, hoten, lop, truong FROM students ORDER BY lop, hoten LIMIT 500');
     $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
