@@ -42,14 +42,14 @@ function login($username, $password) {
 /* ========= LOGOUT ========= */
 function logout() {
     session_destroy();
-    header("Location: Diemthi/exam-management-system/login.php");
+    header("Location: ../../login.php");
     exit;
 }
 
 /* ========= MIDDLEWARE ========= */
 function require_login() {
     if (!isset($_SESSION['user'])) {
-        header("Location: /login.php");
+        header("Location: ../../login.php");
         exit;
     }
 }

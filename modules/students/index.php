@@ -1,7 +1,15 @@
 <?php
+ini_set('display_errors',1);
+error_reporting(E_ALL);
+
 require_once __DIR__.'/../../core/auth.php';
 require_login();
-require_role(['admin']);
+require_role(array('admin'));
+
+
+
+
+
 require_once __DIR__.'/../../core/db.php';
 
 $keyword = trim($_GET['q'] ?? '');
@@ -58,7 +66,9 @@ $stmt->execute($params);
 $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 require_once __DIR__.'/../../layout/header.php';
+
 ?>
+
 
 <style>
 
@@ -183,8 +193,8 @@ require_once __DIR__.'/../../layout/header.php';
 </style>
 
 <div class="students-layout">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
 
+<?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
     <div class="students-main">
         <div class="students-window">
             <div class="window-titlebar">
@@ -314,5 +324,4 @@ require_once __DIR__.'/../../layout/header.php';
         });
     }
 </script>
-
 <?php require_once __DIR__.'/../../layout/footer.php'; ?>
