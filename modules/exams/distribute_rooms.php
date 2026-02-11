@@ -638,15 +638,28 @@ if ($examId > 0) {
 
 $manualSubjects = [];
 $manualGrades = [];
+$manualGradesBySubject = [];
+$allManualGrades = [];
 foreach ($manualSubjectGrades as $sg) {
     $sid = (int) ($sg['subject_id'] ?? 0);
     $gr = (string) ($sg['khoi'] ?? '');
     if ($sid > 0) {
         $manualSubjects[$sid] = true;
     }
+    if ($sid > 0 && $gr !== '') {
+        $manualGradesBySubject[$sid][] = $gr;
+        $allManualGrades[$gr] = true;
+    }
     if ($subjectId > 0 && $sid === $subjectId && $gr !== '') {
         $manualGrades[$gr] = true;
     }
+}
+foreach ($manualGradesBySubject as $sid => $grades) {
+    $manualGradesBySubject[$sid] = array_values(array_unique($grades));
+    sort($manualGradesBySubject[$sid]);
+}
+if ($subjectId <= 0) {
+    $manualGrades = $allManualGrades;
 }
 
 $rooms = [];
@@ -772,7 +785,7 @@ require_once __DIR__.'/../../layout/header.php';
                                 <input type="hidden" name="exam_id" value="<?= $examId ?>">
                                 <div class="col-md-5">
                                     <label class="form-label">Môn (tinh chỉnh)</label>
-                                    <select name="subject_id" class="form-select" required>
+                                    <select name="subject_id" id="manualSubjectSelect" class="form-select" required>
                                         <option value="">-- Chọn môn --</option>
                                         <?php foreach ($subjects as $s): ?>
                                             <?php if (!isset($manualSubjects[(int) $s['id']])) { continue; } ?>
@@ -782,7 +795,7 @@ require_once __DIR__.'/../../layout/header.php';
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Khối (tinh chỉnh)</label>
-                                    <select name="khoi" class="form-select" required>
+                                    <select name="khoi" id="manualKhoiSelect" class="form-select" required>
                                         <option value="">-- Chọn khối --</option>
                                         <?php foreach (array_keys($manualGrades) as $g): ?>
                                             <option value="<?= htmlspecialchars($g, ENT_QUOTES, 'UTF-8') ?>" <?= $khoi === $g ? 'selected' : '' ?>><?= htmlspecialchars($g, ENT_QUOTES, 'UTF-8') ?></option>
@@ -886,6 +899,40 @@ require_once __DIR__.'/../../layout/header.php';
 document.getElementById('chkAll')?.addEventListener('change', function () {
     document.querySelectorAll('input[name="unassigned_ids[]"]').forEach(cb => cb.checked = this.checked);
 });
+
+const manualGradesBySubject = <?= json_encode($manualGradesBySubject, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const allManualGrades = <?= json_encode(array_values(array_keys($allManualGrades)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const manualSubjectSelect = document.getElementById('manualSubjectSelect');
+const manualKhoiSelect = document.getElementById('manualKhoiSelect');
+
+function refreshManualKhoiOptions() {
+    if (!manualKhoiSelect) return;
+    const selectedSubject = manualSubjectSelect ? parseInt(manualSubjectSelect.value || '0', 10) : 0;
+    const currentKhoi = manualKhoiSelect.value;
+    const options = selectedSubject > 0
+        ? (manualGradesBySubject[selectedSubject] || [])
+        : allManualGrades;
+
+    manualKhoiSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '-- Chọn khối --';
+    manualKhoiSelect.appendChild(placeholder);
+
+    options.forEach((grade) => {
+        const op = document.createElement('option');
+        op.value = grade;
+        op.textContent = grade;
+        if (grade === currentKhoi) {
+            op.selected = true;
+        }
+        manualKhoiSelect.appendChild(op);
+    });
+}
+
+manualSubjectSelect?.addEventListener('change', refreshManualKhoiOptions);
+refreshManualKhoiOptions();
+
 </script>
 
 <?php require_once __DIR__.'/../../layout/footer.php'; ?>
