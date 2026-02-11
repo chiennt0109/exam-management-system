@@ -821,12 +821,12 @@ require_once __DIR__.'/../../layout/header.php';
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">Khối (tinh chỉnh)</label>
-                                    <select name="khoi" id="manualKhoiSelect" class="form-select" required>
-                                        <option value="">-- Chọn khối --</option>
+                                    <input name="khoi" id="manualKhoiSelect" class="form-control" list="manualKhoiOptions" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>" placeholder="Nhập khối, ví dụ: 10" required>
+                                    <datalist id="manualKhoiOptions">
                                         <?php foreach (array_keys($manualGrades) as $g): ?>
-                                            <option value="<?= htmlspecialchars($g, ENT_QUOTES, 'UTF-8') ?>" <?= $khoi === $g ? 'selected' : '' ?>><?= htmlspecialchars($g, ENT_QUOTES, 'UTF-8') ?></option>
+                                            <option value="<?= htmlspecialchars($g, ENT_QUOTES, 'UTF-8') ?>"></option>
                                         <?php endforeach; ?>
-                                    </select>
+                                    </datalist>
                                 </div>
                                 <div class="col-md-2 align-self-end"><button class="btn btn-primary w-100" type="submit">Tải phòng</button></div>
                             </form>
@@ -932,27 +932,19 @@ const manualSubjectSelect = document.getElementById('manualSubjectSelect');
 const manualKhoiSelect = document.getElementById('manualKhoiSelect');
 
 function refreshManualKhoiOptions() {
-    if (!manualKhoiSelect) return;
+    const manualKhoiOptions = document.getElementById('manualKhoiOptions');
+    if (!manualKhoiOptions) return;
+
     const selectedSubject = manualSubjectSelect ? parseInt(manualSubjectSelect.value || '0', 10) : 0;
-    const currentKhoi = manualKhoiSelect.value;
     const options = selectedSubject > 0
         ? (manualGradesBySubject[selectedSubject] || [])
         : allManualGrades;
 
-    manualKhoiSelect.innerHTML = '';
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = '-- Chọn khối --';
-    manualKhoiSelect.appendChild(placeholder);
-
+    manualKhoiOptions.innerHTML = '';
     options.forEach((grade) => {
         const op = document.createElement('option');
         op.value = grade;
-        op.textContent = grade;
-        if (grade === currentKhoi) {
-            op.selected = true;
-        }
-        manualKhoiSelect.appendChild(op);
+        manualKhoiOptions.appendChild(op);
     });
 }
 

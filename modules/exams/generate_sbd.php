@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        $baseStudentsStmt = $pdo->prepare('SELECT id FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL ORDER BY student_id');
+        $baseStudentsStmt = $pdo->prepare('SELECT es.id FROM exam_students es INNER JOIN students s ON s.id = es.student_id WHERE es.exam_id = :exam_id AND es.subject_id IS NULL ORDER BY s.hoten COLLATE NOCASE, es.lop COLLATE NOCASE, es.student_id');
         $baseStudentsStmt->execute([':exam_id' => $examId]);
         $rows = $baseStudentsStmt->fetchAll(PDO::FETCH_ASSOC);
 
