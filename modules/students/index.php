@@ -61,6 +61,23 @@ require_once __DIR__.'/../../layout/header.php';
 ?>
 
 <style>
+
+    .students-layout {
+        display: flex;
+        align-items: stretch;
+        width: 100%;
+        min-height: calc(100vh - 44px);
+    }
+    .students-layout > .sidebar {
+        flex: 0 0 220px;
+        width: 220px;
+        min-width: 220px;
+    }
+    .students-main {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 20px;
+    }
     .students-window {
         background: #ffffff;
         border-radius: 16px;
@@ -165,10 +182,10 @@ require_once __DIR__.'/../../layout/header.php';
     .notice.error { background: #fee2e2; color: #991b1b; }
 </style>
 
-<div class="container">
+<div class="students-layout">
     <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
 
-    <div class="content">
+    <div class="students-main">
         <div class="students-window">
             <div class="window-titlebar">
                 <strong>Quản lý học sinh</strong>

@@ -50,6 +50,23 @@ require_once __DIR__.'/../../layout/header.php';
 ?>
 
 <style>
+
+    .students-layout {
+        display: flex;
+        align-items: stretch;
+        width: 100%;
+        min-height: calc(100vh - 44px);
+    }
+    .students-layout > .sidebar {
+        flex: 0 0 220px;
+        width: 220px;
+        min-width: 220px;
+    }
+    .students-main {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 20px;
+    }
     .import-window {
         background: #fff;
         border: 1px solid #dbe3ec;
@@ -79,10 +96,10 @@ require_once __DIR__.'/../../layout/header.php';
     th { background:#eff6ff; color:#1d4ed8; }
 </style>
 
-<div class="container">
+<div class="students-layout">
     <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
 
-    <div class="content">
+    <div class="students-main">
         <div class="import-window">
             <div class="import-titlebar">
                 <strong>Import học sinh từ Excel</strong>

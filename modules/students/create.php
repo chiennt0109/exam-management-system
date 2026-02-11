@@ -51,6 +51,23 @@ require_once __DIR__.'/../../layout/header.php';
 ?>
 
 <style>
+
+    .students-layout {
+        display: flex;
+        align-items: stretch;
+        width: 100%;
+        min-height: calc(100vh - 44px);
+    }
+    .students-layout > .sidebar {
+        flex: 0 0 220px;
+        width: 220px;
+        min-width: 220px;
+    }
+    .students-main {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding: 20px;
+    }
     .window-box { background:#fff; border:1px solid #dbe3ec; border-radius:14px; box-shadow:0 12px 28px rgba(44,62,80,.15); overflow:hidden; }
     .window-title { background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; padding:12px 16px; }
     .window-content { background:#f4f8fc; padding:18px; }
@@ -66,10 +83,10 @@ require_once __DIR__.'/../../layout/header.php';
     .btn-primary { background:#2563eb; }
 </style>
 
-<div class="container">
+<div class="students-layout">
     <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
 
-    <div class="content">
+    <div class="students-main">
         <div class="window-box" style="max-width:760px;">
             <div class="window-title"><strong>Thêm học sinh mới</strong></div>
             <div class="window-content">
