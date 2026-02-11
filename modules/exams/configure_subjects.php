@@ -339,11 +339,11 @@ require_once __DIR__.'/../../layout/header.php';
                             </div>
                             <div class="col-md-3" id="fieldTracNghiem" style="display:none;">
                                 <label class="form-label">Trắc nghiệm</label>
-                                <input class="form-control" type="number" step="0.01" min="0.01" max="10" name="diem_trac_nghiem" id="diemTracNghiem" value="0">
+                                <input class="form-control" type="number" step="0.01" min="0.01" max="10" name="diem_trac_nghiem" id="diemTracNghiem" value="">
                             </div>
                             <div class="col-md-3" id="fieldNoi" style="display:none;">
                                 <label class="form-label">Nói</label>
-                                <input class="form-control" type="number" step="0.01" min="0.01" max="10" name="diem_noi" id="diemNoi" value="0">
+                                <input class="form-control" type="number" step="0.01" min="0.01" max="10" name="diem_noi" id="diemNoi" value="">
                             </div>
                         </div>
 
@@ -470,14 +470,26 @@ function updateScopePanel() {
 
 function updateComponentFields() {
     const count = parseInt(componentCount.value, 10);
+    const diemTracNghiem = document.getElementById('diemTracNghiem');
+    const diemNoi = document.getElementById('diemNoi');
+
     document.getElementById('fieldTuLuan').style.display = 'block';
     document.getElementById('fieldTracNghiem').style.display = count >= 2 ? 'block' : 'none';
     document.getElementById('fieldNoi').style.display = count >= 3 ? 'block' : 'none';
 
-    document.getElementById('diemTracNghiem').required = count >= 2;
-    document.getElementById('diemNoi').required = count >= 3;
-    if (count < 2) document.getElementById('diemTracNghiem').value = 0;
-    if (count < 3) document.getElementById('diemNoi').value = 0;
+    diemTracNghiem.required = count >= 2;
+    diemNoi.required = count >= 3;
+
+    // Disable unused score fields so browser does not validate hidden inputs.
+    diemTracNghiem.disabled = count < 2;
+    diemNoi.disabled = count < 3;
+
+    if (count < 2) {
+        diemTracNghiem.value = '';
+    }
+    if (count < 3) {
+        diemNoi.value = '';
+    }
 }
 
 khoiSelect?.addEventListener('change', refreshAvailableByGrade);
