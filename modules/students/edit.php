@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':id' => $id
         ]);
 
-        header('Location: index.php');
+        header('Location: index.php?msg=updated');
         exit;
     }
 }
@@ -60,53 +60,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once __DIR__.'/../../layout/header.php';
 ?>
 
+<style>
+    .window-box { background:#fff; border:1px solid #dbe3ec; border-radius:14px; box-shadow:0 12px 28px rgba(44,62,80,.15); overflow:hidden; }
+    .window-title { background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; padding:12px 16px; }
+    .window-content { background:#f4f8fc; padding:18px; }
+    .field { margin-bottom:10px; }
+    .field label { display:block; font-weight:700; margin-bottom:4px; }
+    .field input { width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; }
+    .notice { background:#fee2e2; color:#991b1b; border-radius:8px; padding:10px; margin-bottom:12px; }
+    .btn { border:none; border-radius:8px; padding:10px 12px; color:#fff; cursor:pointer; }
+    .btn-primary { background:#2563eb; }
+</style>
+
 <div class="container">
     <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
 
     <div class="content">
-        <h2>Cập nhật học sinh #<?= (int) $student['id'] ?></h2>
-        <div style="background:#fff;padding:20px;border-radius:8px;box-shadow:0 0 10px rgba(0,0,0,0.08);max-width:720px;">
-            <?php if (!empty($errors)): ?>
-                <div class="alert alert-danger" style="background:#f8d7da;color:#842029;padding:10px;border-radius:4px;margin-bottom:12px;">
-                    <ul style="margin:0;padding-left:18px;">
-                        <?php foreach ($errors as $error): ?>
-                            <li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-            <?php endif; ?>
+        <div class="window-box" style="max-width:760px;">
+            <div class="window-title"><strong>Chỉnh sửa học sinh #<?= (int) $student['id'] ?></strong></div>
+            <div class="window-content">
+                <?php if (!empty($errors)): ?>
+                    <div class="notice">
+                        <ul style="margin:0;padding-left:18px;">
+                            <?php foreach ($errors as $error): ?>
+                                <li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
 
-            <form method="post" class="row g-3">
-                <div class="mb-3" style="margin-bottom:10px;">
-                    <label class="form-label"><strong>Số báo danh (SBD) *</strong></label>
-                    <input type="text" name="sbd" class="form-control" style="width:100%;padding:8px;" value="<?= htmlspecialchars($formData['sbd'], ENT_QUOTES, 'UTF-8') ?>" required>
-                </div>
-
-                <div class="mb-3" style="margin-bottom:10px;">
-                    <label class="form-label"><strong>Họ tên *</strong></label>
-                    <input type="text" name="hoten" class="form-control" style="width:100%;padding:8px;" value="<?= htmlspecialchars($formData['hoten'], ENT_QUOTES, 'UTF-8') ?>" required>
-                </div>
-
-                <div class="mb-3" style="margin-bottom:10px;">
-                    <label class="form-label"><strong>Ngày sinh</strong></label>
-                    <input type="date" name="ngaysinh" class="form-control" style="width:100%;padding:8px;" value="<?= htmlspecialchars($formData['ngaysinh'], ENT_QUOTES, 'UTF-8') ?>">
-                </div>
-
-                <div class="mb-3" style="margin-bottom:10px;">
-                    <label class="form-label"><strong>Lớp</strong></label>
-                    <input type="text" name="lop" class="form-control" style="width:100%;padding:8px;" value="<?= htmlspecialchars($formData['lop'], ENT_QUOTES, 'UTF-8') ?>">
-                </div>
-
-                <div class="mb-3" style="margin-bottom:14px;">
-                    <label class="form-label"><strong>Trường</strong></label>
-                    <input type="text" name="truong" class="form-control" style="width:100%;padding:8px;" value="<?= htmlspecialchars($formData['truong'], ENT_QUOTES, 'UTF-8') ?>">
-                </div>
-
-                <div style="display:flex;gap:10px;">
-                    <button type="submit" class="btn btn-primary" style="padding:8px 14px;background:#007bff;color:#fff;border:none;border-radius:4px;">Cập nhật</button>
-                    <a href="index.php" class="btn btn-secondary" style="padding:8px 14px;background:#6c757d;color:#fff;text-decoration:none;border-radius:4px;">Quay lại</a>
-                </div>
-            </form>
+                <form method="post">
+                    <div class="field">
+                        <label>Số báo danh (SBD) *</label>
+                        <input type="text" name="sbd" value="<?= htmlspecialchars($formData['sbd'], ENT_QUOTES, 'UTF-8') ?>" required>
+                    </div>
+                    <div class="field">
+                        <label>Họ tên *</label>
+                        <input type="text" name="hoten" value="<?= htmlspecialchars($formData['hoten'], ENT_QUOTES, 'UTF-8') ?>" required>
+                    </div>
+                    <div class="field">
+                        <label>Ngày sinh</label>
+                        <input type="date" name="ngaysinh" value="<?= htmlspecialchars($formData['ngaysinh'], ENT_QUOTES, 'UTF-8') ?>">
+                    </div>
+                    <div class="field">
+                        <label>Lớp</label>
+                        <input type="text" name="lop" value="<?= htmlspecialchars($formData['lop'], ENT_QUOTES, 'UTF-8') ?>">
+                    </div>
+                    <div class="field">
+                        <label>Trường</label>
+                        <input type="text" name="truong" value="<?= htmlspecialchars($formData['truong'], ENT_QUOTES, 'UTF-8') ?>">
+                    </div>
+                    <button class="btn btn-primary" type="submit">💾 Cập nhật</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>

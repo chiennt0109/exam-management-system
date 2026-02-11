@@ -5,6 +5,44 @@ require_role(['admin']);
 require_once __DIR__.'/../../core/db.php';
 
 $keyword = trim($_GET['q'] ?? '');
+$flash = $_GET['msg'] ?? '';
+$errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'bulk_delete_selected') {
+        $ids = $_POST['student_ids'] ?? [];
+        $ids = array_values(array_filter(array_map('intval', (array) $ids), function ($id) {
+            return $id > 0;
+        }));
+
+        if (empty($ids)) {
+            $errors[] = 'Vui lòng chọn ít nhất 1 học sinh để xóa.';
+        } else {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $deleteStmt = $pdo->prepare("DELETE FROM students WHERE id IN ($placeholders)");
+            $deleteStmt->execute($ids);
+
+            header('Location: index.php?msg=deleted_selected');
+            exit;
+        }
+    }
+
+    if ($action === 'bulk_delete_filtered') {
+        $keywordPost = trim($_POST['keyword'] ?? '');
+
+        if ($keywordPost === '') {
+            $errors[] = 'Điều kiện lọc trống, không thể xóa theo điều kiện.';
+        } else {
+            $deleteStmt = $pdo->prepare('DELETE FROM students WHERE hoten LIKE :keyword OR sbd LIKE :keyword');
+            $deleteStmt->execute([':keyword' => '%' . $keywordPost . '%']);
+
+            header('Location: index.php?msg=deleted_filtered');
+            exit;
+        }
+    }
+}
 
 $sql = 'SELECT id, sbd, hoten, ngaysinh, lop, truong FROM students';
 $params = [];
@@ -22,66 +60,242 @@ $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 require_once __DIR__.'/../../layout/header.php';
 ?>
 
+<style>
+    .students-window {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 12px 28px rgba(44, 62, 80, 0.15);
+        border: 1px solid #dbe3ec;
+        overflow: hidden;
+    }
+    .window-titlebar {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: #fff;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .window-controls {
+        display: flex;
+        gap: 8px;
+    }
+    .window-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        display: inline-block;
+        background: rgba(255,255,255,0.75);
+    }
+    .window-body {
+        padding: 18px;
+        background: #f4f8fc;
+    }
+    .tool-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    .tool-icon {
+        background: #fff;
+        border: 1px solid #dbe3ec;
+        border-radius: 12px;
+        padding: 10px;
+        text-decoration: none;
+        color: #1f2937;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 84px;
+    }
+    .tool-icon:hover { box-shadow: 0 8px 20px rgba(37,99,235,.14); }
+    .tool-icon .icon { font-size: 24px; line-height: 1; margin-bottom: 8px; }
+    .tool-icon .label { font-size: 13px; font-weight: 600; text-align: center; }
+    .students-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .students-table th,
+    .students-table td {
+        border: 1px solid #e5e7eb;
+        padding: 10px;
+        vertical-align: middle;
+    }
+    .students-table th {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+    .table-action { display: inline-flex; gap: 6px; }
+    .btn-icon {
+        display: inline-flex;
+        width: 32px;
+        height: 32px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        color: #fff;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+    }
+    .btn-edit { background: #f59e0b; }
+    .btn-delete { background: #ef4444; }
+    .search-row { display:flex; gap:8px; margin: 10px 0 16px; }
+    .search-row input[type='text'] { flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
+    .search-row button, .search-row a {
+        padding: 10px 12px;
+        border: none;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #fff;
+        background: #2563eb;
+    }
+    .search-row a { background: #64748b; }
+    .notice {
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+    }
+    .notice.success { background: #dcfce7; color: #166534; }
+    .notice.error { background: #fee2e2; color: #991b1b; }
+</style>
+
 <div class="container">
     <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
 
     <div class="content">
-        <div class="d-flex justify-content-between align-items-center mb-3" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-            <h2 style="margin:0;">Quản lý học sinh</h2>
-            <a href="create.php" class="btn btn-success" style="display:inline-block;padding:8px 12px;background:#28a745;color:#fff;text-decoration:none;border-radius:4px;">+ Thêm học sinh</a>
-        </div>
+        <div class="students-window">
+            <div class="window-titlebar">
+                <strong>Quản lý học sinh</strong>
+                <div class="window-controls">
+                    <span class="window-dot"></span><span class="window-dot"></span><span class="window-dot"></span>
+                </div>
+            </div>
 
-        <form method="get" class="row g-2 mb-3" style="display:flex;gap:10px;align-items:center;margin:10px 0 16px;">
-            <input
-                type="text"
-                name="q"
-                class="form-control"
-                style="flex:1;min-width:220px;padding:8px;"
-                placeholder="Tìm theo SBD hoặc họ tên..."
-                value="<?= htmlspecialchars($keyword, ENT_QUOTES, 'UTF-8') ?>"
-            >
-            <button type="submit" class="btn btn-primary" style="padding:8px 12px;background:#007bff;color:#fff;border:none;border-radius:4px;">Tìm kiếm</button>
-            <a href="index.php" class="btn btn-secondary" style="padding:8px 12px;background:#6c757d;color:#fff;text-decoration:none;border-radius:4px;">Làm mới</a>
-        </form>
-
-        <div class="table-responsive">
-            <table class="table table-bordered table-striped" style="width:100%;border-collapse:collapse;">
-                <thead>
-                    <tr style="background:#007bff;color:#fff;">
-                        <th style="border:1px solid #ddd;padding:8px;">ID</th>
-                        <th style="border:1px solid #ddd;padding:8px;">SBD</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Họ tên</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Ngày sinh</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Lớp</th>
-                        <th style="border:1px solid #ddd;padding:8px;">Trường</th>
-                        <th style="border:1px solid #ddd;padding:8px;min-width:140px;">Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php if (empty($students)): ?>
-                    <tr>
-                        <td colspan="7" style="border:1px solid #ddd;padding:8px;text-align:center;">Không có dữ liệu học sinh.</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($students as $student): ?>
-                        <tr>
-                            <td style="border:1px solid #ddd;padding:8px;"><?= (int) $student['id'] ?></td>
-                            <td style="border:1px solid #ddd;padding:8px;"><?= htmlspecialchars($student['sbd'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td style="border:1px solid #ddd;padding:8px;"><?= htmlspecialchars($student['hoten'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td style="border:1px solid #ddd;padding:8px;"><?= htmlspecialchars($student['ngaysinh'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td style="border:1px solid #ddd;padding:8px;"><?= htmlspecialchars($student['lop'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td style="border:1px solid #ddd;padding:8px;"><?= htmlspecialchars($student['truong'], ENT_QUOTES, 'UTF-8') ?></td>
-                            <td style="border:1px solid #ddd;padding:8px;">
-                                <a href="edit.php?id=<?= (int) $student['id'] ?>" class="btn btn-sm btn-warning" style="display:inline-block;padding:5px 8px;background:#ffc107;color:#212529;text-decoration:none;border-radius:4px;">Sửa</a>
-                                <a href="delete.php?id=<?= (int) $student['id'] ?>" class="btn btn-sm btn-danger" style="display:inline-block;padding:5px 8px;background:#dc3545;color:#fff;text-decoration:none;border-radius:4px;">Xóa</a>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
+            <div class="window-body">
+                <?php if ($flash === 'deleted_selected'): ?>
+                    <div class="notice success">Đã xóa các học sinh được chọn.</div>
+                <?php elseif ($flash === 'deleted_filtered'): ?>
+                    <div class="notice success">Đã xóa học sinh theo điều kiện lọc.</div>
+                <?php elseif ($flash === 'created'): ?>
+                    <div class="notice success">Đã thêm học sinh mới.</div>
+                <?php elseif ($flash === 'updated'): ?>
+                    <div class="notice success">Đã cập nhật thông tin học sinh.</div>
+                <?php elseif ($flash === 'deleted_one'): ?>
+                    <div class="notice success">Đã xóa học sinh.</div>
+                <?php elseif ($flash === 'none_inserted'): ?>
+                    <div class="notice error">Không có dòng hợp lệ được import (yêu cầu tối thiểu: SBD + Họ tên).</div>
                 <?php endif; ?>
-                </tbody>
-            </table>
+
+                <?php if (!empty($errors)): ?>
+                    <div class="notice error">
+                        <ul style="margin:0; padding-left: 18px;">
+                            <?php foreach ($errors as $error): ?>
+                                <li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+
+                <div class="tool-grid">
+                    <a class="tool-icon" href="create.php" title="Thêm học sinh">
+                        <span class="icon">➕</span>
+                        <span class="label">Thêm học sinh</span>
+                    </a>
+                    <a class="tool-icon" href="import.php" title="Import Excel">
+                        <span class="icon">📥</span>
+                        <span class="label">Import Excel</span>
+                    </a>
+                    <button type="submit" form="bulkForm" name="action" value="bulk_delete_selected" class="tool-icon" style="cursor:pointer;" onclick="return confirm('Bạn có chắc muốn xóa các học sinh đã chọn?');" title="Xóa đã chọn">
+                        <span class="icon">🗑️</span>
+                        <span class="label">Xóa đã chọn</span>
+                    </button>
+                    <form method="post" onsubmit="return confirm('Bạn có chắc muốn xóa toàn bộ học sinh theo điều kiện lọc hiện tại?');" style="margin:0;">
+                        <input type="hidden" name="action" value="bulk_delete_filtered">
+                        <input type="hidden" name="keyword" value="<?= htmlspecialchars($keyword, ENT_QUOTES, 'UTF-8') ?>">
+                        <button type="submit" class="tool-icon" style="width:100%;cursor:pointer;" title="Xóa theo lọc">
+                            <span class="icon">🧹</span>
+                            <span class="label">Xóa theo lọc</span>
+                        </button>
+                    </form>
+                </div>
+
+                <form method="get" class="search-row">
+                    <input type="text" name="q" value="<?= htmlspecialchars($keyword, ENT_QUOTES, 'UTF-8') ?>" placeholder="Lọc theo SBD hoặc họ tên...">
+                    <button type="submit">Tìm</button>
+                    <a href="index.php">Làm mới</a>
+                </form>
+
+                <form method="post" id="bulkForm">
+                    <input type="hidden" name="action" value="bulk_delete_selected">
+
+                    <div style="margin-bottom:8px;">
+                        <label><input type="checkbox" id="checkAll"> Chọn tất cả</label>
+                    </div>
+
+                    <table class="students-table">
+                        <thead>
+                            <tr>
+                                <th style="width:40px; text-align:center;"></th>
+                                <th>ID</th>
+                                <th>SBD</th>
+                                <th>Họ tên</th>
+                                <th>Ngày sinh</th>
+                                <th>Lớp</th>
+                                <th>Trường</th>
+                                <th style="width:100px;">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($students)): ?>
+                                <tr>
+                                    <td colspan="8" style="text-align:center;">Không có dữ liệu học sinh.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($students as $student): ?>
+                                    <tr>
+                                        <td style="text-align:center;">
+                                            <input type="checkbox" class="student-check" name="student_ids[]" value="<?= (int) $student['id'] ?>">
+                                        </td>
+                                        <td><?= (int) $student['id'] ?></td>
+                                        <td><?= htmlspecialchars($student['sbd'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($student['hoten'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($student['ngaysinh'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($student['lop'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($student['truong'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td>
+                                            <span class="table-action">
+                                                <a class="btn-icon btn-edit" href="edit.php?id=<?= (int) $student['id'] ?>" title="Sửa">✏️</a>
+                                                <a class="btn-icon btn-delete" href="delete.php?id=<?= (int) $student['id'] ?>" title="Xóa">🗑</a>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+    const checkAll = document.getElementById('checkAll');
+    const checks = document.querySelectorAll('.student-check');
+
+    if (checkAll) {
+        checkAll.addEventListener('change', function () {
+            checks.forEach(function (item) {
+                item.checked = checkAll.checked;
+            });
+        });
+    }
+</script>
 
 <?php require_once __DIR__.'/../../layout/footer.php'; ?>
