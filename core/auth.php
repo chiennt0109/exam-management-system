@@ -16,11 +16,18 @@ function login($username, $password) {
 
     if (!$user) return false;
 
-    // HASH PHP 5.4
-    $salt = 'exam_system_salt';
-    $hash = hash('sha256', $password . $salt);
+    $isValid = false;
 
-    if ($hash === $user['password']) {
+    if (is_string($user['password']) && password_verify($password, $user['password'])) {
+        $isValid = true;
+    } else {
+        // Legacy SHA-256 compatibility for older accounts
+        $salt = 'exam_system_salt';
+        $hash = hash('sha256', $password . $salt);
+        $isValid = ($hash === $user['password']);
+    }
+
+    if ($isValid) {
         $_SESSION['user'] = [
             'id' => $user['id'],
             'username' => $user['username'],
