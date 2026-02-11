@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $roomSize = max(0, (int) ($_POST['room_size'] ?? 0));
 
     $baseCount = (int) $pdo->query('SELECT COUNT(*) FROM exam_students WHERE exam_id = ' . $examId . ' AND subject_id IS NULL')->fetchColumn();
-    $configCount = (int) $pdo->query('SELECT COUNT(*) FROM exam_subject_configs WHERE exam_id = ' . $examId)->fetchColumn();
+    $configCount = (int) $pdo->query('SELECT COUNT(*) FROM exam_subject_config WHERE exam_id = ' . $examId)->fetchColumn();
 
     if ($baseCount <= 0) {
         exams_set_flash('warning', 'Chưa có học sinh cho kỳ thi.');
@@ -63,25 +63,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $delRooms = $pdo->prepare('DELETE FROM rooms WHERE exam_id = :exam_id');
         $delRooms->execute([':exam_id' => $examId]);
 
-        $configs = $pdo->prepare('SELECT c.grade, c.subject_id, s.ma_mon, s.ten_mon
-            FROM exam_subject_configs c
+        $configs = $pdo->prepare('SELECT c.khoi, c.subject_id, s.ma_mon, s.ten_mon
+            FROM exam_subject_config c
             INNER JOIN subjects s ON s.id = c.subject_id
             WHERE c.exam_id = :exam_id
-            ORDER BY c.grade, c.subject_id');
+            ORDER BY c.khoi, c.subject_id');
         $configs->execute([':exam_id' => $examId]);
         $configRows = $configs->fetchAll(PDO::FETCH_ASSOC);
 
-        $baseStudentsStmt = $pdo->prepare('SELECT es.student_id, es.khoi, es.lop, es.sbd, s.hoten
-            FROM exam_students es
-            INNER JOIN students s ON s.id = es.student_id
-            WHERE es.exam_id = :exam_id AND es.subject_id IS NULL AND es.sbd IS NOT NULL AND es.sbd <> ""');
-        $baseStudentsStmt->execute([':exam_id' => $examId]);
-        $baseRows = $baseStudentsStmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $byGrade = [];
-        foreach ($baseRows as $row) {
-            $byGrade[(string) $row['khoi']][] = $row;
-        }
 
         $insertRoom = $pdo->prepare('INSERT INTO rooms (exam_id, subject_id, khoi, ten_phong) VALUES (:exam_id, :subject_id, :khoi, :ten_phong)');
         $insertExamStudent = $pdo->prepare('INSERT INTO exam_students (exam_id, student_id, subject_id, khoi, lop, room_id, sbd)
@@ -89,10 +78,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $createdRooms = 0;
         foreach ($configRows as $cfg) {
-            $grade = (string) $cfg['grade'];
+            $grade = (string) $cfg['khoi'];
             $subjectId = (int) $cfg['subject_id'];
             $maMon = (string) $cfg['ma_mon'];
-            $gradeStudents = $byGrade[$grade] ?? [];
+            $gradeStudents = getStudentsForSubjectScope($pdo, $examId, $subjectId, $grade);
 
             if (empty($gradeStudents)) {
                 continue;
