@@ -3,149 +3,304 @@ declare(strict_types=1);
 
 require_once __DIR__.'/_common.php';
 
+/**
+ * @return array<string,mixed>|null
+ */
+function getSubjectConfigForGrade(PDO $pdo, int $examId, int $subjectId, string $khoi): ?array
+{
+    $stmt = $pdo->prepare('SELECT * FROM exam_subject_config WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi LIMIT 1');
+    $stmt->execute([
+        ':exam_id' => $examId,
+        ':subject_id' => $subjectId,
+        ':khoi' => $khoi,
+    ]);
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return is_array($row) ? $row : null;
+}
+
+/**
+ * @return array<int, array<string,mixed>>
+ */
+function getEligibleStudentsForDistribution(PDO $pdo, int $examId, int $subjectId, string $khoi): array
+{
+    // Reuse shared scope-aware helper tied to exam_subject_config + exam_subject_classes
+    return getStudentsForSubjectScope($pdo, $examId, $subjectId, $khoi);
+}
+
+/**
+ * @param array<int, array<string,mixed>> $students
+ * @return array<int,int>
+ */
+function handleRemainderOptionA(array $students, int $roomCount): array
+{
+    $total = count($students);
+    if ($roomCount <= 0 || $total === 0) {
+        return [];
+    }
+
+    $roomCount = min($roomCount, $total);
+    $base = intdiv($total, $roomCount);
+    $remainder = $total % $roomCount;
+
+    $sizes = array_fill(0, $roomCount, $base);
+    // keep last room smaller => distribute extra to early rooms
+    for ($i = 0; $i < $remainder; $i++) {
+        $sizes[$i]++;
+    }
+
+    return $sizes;
+}
+
+/**
+ * @param array<int, array<string,mixed>> $students
+ * @return array<int,int>
+ */
+function handleRemainderOptionB(array $students, int $roomCount): array
+{
+    $total = count($students);
+    if ($roomCount <= 0 || $total === 0) {
+        return [];
+    }
+
+    $roomCount = min($roomCount, $total);
+    $base = intdiv($total, $roomCount);
+    $remainder = $total % $roomCount;
+
+    $sizes = array_fill(0, $roomCount, $base);
+    // redistribute remainder across last rooms, number of rooms = remainder
+    if ($remainder > 0) {
+        for ($i = $roomCount - $remainder; $i < $roomCount; $i++) {
+            $sizes[$i]++;
+        }
+    }
+
+    return $sizes;
+}
+
+/**
+ * @param array<int, array<string,mixed>> $students
+ * @return array<int, array<int, array<string,mixed>>>
+ */
+function distributeByRoomCount(array $students, int $totalRooms, string $remainderOption): array
+{
+    if ($totalRooms <= 0) {
+        throw new InvalidArgumentException('total_rooms phải > 0');
+    }
+
+    $sizes = $remainderOption === REMAINDER_REDISTRIBUTE
+        ? handleRemainderOptionB($students, $totalRooms)
+        : handleRemainderOptionA($students, $totalRooms);
+
+    $chunks = [];
+    $offset = 0;
+    foreach ($sizes as $size) {
+        if ($size <= 0) {
+            continue;
+        }
+        $chunks[] = array_slice($students, $offset, $size);
+        $offset += $size;
+    }
+
+    return $chunks;
+}
+
+/**
+ * @param array<int, array<string,mixed>> $students
+ * @return array<int, array<int, array<string,mixed>>>
+ */
+function distributeByMaxStudents(array $students, int $maxStudentsPerRoom, string $remainderOption): array
+{
+    if ($maxStudentsPerRoom <= 0) {
+        throw new InvalidArgumentException('max_students_per_room phải > 0');
+    }
+
+    $total = count($students);
+    if ($total === 0) {
+        return [];
+    }
+
+    $roomCount = (int) ceil($total / $maxStudentsPerRoom);
+    return distributeByRoomCount($students, $roomCount, $remainderOption);
+}
+
+function generateRoomName(string $subjectCode, string $khoi, int $roomIndex): string
+{
+    $subjectCode = strtoupper(trim($subjectCode));
+    $safeCode = preg_replace('/[^A-Z0-9]/', '', $subjectCode) ?: 'SUB';
+
+    return $safeCode . '-' . $khoi . '-' . str_pad((string) $roomIndex, 2, '0', STR_PAD_LEFT);
+}
+
 $csrf = exams_get_csrf_token();
 $exams = exams_get_all_exams($pdo);
+$subjects = $pdo->query('SELECT id, ma_mon, ten_mon FROM subjects ORDER BY ten_mon')->fetchAll(PDO::FETCH_ASSOC);
+
 $examId = max(0, (int) ($_GET['exam_id'] ?? $_POST['exam_id'] ?? 0));
+$subjectId = max(0, (int) ($_GET['subject_id'] ?? $_POST['subject_id'] ?? 0));
+$khoi = trim((string) ($_GET['khoi'] ?? $_POST['khoi'] ?? ''));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         exams_set_flash('error', 'CSRF token không hợp lệ.');
-        header('Location: distribute_rooms.php?exam_id=' . $examId);
-        exit;
-    }
-
-    if ($examId <= 0) {
-        exams_set_flash('error', 'Vui lòng chọn kỳ thi.');
         header('Location: distribute_rooms.php');
         exit;
     }
 
-    $method = (string) ($_POST['method'] ?? 'room_count');
-    $remainderMode = (string) ($_POST['remainder_mode'] ?? REMAINDER_KEEP_SMALL);
-    if (!in_array($remainderMode, [REMAINDER_KEEP_SMALL, REMAINDER_REDISTRIBUTE], true)) {
-        $remainderMode = REMAINDER_KEEP_SMALL;
-    }
+    $mode = (string) ($_POST['distribution_mode'] ?? 'by_total_rooms');
+    $remainder = (string) ($_POST['remainder_option'] ?? REMAINDER_KEEP_SMALL);
+    $totalRooms = max(0, (int) ($_POST['total_rooms'] ?? 0));
+    $maxStudents = max(0, (int) ($_POST['max_students_per_room'] ?? 0));
+    $overwrite = (($_POST['overwrite_existing'] ?? '') === '1');
 
-    $roomCount = max(0, (int) ($_POST['room_count'] ?? 0));
-    $roomSize = max(0, (int) ($_POST['room_size'] ?? 0));
-
-    $baseCount = (int) $pdo->query('SELECT COUNT(*) FROM exam_students WHERE exam_id = ' . $examId . ' AND subject_id IS NULL')->fetchColumn();
-    $configCount = (int) $pdo->query('SELECT COUNT(*) FROM exam_subject_config WHERE exam_id = ' . $examId)->fetchColumn();
-
-    if ($baseCount <= 0) {
-        exams_set_flash('warning', 'Chưa có học sinh cho kỳ thi.');
-        header('Location: distribute_rooms.php?exam_id=' . $examId);
+    if ($examId <= 0 || $subjectId <= 0 || $khoi === '') {
+        exams_set_flash('error', 'Phải chọn đủ Kỳ thi + Môn + Khối.');
+        header('Location: distribute_rooms.php');
         exit;
     }
 
-    if ($configCount <= 0) {
-        exams_set_flash('warning', 'Chưa cấu hình môn theo khối.');
-        header('Location: distribute_rooms.php?exam_id=' . $examId);
+    if (!in_array($mode, ['by_total_rooms', 'by_max_students'], true)) {
+        exams_set_flash('error', 'Distribution mode không hợp lệ.');
+        header('Location: distribute_rooms.php?' . http_build_query(['exam_id' => $examId, 'subject_id' => $subjectId, 'khoi' => $khoi]));
         exit;
     }
 
-    if ($method === 'room_count' && $roomCount <= 0) {
-        exams_set_flash('error', 'Số phòng phải lớn hơn 0.');
-        header('Location: distribute_rooms.php?exam_id=' . $examId);
+    if (!in_array($remainder, [REMAINDER_KEEP_SMALL, REMAINDER_REDISTRIBUTE], true)) {
+        exams_set_flash('error', 'Remainder option không hợp lệ.');
+        header('Location: distribute_rooms.php?' . http_build_query(['exam_id' => $examId, 'subject_id' => $subjectId, 'khoi' => $khoi]));
         exit;
     }
-    if ($method === 'room_size' && $roomSize <= 0) {
-        exams_set_flash('error', 'Sĩ số tối đa/phòng phải lớn hơn 0.');
-        header('Location: distribute_rooms.php?exam_id=' . $examId);
+
+    if ($mode === 'by_total_rooms' && $totalRooms <= 0) {
+        exams_set_flash('error', 'total_rooms phải > 0.');
+        header('Location: distribute_rooms.php?' . http_build_query(['exam_id' => $examId, 'subject_id' => $subjectId, 'khoi' => $khoi]));
+        exit;
+    }
+
+    if ($mode === 'by_max_students' && $maxStudents <= 0) {
+        exams_set_flash('error', 'max_students_per_room phải > 0.');
+        header('Location: distribute_rooms.php?' . http_build_query(['exam_id' => $examId, 'subject_id' => $subjectId, 'khoi' => $khoi]));
         exit;
     }
 
     try {
+        $config = getSubjectConfigForGrade($pdo, $examId, $subjectId, $khoi);
+        if (!$config) {
+            throw new RuntimeException('Không có cấu hình môn cho khối đã chọn.');
+        }
+
+        $eligibleStudents = getEligibleStudentsForDistribution($pdo, $examId, $subjectId, $khoi);
+        if (empty($eligibleStudents)) {
+            throw new RuntimeException('Không có học sinh trong phạm vi phân phòng của môn/khối này.');
+        }
+
+        usort($eligibleStudents, static fn(array $a, array $b): int => strcmp((string) ($a['sbd'] ?? ''), (string) ($b['sbd'] ?? '')));
+
+        $existingStmt = $pdo->prepare('SELECT COUNT(*) FROM rooms WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
+        $existingStmt->execute([
+            ':exam_id' => $examId,
+            ':subject_id' => $subjectId,
+            ':khoi' => $khoi,
+        ]);
+        $existingCount = (int) $existingStmt->fetchColumn();
+
+        if ($existingCount > 0 && !$overwrite) {
+            throw new RuntimeException('Đã có phân phòng cho exam+subject+khoi này. Vui lòng bật ghi đè để tiếp tục.');
+        }
+
+        $subjectCodeStmt = $pdo->prepare('SELECT ma_mon FROM subjects WHERE id = :id LIMIT 1');
+        $subjectCodeStmt->execute([':id' => $subjectId]);
+        $subjectCode = (string) ($subjectCodeStmt->fetchColumn() ?: 'SUB');
+
+        $roomGroups = $mode === 'by_total_rooms'
+            ? distributeByRoomCount($eligibleStudents, $totalRooms, $remainder)
+            : distributeByMaxStudents($eligibleStudents, $maxStudents, $remainder);
+
+        if (empty($roomGroups)) {
+            throw new RuntimeException('Không thể tạo phân bổ phòng từ dữ liệu hiện tại.');
+        }
+
         $pdo->beginTransaction();
 
-        $delSubjectRows = $pdo->prepare('DELETE FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NOT NULL');
-        $delSubjectRows->execute([':exam_id' => $examId]);
-        $delRooms = $pdo->prepare('DELETE FROM rooms WHERE exam_id = :exam_id');
-        $delRooms->execute([':exam_id' => $examId]);
+        // clear previous distribution for this exam+subject+grade
+        $clearRows = $pdo->prepare('DELETE FROM exam_students WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
+        $clearRows->execute([
+            ':exam_id' => $examId,
+            ':subject_id' => $subjectId,
+            ':khoi' => $khoi,
+        ]);
 
-        $configs = $pdo->prepare('SELECT c.khoi, c.subject_id, s.ma_mon, s.ten_mon
-            FROM exam_subject_config c
-            INNER JOIN subjects s ON s.id = c.subject_id
-            WHERE c.exam_id = :exam_id
-            ORDER BY c.khoi, c.subject_id');
-        $configs->execute([':exam_id' => $examId]);
-        $configRows = $configs->fetchAll(PDO::FETCH_ASSOC);
-
+        $clearRooms = $pdo->prepare('DELETE FROM rooms WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
+        $clearRooms->execute([
+            ':exam_id' => $examId,
+            ':subject_id' => $subjectId,
+            ':khoi' => $khoi,
+        ]);
 
         $insertRoom = $pdo->prepare('INSERT INTO rooms (exam_id, subject_id, khoi, ten_phong) VALUES (:exam_id, :subject_id, :khoi, :ten_phong)');
         $insertExamStudent = $pdo->prepare('INSERT INTO exam_students (exam_id, student_id, subject_id, khoi, lop, room_id, sbd)
             VALUES (:exam_id, :student_id, :subject_id, :khoi, :lop, :room_id, :sbd)');
 
-        $createdRooms = 0;
-        foreach ($configRows as $cfg) {
-            $grade = (string) $cfg['khoi'];
-            $subjectId = (int) $cfg['subject_id'];
-            $maMon = (string) $cfg['ma_mon'];
-            $gradeStudents = getStudentsForSubjectScope($pdo, $examId, $subjectId, $grade);
+        $roomIndex = 1;
+        foreach ($roomGroups as $group) {
+            $roomName = generateRoomName($subjectCode, $khoi, $roomIndex);
+            $insertRoom->execute([
+                ':exam_id' => $examId,
+                ':subject_id' => $subjectId,
+                ':khoi' => $khoi,
+                ':ten_phong' => $roomName,
+            ]);
+            $roomId = (int) $pdo->lastInsertId();
 
-            if (empty($gradeStudents)) {
-                continue;
-            }
-
-            usort($gradeStudents, fn($a, $b) => strcmp((string) ($a['sbd'] ?? ''), (string) ($b['sbd'] ?? '')));
-
-            $roomsData = $method === 'room_count'
-                ? distributeStudentsByRoomCount($gradeStudents, $roomCount, $remainderMode)
-                : distributeStudentsByRoomSize($gradeStudents, $roomSize, $remainderMode);
-
-            foreach ($roomsData as $idx => $roomStudents) {
-                if (empty($roomStudents)) {
-                    continue;
-                }
-
-                $roomName = 'P' . $grade . '-' . $maMon . '-' . str_pad((string) ($idx + 1), 2, '0', STR_PAD_LEFT);
-                $insertRoom->execute([
+            foreach ($group as $student) {
+                $insertExamStudent->execute([
                     ':exam_id' => $examId,
+                    ':student_id' => (int) $student['student_id'],
                     ':subject_id' => $subjectId,
-                    ':khoi' => $grade,
-                    ':ten_phong' => $roomName,
+                    ':khoi' => (string) $student['khoi'],
+                    ':lop' => (string) $student['lop'],
+                    ':room_id' => $roomId,
+                    ':sbd' => (string) $student['sbd'],
                 ]);
-                $roomId = (int) $pdo->lastInsertId();
-                $createdRooms++;
-
-                foreach ($roomStudents as $student) {
-                    $insertExamStudent->execute([
-                        ':exam_id' => $examId,
-                        ':student_id' => (int) $student['student_id'],
-                        ':subject_id' => $subjectId,
-                        ':khoi' => (string) $student['khoi'],
-                        ':lop' => (string) $student['lop'],
-                        ':room_id' => $roomId,
-                        ':sbd' => (string) $student['sbd'],
-                    ]);
-                }
             }
+
+            $roomIndex++;
         }
 
         $pdo->commit();
-        exams_set_flash('success', 'Đã phân phòng xong. Tổng số phòng tạo: ' . $createdRooms);
+        exams_set_flash('success', 'Phân phòng thành công cho môn/khối đã chọn.');
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        exams_set_flash('error', 'Phân phòng thất bại: ' . $e->getMessage());
+        exams_set_flash('error', $e->getMessage());
     }
 
-    header('Location: distribute_rooms.php?exam_id=' . $examId);
+    header('Location: distribute_rooms.php?' . http_build_query(['exam_id' => $examId, 'subject_id' => $subjectId, 'khoi' => $khoi]));
     exit;
 }
 
-$summary = [];
+$grades = [];
 if ($examId > 0) {
-    $stmt = $pdo->prepare('SELECT r.khoi, r.ten_phong, sub.ten_mon, COUNT(es.id) AS total
+    $gradeStmt = $pdo->prepare('SELECT DISTINCT khoi FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND khoi IS NOT NULL AND khoi <> "" ORDER BY khoi');
+    $gradeStmt->execute([':exam_id' => $examId]);
+    $grades = array_map(static fn(array $r): string => (string) $r['khoi'], $gradeStmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+$summary = [];
+if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
+    $sumStmt = $pdo->prepare('SELECT r.ten_phong, COUNT(es.id) AS total
         FROM rooms r
-        LEFT JOIN subjects sub ON sub.id = r.subject_id
         LEFT JOIN exam_students es ON es.room_id = r.id
-        WHERE r.exam_id = :exam_id
+        WHERE r.exam_id = :exam_id AND r.subject_id = :subject_id AND r.khoi = :khoi
         GROUP BY r.id
-        ORDER BY r.khoi, sub.ten_mon, r.ten_phong');
-    $stmt->execute([':exam_id' => $examId]);
-    $summary = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        ORDER BY r.ten_phong');
+    $sumStmt->execute([
+        ':exam_id' => $examId,
+        ':subject_id' => $subjectId,
+        ':khoi' => $khoi,
+    ]);
+    $summary = $sumStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 $wizard = $examId > 0 ? exams_wizard_steps($pdo, $examId) : [];
@@ -158,20 +313,41 @@ require_once __DIR__.'/../../layout/header.php';
     <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
     <div style="flex:1;padding:20px;min-width:0;">
         <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white"><strong>Bước 5: Phân phòng thi theo môn + khối</strong></div>
+            <div class="card-header bg-primary text-white"><strong>Bước 5: Phân phòng thi (nâng cao)</strong></div>
             <div class="card-body">
                 <?= exams_display_flash(); ?>
 
                 <form method="get" class="row g-2 mb-3">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label class="form-label">Kỳ thi</label>
                         <select name="exam_id" class="form-select" required>
                             <option value="">-- Chọn kỳ thi --</option>
                             <?php foreach ($exams as $exam): ?>
-                                <option value="<?= (int)$exam['id'] ?>" <?= $examId === (int)$exam['id'] ? 'selected' : '' ?>>#<?= (int)$exam['id'] ?> - <?= htmlspecialchars((string)$exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></option>
+                                <option value="<?= (int) $exam['id'] ?>" <?= $examId === (int) $exam['id'] ? 'selected' : '' ?>>#<?= (int) $exam['id'] ?> - <?= htmlspecialchars((string) $exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-3"><button class="btn btn-primary" type="submit">Tải dữ liệu</button></div>
+                    <div class="col-md-4">
+                        <label class="form-label">Môn học</label>
+                        <select name="subject_id" class="form-select" required>
+                            <option value="">-- Chọn môn --</option>
+                            <?php foreach ($subjects as $s): ?>
+                                <option value="<?= (int) $s['id'] ?>" <?= $subjectId === (int) $s['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string)$s['ma_mon'].' - '.(string)$s['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Khối</label>
+                        <select name="khoi" class="form-select" required>
+                            <option value="">-- Chọn --</option>
+                            <?php foreach ($grades as $g): ?>
+                                <option value="<?= htmlspecialchars($g, ENT_QUOTES, 'UTF-8') ?>" <?= $khoi === $g ? 'selected' : '' ?>><?= htmlspecialchars($g, ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2 align-self-end">
+                        <button class="btn btn-primary w-100" type="submit">Tải dữ liệu</button>
+                    </div>
                 </form>
 
                 <?php if ($examId > 0): ?>
@@ -180,62 +356,77 @@ require_once __DIR__.'/../../layout/header.php';
                             <span class="badge <?= $step['done'] ? 'bg-success' : 'bg-secondary' ?> me-1">B<?= $index ?>: <?= htmlspecialchars($step['label'], ENT_QUOTES, 'UTF-8') ?></span>
                         <?php endforeach; ?>
                     </div>
+                <?php endif; ?>
 
-                    <form method="post" class="border rounded p-3 mb-3">
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                <form method="post" class="border rounded p-3 mb-3">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                    <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
+                    <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
 
-                        <div class="row g-2 align-items-end">
-                            <div class="col-md-3">
-                                <label class="form-label">Phương pháp</label>
-                                <select class="form-select" name="method" id="methodSelect">
-                                    <option value="room_count">Method 1 - Theo tổng số phòng</option>
-                                    <option value="room_size">Method 2 - Theo sĩ số tối đa/phòng</option>
-                                </select>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label d-block">Distribution mode</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="distribution_mode" id="modeA" value="by_total_rooms" checked>
+                                <label class="form-check-label" for="modeA">Mode A — by total room count</label>
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Số phòng (N)</label>
-                                <input class="form-control" type="number" name="room_count" value="5" min="1">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Sĩ số max (M)</label>
-                                <input class="form-control" type="number" name="room_size" value="24" min="1">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Xử lý dư</label>
-                                <select class="form-select" name="remainder_mode">
-                                    <option value="keep_small">A - Phòng cuối nhỏ hơn</option>
-                                    <option value="redistribute">B - Redistribute phần dư</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <button class="btn btn-success w-100" type="submit">Phân phòng</button>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="distribution_mode" id="modeB" value="by_max_students">
+                                <label class="form-check-label" for="modeB">Mode B — by max students per room</label>
                             </div>
                         </div>
-                    </form>
-
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered">
-                            <thead><tr><th>Khối</th><th>Môn</th><th>Phòng</th><th>Số TS</th></tr></thead>
-                            <tbody>
-                                <?php if (empty($summary)): ?>
-                                    <tr><td colspan="4" class="text-center">Chưa phân phòng.</td></tr>
-                                <?php else: ?>
-                                    <?php foreach ($summary as $r): ?>
-                                        <tr>
-                                            <td><?= htmlspecialchars((string)$r['khoi'], ENT_QUOTES, 'UTF-8') ?></td>
-                                            <td><?= htmlspecialchars((string)$r['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td>
-                                            <td><?= htmlspecialchars((string)$r['ten_phong'], ENT_QUOTES, 'UTF-8') ?></td>
-                                            <td><?= (int)$r['total'] ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
+                        <div class="col-md-6">
+                            <label class="form-label d-block">Remainder option</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="remainder_option" id="optA" value="keep_small" checked>
+                                <label class="form-check-label" for="optA">Option 1 — last room smaller</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="remainder_option" id="optB" value="redistribute">
+                                <label class="form-check-label" for="optB">Option 2 — redistribute remainder across last rooms</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">total_rooms</label>
+                            <input type="number" min="1" class="form-control" name="total_rooms" value="5">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">max_students_per_room</label>
+                            <input type="number" min="1" class="form-control" name="max_students_per_room" value="24">
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="overwrite_existing" name="overwrite_existing" value="1">
+                                <label class="form-check-label" for="overwrite_existing">Cho phép ghi đè nếu đã có phân phòng exam+subject+grade này</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-success" type="submit">Phân phòng</button>
+                        </div>
                     </div>
-                <?php endif; ?>
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead><tr><th>Phòng</th><th>Số thí sinh</th></tr></thead>
+                        <tbody>
+                            <?php if (empty($summary)): ?>
+                                <tr><td colspan="2" class="text-center">Chưa có dữ liệu phân phòng cho lựa chọn hiện tại.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($summary as $row): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars((string) $row['ten_phong'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= (int) $row['total'] ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
 <?php require_once __DIR__.'/../../layout/footer.php'; ?>
