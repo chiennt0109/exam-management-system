@@ -32,6 +32,7 @@ function exams_init_schema(PDO $pdo): void
         ten_phong TEXT NOT NULL
     )');
 
+    // Legacy table kept for compatibility (old versions may still read it)
     $pdo->exec('CREATE TABLE IF NOT EXISTS exam_subject_configs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         exam_id INTEGER NOT NULL,
@@ -44,7 +45,91 @@ function exams_init_schema(PDO $pdo): void
         UNIQUE(exam_id, grade, subject_id)
     )');
 
+    // New enhanced configuration table
+    $pdo->exec('CREATE TABLE IF NOT EXISTS exam_subject_config (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_id INTEGER NOT NULL,
+        subject_id INTEGER NOT NULL,
+        khoi TEXT NOT NULL,
+        hinh_thuc_thi TEXT NOT NULL,
+        component_count INTEGER NOT NULL,
+        weight_1 REAL,
+        weight_2 REAL,
+        scope_mode TEXT NOT NULL DEFAULT "entire_grade"
+    )');
+
+    $pdo->exec('CREATE TABLE IF NOT EXISTS exam_subject_classes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_config_id INTEGER,
+        exam_id INTEGER NOT NULL,
+        subject_id INTEGER NOT NULL,
+        khoi TEXT NOT NULL,
+        lop TEXT NOT NULL,
+        UNIQUE(exam_config_id, lop)
+    )');
+
     $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_sbd_unique ON exam_students(exam_id, sbd)');
+
+    // Migration: allow multiple config rows per exam+subject+khoi and scope by class set.
+    $cfgSql = (string) ($pdo->query("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'exam_subject_config'")->fetchColumn() ?: '');
+    if ($cfgSql !== '' && stripos($cfgSql, 'UNIQUE(exam_id, subject_id, khoi)') !== false) {
+        $pdo->beginTransaction();
+        try {
+            $pdo->exec('ALTER TABLE exam_subject_config RENAME TO exam_subject_config_old');
+            $pdo->exec('CREATE TABLE exam_subject_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                exam_id INTEGER NOT NULL,
+                subject_id INTEGER NOT NULL,
+                khoi TEXT NOT NULL,
+                hinh_thuc_thi TEXT NOT NULL,
+                component_count INTEGER NOT NULL,
+                weight_1 REAL,
+                weight_2 REAL,
+                scope_mode TEXT NOT NULL DEFAULT "entire_grade",
+                tong_diem REAL,
+                diem_tu_luan REAL,
+                diem_trac_nghiem REAL,
+                diem_noi REAL
+            )');
+            $pdo->exec('INSERT INTO exam_subject_config (id, exam_id, subject_id, khoi, hinh_thuc_thi, component_count, weight_1, weight_2, scope_mode, tong_diem, diem_tu_luan, diem_trac_nghiem, diem_noi)
+                SELECT id, exam_id, subject_id, khoi, hinh_thuc_thi, component_count, weight_1, weight_2, scope_mode, tong_diem, diem_tu_luan, diem_trac_nghiem, diem_noi
+                FROM exam_subject_config_old');
+            $pdo->exec('DROP TABLE exam_subject_config_old');
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    // Migration: link class scopes to each config record.
+    $classCols = array_column($pdo->query('PRAGMA table_info(exam_subject_classes)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('exam_config_id', $classCols, true)) {
+        $pdo->beginTransaction();
+        try {
+            $pdo->exec('ALTER TABLE exam_subject_classes RENAME TO exam_subject_classes_old');
+            $pdo->exec('CREATE TABLE exam_subject_classes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                exam_config_id INTEGER,
+                exam_id INTEGER NOT NULL,
+                subject_id INTEGER NOT NULL,
+                khoi TEXT NOT NULL,
+                lop TEXT NOT NULL,
+                UNIQUE(exam_config_id, lop)
+            )');
+            $pdo->exec('INSERT INTO exam_subject_classes (exam_id, subject_id, khoi, lop)
+                SELECT exam_id, subject_id, khoi, lop FROM exam_subject_classes_old');
+            $pdo->exec('DROP TABLE exam_subject_classes_old');
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
 }
 
 exams_init_schema($pdo);
@@ -180,11 +265,77 @@ function exams_get_all_exams(PDO $pdo): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+/**
+ * @return array<int, string>
+ */
+function getClassesByGrade(PDO $pdo, int $examId, string $khoi): array
+{
+    $stmt = $pdo->prepare('SELECT DISTINCT lop FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND khoi = :khoi AND lop IS NOT NULL AND lop <> "" ORDER BY lop');
+    $stmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+    return array_map(static fn(array $row): string => (string) $row['lop'], $stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+/**
+ * @return array<int, array<string,mixed>>
+ */
+function getStudentsForSubjectScope(PDO $pdo, int $examId, int $subjectId, string $khoi): array
+{
+    $cfgStmt = $pdo->prepare('SELECT id, scope_mode FROM exam_subject_config WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi ORDER BY id DESC');
+    $cfgStmt->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
+    $cfgRows = $cfgStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($cfgRows)) {
+        return [];
+    }
+
+    foreach ($cfgRows as $cfg) {
+        if ((string) ($cfg['scope_mode'] ?? 'entire_grade') === 'entire_grade') {
+            $stmt = $pdo->prepare('SELECT student_id, khoi, lop, sbd FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND khoi = :khoi AND sbd IS NOT NULL AND sbd <> ""');
+            $stmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+    }
+
+    $classSet = [];
+    foreach ($cfgRows as $cfg) {
+        if ((string) ($cfg['scope_mode'] ?? '') !== 'specific_classes') {
+            continue;
+        }
+        $cfgId = (int) ($cfg['id'] ?? 0);
+        if ($cfgId <= 0) {
+            continue;
+        }
+
+        $classStmt = $pdo->prepare('SELECT lop FROM exam_subject_classes WHERE exam_config_id = :config_id ORDER BY lop');
+        $classStmt->execute([':config_id' => $cfgId]);
+        foreach ($classStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $lop = (string) ($row['lop'] ?? '');
+            if ($lop !== '') {
+                $classSet[$lop] = true;
+            }
+        }
+    }
+
+    $classes = array_keys($classSet);
+    sort($classes);
+    if (empty($classes)) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($classes), '?'));
+    $sql = 'SELECT student_id, khoi, lop, sbd FROM exam_students WHERE exam_id = ? AND subject_id IS NULL AND khoi = ? AND lop IN (' . $placeholders . ') AND sbd IS NOT NULL AND sbd <> ""';
+    $params = array_merge([$examId, $khoi], $classes);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function exams_wizard_steps(PDO $pdo, int $examId): array
 {
     $countStudents = (int) $pdo->query('SELECT COUNT(*) FROM exam_students WHERE exam_id = ' . $examId . ' AND subject_id IS NULL')->fetchColumn();
     $countSbd = (int) $pdo->query('SELECT COUNT(*) FROM exam_students WHERE exam_id = ' . $examId . ' AND subject_id IS NULL AND sbd IS NOT NULL AND sbd <> ""')->fetchColumn();
-    $countConfigs = (int) $pdo->query('SELECT COUNT(*) FROM exam_subject_configs WHERE exam_id = ' . $examId)->fetchColumn();
+    $countConfigs = (int) $pdo->query('SELECT COUNT(*) FROM exam_subject_config WHERE exam_id = ' . $examId)->fetchColumn();
     $countRooms = (int) $pdo->query('SELECT COUNT(*) FROM rooms WHERE exam_id = ' . $examId)->fetchColumn();
 
     return [
