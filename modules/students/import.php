@@ -50,7 +50,6 @@ require_once __DIR__.'/../../layout/header.php';
 ?>
 
 <style>
-
     .students-layout {
         display: flex;
         align-items: stretch;
@@ -91,6 +90,21 @@ require_once __DIR__.'/../../layout/header.php';
     .btn-primary { background:#2563eb; }
     .btn-success { background:#16a34a; }
     .btn-secondary { background:#64748b; }
+    .btn-warning { background:#d97706; }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .mapping-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px;
+    }
+    .mapping-item label { display:block; font-weight:700; margin-bottom:6px; }
+    .mapping-item select {
+        width:100%;
+        padding:8px;
+        border:1px solid #cbd5e1;
+        border-radius:8px;
+        background:#fff;
+    }
     table { width:100%; border-collapse:collapse; background:#fff; }
     th, td { border:1px solid #e5e7eb; padding:8px; }
     th { background:#eff6ff; color:#1d4ed8; }
@@ -117,15 +131,25 @@ require_once __DIR__.'/../../layout/header.php';
                 <?php endif; ?>
 
                 <div class="card">
-                    <p style="margin-top:0;"><strong>Định dạng cột gợi ý trong Excel:</strong> <code>sbd</code>, <code>hoten</code>, <code>ngaysinh</code>, <code>lop</code>, <code>truong</code>.</p>
+                    <h4 style="margin-top:0;">Bước 1: Chọn file Excel</h4>
+                    <p style="margin-top:0;">Chọn file, bấm <strong>Tải file</strong>, sau đó thực hiện mapping cột giống quy trình ở giao diện cũ.</p>
                     <input type="file" id="excelFile" accept=".xlsx,.xls" style="margin-bottom:8px;">
                     <button type="button" class="btn btn-primary" onclick="loadExcel()">📂 Tải file</button>
                 </div>
 
+                <div class="card" id="mappingCard" style="display:none;">
+                    <h4 style="margin-top:0;">Bước 2: Mapping cột dữ liệu</h4>
+                    <div id="mappingFields" class="mapping-grid"></div>
+                    <div style="margin-top:10px;">
+                        <button type="button" class="btn btn-warning" onclick="applyMapping()">🧭 Áp dụng mapping</button>
+                    </div>
+                </div>
+
                 <form method="post" id="importForm">
                     <input type="hidden" name="rows_json" id="rowsJson">
+
                     <div class="card">
-                        <h4 style="margin-top:0;">Xem trước dữ liệu</h4>
+                        <h4 style="margin-top:0;">Bước 3: Xem trước dữ liệu</h4>
                         <div style="overflow:auto; max-height:380px;">
                             <table id="previewTable">
                                 <thead>
@@ -134,14 +158,14 @@ require_once __DIR__.'/../../layout/header.php';
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td colspan="5" style="text-align:center;">Chưa có dữ liệu.</td></tr>
+                                    <tr><td colspan="5" style="text-align:center;">Chưa có dữ liệu. Hãy tải file và áp dụng mapping.</td></tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
                     <div style="display:flex; gap:8px;">
-                        <button type="submit" class="btn btn-success" onclick="return beforeSubmit()">✅ Import vào cơ sở dữ liệu</button>
+                        <button type="submit" id="saveBtn" class="btn btn-success" onclick="return beforeSubmit()" disabled>✅ Lưu vào cơ sở dữ liệu</button>
                         <a href="index.php" class="btn btn-secondary">↩ Quay lại danh sách</a>
                     </div>
                 </form>
@@ -152,10 +176,21 @@ require_once __DIR__.'/../../layout/header.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+    let rawHeaders = [];
+    let rawRows = [];
     let normalizedRows = [];
+
+    const fieldDefs = [
+        { key: 'sbd', label: 'SBD *', aliases: ['sbd', 'mahs', 'mã hs', 'mã học sinh'] },
+        { key: 'hoten', label: 'Họ tên *', aliases: ['hoten', 'họ tên', 'ho ten', 'fullname'] },
+        { key: 'ngaysinh', label: 'Ngày sinh', aliases: ['ngaysinh', 'ngày sinh', 'dob'] },
+        { key: 'lop', label: 'Lớp', aliases: ['lop', 'lớp', 'malop', 'mã lớp'] },
+        { key: 'truong', label: 'Trường', aliases: ['truong', 'trường', 'school'] }
+    ];
 
     function normalizeDate(value) {
         if (!value) return '';
+
         if (typeof value === 'number') {
             const d = XLSX.SSF.parse_date_code(value);
             if (!d) return '';
@@ -163,21 +198,29 @@ require_once __DIR__.'/../../layout/header.php';
             const dd = String(d.d).padStart(2, '0');
             return `${d.y}-${mm}-${dd}`;
         }
+
         const text = String(value).trim();
-        const m1 = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (m1) return text;
-        const m2 = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if (m2) return `${m2[3]}-${String(m2[2]).padStart(2, '0')}-${String(m2[1]).padStart(2, '0')}`;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+
+        const m = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m) {
+            const dd = String(m[1]).padStart(2, '0');
+            const mm = String(m[2]).padStart(2, '0');
+            return `${m[3]}-${mm}-${dd}`;
+        }
+
         return '';
     }
 
-    function mapHeaders(row) {
-        return row.map(v => String(v || '').trim().toLowerCase());
+    function normalizeHeader(value) {
+        return String(value || '').trim().toLowerCase();
     }
 
-    function getIndex(headers, aliases) {
-        for (let i = 0; i < headers.length; i++) {
-            if (aliases.includes(headers[i])) return i;
+    function findDefaultHeaderIndex(aliases) {
+        for (let i = 0; i < rawHeaders.length; i++) {
+            if (aliases.includes(normalizeHeader(rawHeaders[i]))) {
+                return i;
+            }
         }
         return -1;
     }
@@ -191,7 +234,7 @@ require_once __DIR__.'/../../layout/header.php';
         }
 
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
@@ -202,34 +245,94 @@ require_once __DIR__.'/../../layout/header.php';
                 return;
             }
 
-            const headers = mapHeaders(rows[0]);
-            const idxSbd = getIndex(headers, ['sbd', 'mahs', 'mã hs', 'mã học sinh']);
-            const idxHoten = getIndex(headers, ['hoten', 'họ tên', 'ho ten', 'fullname']);
-            const idxNgaySinh = getIndex(headers, ['ngaysinh', 'ngày sinh', 'dob']);
-            const idxLop = getIndex(headers, ['lop', 'lớp', 'malop', 'mã lớp']);
-            const idxTruong = getIndex(headers, ['truong', 'trường', 'school']);
-
-            if (idxSbd < 0 || idxHoten < 0) {
-                alert('Không tìm thấy cột bắt buộc: sbd và hoten.');
-                return;
-            }
-
-            normalizedRows = rows.slice(1).map(function(r) {
-                return {
-                    sbd: String(r[idxSbd] || '').trim(),
-                    hoten: String(r[idxHoten] || '').trim(),
-                    ngaysinh: idxNgaySinh >= 0 ? normalizeDate(r[idxNgaySinh]) : '',
-                    lop: idxLop >= 0 ? String(r[idxLop] || '').trim() : '',
-                    truong: idxTruong >= 0 ? String(r[idxTruong] || '').trim() : ''
-                };
-            }).filter(function(r) {
-                return r.sbd !== '' && r.hoten !== '';
+            rawHeaders = rows[0].map(function (v, idx) {
+                const text = String(v || '').trim();
+                return text !== '' ? text : `Cột ${idx + 1}`;
             });
+            rawRows = rows.slice(1);
+            normalizedRows = [];
 
+            buildMappingUI();
+            document.getElementById('mappingCard').style.display = 'block';
+            document.getElementById('saveBtn').disabled = true;
             renderPreview();
         };
 
         reader.readAsArrayBuffer(file);
+    }
+
+    function buildMappingUI() {
+        const container = document.getElementById('mappingFields');
+        container.innerHTML = '';
+
+        fieldDefs.forEach(function (field) {
+            const wrap = document.createElement('div');
+            wrap.className = 'mapping-item';
+
+            const label = document.createElement('label');
+            label.textContent = field.label;
+
+            const select = document.createElement('select');
+            select.id = 'map_' + field.key;
+
+            const emptyOpt = document.createElement('option');
+            emptyOpt.value = '';
+            emptyOpt.textContent = '-- Không chọn --';
+            select.appendChild(emptyOpt);
+
+            rawHeaders.forEach(function (headerName, index) {
+                const option = document.createElement('option');
+                option.value = String(index);
+                option.textContent = headerName;
+                select.appendChild(option);
+            });
+
+            const defaultIdx = findDefaultHeaderIndex(field.aliases);
+            if (defaultIdx >= 0) {
+                select.value = String(defaultIdx);
+            }
+
+            wrap.appendChild(label);
+            wrap.appendChild(select);
+            container.appendChild(wrap);
+        });
+    }
+
+    function applyMapping() {
+        if (!rawRows.length) {
+            alert('Chưa có dữ liệu từ Excel.');
+            return;
+        }
+
+        const map = {};
+        fieldDefs.forEach(function (field) {
+            const val = document.getElementById('map_' + field.key).value;
+            map[field.key] = val === '' ? -1 : parseInt(val, 10);
+        });
+
+        if (map.sbd < 0 || map.hoten < 0) {
+            alert('Bạn phải mapping ít nhất 2 cột bắt buộc: SBD và Họ tên.');
+            return;
+        }
+
+        normalizedRows = rawRows.map(function (row) {
+            return {
+                sbd: map.sbd >= 0 ? String(row[map.sbd] || '').trim() : '',
+                hoten: map.hoten >= 0 ? String(row[map.hoten] || '').trim() : '',
+                ngaysinh: map.ngaysinh >= 0 ? normalizeDate(row[map.ngaysinh]) : '',
+                lop: map.lop >= 0 ? String(row[map.lop] || '').trim() : '',
+                truong: map.truong >= 0 ? String(row[map.truong] || '').trim() : ''
+            };
+        }).filter(function (item) {
+            return item.sbd !== '' && item.hoten !== '';
+        });
+
+        renderPreview();
+        document.getElementById('saveBtn').disabled = normalizedRows.length === 0;
+
+        if (!normalizedRows.length) {
+            alert('Không có dòng hợp lệ sau mapping. Vui lòng kiểm tra lại.');
+        }
     }
 
     function renderPreview() {
@@ -237,11 +340,11 @@ require_once __DIR__.'/../../layout/header.php';
         tbody.innerHTML = '';
 
         if (!normalizedRows.length) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Không có dòng hợp lệ.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Chưa có dữ liệu hợp lệ để hiển thị.</td></tr>';
             return;
         }
 
-        normalizedRows.slice(0, 300).forEach(function(row) {
+        normalizedRows.slice(0, 300).forEach(function (row) {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${escapeHtml(row.sbd)}</td><td>${escapeHtml(row.hoten)}</td><td>${escapeHtml(row.ngaysinh)}</td><td>${escapeHtml(row.lop)}</td><td>${escapeHtml(row.truong)}</td>`;
             tbody.appendChild(tr);
@@ -250,9 +353,10 @@ require_once __DIR__.'/../../layout/header.php';
 
     function beforeSubmit() {
         if (!normalizedRows.length) {
-            alert('Chưa có dữ liệu để import.');
+            alert('Chưa có dữ liệu để lưu.');
             return false;
         }
+
         document.getElementById('rowsJson').value = JSON.stringify(normalizedRows);
         return confirm(`Xác nhận import ${normalizedRows.length} học sinh vào cơ sở dữ liệu?`);
     }
