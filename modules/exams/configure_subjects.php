@@ -157,40 +157,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // Duplicate rule (exam_id, subject_id, khoi, scope)
-            $existsStmt = $pdo->prepare('SELECT id FROM exam_subject_config WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi AND scope_mode = :scope_mode LIMIT 1');
-            $existsStmt->execute([
+            // Duplicate rule: only reject when new config is identical 100% to existing config
+            $findExistingStmt = $pdo->prepare('SELECT id, scope_mode FROM exam_subject_config WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi LIMIT 1');
+            $findExistingStmt->execute([
                 ':exam_id' => $examId,
                 ':subject_id' => $subjectId,
                 ':khoi' => $khoi,
-                ':scope_mode' => $scopeMode,
             ]);
-            if ($existsStmt->fetch(PDO::FETCH_ASSOC)) {
-                throw new RuntimeException('Cấu hình đã tồn tại cho tổ hợp kỳ thi + môn + khối + phạm vi.');
+            $existingCfg = $findExistingStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+            $newClassesForCompare = $selectedClasses;
+            sort($newClassesForCompare);
+            $newScopeSignature = $scopeMode === 'specific_classes'
+                ? 'specific_classes|' . implode(',', $newClassesForCompare)
+                : 'entire_grade';
+
+            $isUpdate = false;
+            $existingConfigId = 0;
+            if (is_array($existingCfg)) {
+                $existingConfigId = (int) ($existingCfg['id'] ?? 0);
+                $existingScopeMode = (string) ($existingCfg['scope_mode'] ?? 'entire_grade');
+                $oldScopeSignature = 'entire_grade';
+
+                if ($existingScopeMode === 'specific_classes') {
+                    $oldClassStmt = $pdo->prepare('SELECT lop FROM exam_subject_classes WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi ORDER BY lop');
+                    $oldClassStmt->execute([
+                        ':exam_id' => $examId,
+                        ':subject_id' => $subjectId,
+                        ':khoi' => $khoi,
+                    ]);
+                    $oldClasses = array_map(static fn(array $r): string => (string) $r['lop'], $oldClassStmt->fetchAll(PDO::FETCH_ASSOC));
+                    $oldScopeSignature = 'specific_classes|' . implode(',', $oldClasses);
+                }
+
+                if ($oldScopeSignature === $newScopeSignature) {
+                    throw new RuntimeException('Cấu hình đã tồn tại 100% cho kỳ thi + môn + khối + phạm vi.');
+                }
+
+                // Existing config differs at least one factor (including scope detail) => accept by updating.
+                $isUpdate = true;
             }
 
             $pdo->beginTransaction();
-            $insertCfg = $pdo->prepare('INSERT INTO exam_subject_config (
-                    exam_id, subject_id, khoi, hinh_thuc_thi, component_count, weight_1, weight_2, scope_mode,
-                    tong_diem, diem_tu_luan, diem_trac_nghiem, diem_noi
-                ) VALUES (
-                    :exam_id, :subject_id, :khoi, :hinh_thuc_thi, :component_count, :weight_1, :weight_2, :scope_mode,
-                    :tong_diem, :diem_tu_luan, :diem_trac_nghiem, :diem_noi
-                )');
-            $insertCfg->execute([
-                ':exam_id' => $examId,
-                ':subject_id' => $subjectId,
-                ':khoi' => $khoi,
-                ':hinh_thuc_thi' => $hinhThucThi,
-                ':component_count' => $componentCount,
-                ':weight_1' => $componentCount >= 1 ? $diemTuLuan : null,
-                ':weight_2' => $componentCount >= 2 ? $diemTracNghiem : null,
-                ':scope_mode' => $scopeMode,
-                ':tong_diem' => $tongDiem,
-                ':diem_tu_luan' => $componentCount >= 1 ? $diemTuLuan : null,
-                ':diem_trac_nghiem' => $componentCount >= 2 ? $diemTracNghiem : null,
-                ':diem_noi' => $componentCount >= 3 ? $diemNoi : null,
-            ]);
+            if ($isUpdate) {
+                $updateCfg = $pdo->prepare('UPDATE exam_subject_config
+                    SET hinh_thuc_thi = :hinh_thuc_thi,
+                        component_count = :component_count,
+                        weight_1 = :weight_1,
+                        weight_2 = :weight_2,
+                        scope_mode = :scope_mode,
+                        tong_diem = :tong_diem,
+                        diem_tu_luan = :diem_tu_luan,
+                        diem_trac_nghiem = :diem_trac_nghiem,
+                        diem_noi = :diem_noi
+                    WHERE id = :id AND exam_id = :exam_id');
+                $updateCfg->execute([
+                    ':id' => $existingConfigId,
+                    ':exam_id' => $examId,
+                    ':hinh_thuc_thi' => $hinhThucThi,
+                    ':component_count' => $componentCount,
+                    ':weight_1' => $componentCount >= 1 ? $diemTuLuan : null,
+                    ':weight_2' => $componentCount >= 2 ? $diemTracNghiem : null,
+                    ':scope_mode' => $scopeMode,
+                    ':tong_diem' => $tongDiem,
+                    ':diem_tu_luan' => $componentCount >= 1 ? $diemTuLuan : null,
+                    ':diem_trac_nghiem' => $componentCount >= 2 ? $diemTracNghiem : null,
+                    ':diem_noi' => $componentCount >= 3 ? $diemNoi : null,
+                ]);
+
+                $delOldClass = $pdo->prepare('DELETE FROM exam_subject_classes WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
+                $delOldClass->execute([
+                    ':exam_id' => $examId,
+                    ':subject_id' => $subjectId,
+                    ':khoi' => $khoi,
+                ]);
+            } else {
+                $insertCfg = $pdo->prepare('INSERT INTO exam_subject_config (
+                        exam_id, subject_id, khoi, hinh_thuc_thi, component_count, weight_1, weight_2, scope_mode,
+                        tong_diem, diem_tu_luan, diem_trac_nghiem, diem_noi
+                    ) VALUES (
+                        :exam_id, :subject_id, :khoi, :hinh_thuc_thi, :component_count, :weight_1, :weight_2, :scope_mode,
+                        :tong_diem, :diem_tu_luan, :diem_trac_nghiem, :diem_noi
+                    )');
+                $insertCfg->execute([
+                    ':exam_id' => $examId,
+                    ':subject_id' => $subjectId,
+                    ':khoi' => $khoi,
+                    ':hinh_thuc_thi' => $hinhThucThi,
+                    ':component_count' => $componentCount,
+                    ':weight_1' => $componentCount >= 1 ? $diemTuLuan : null,
+                    ':weight_2' => $componentCount >= 2 ? $diemTracNghiem : null,
+                    ':scope_mode' => $scopeMode,
+                    ':tong_diem' => $tongDiem,
+                    ':diem_tu_luan' => $componentCount >= 1 ? $diemTuLuan : null,
+                    ':diem_trac_nghiem' => $componentCount >= 2 ? $diemTracNghiem : null,
+                    ':diem_noi' => $componentCount >= 3 ? $diemNoi : null,
+                ]);
+            }
 
             if ($scopeMode === 'specific_classes') {
                 $insClass = $pdo->prepare('INSERT INTO exam_subject_classes (exam_id, subject_id, khoi, lop) VALUES (:exam_id, :subject_id, :khoi, :lop)');
@@ -205,7 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $pdo->commit();
-            exams_set_flash('success', 'Đã lưu cấu hình môn học theo khối.');
+            exams_set_flash('success', $isUpdate ? 'Đã cập nhật cấu hình môn học theo khối.' : 'Đã lưu cấu hình môn học theo khối.');
         }
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
