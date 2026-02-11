@@ -208,7 +208,7 @@ function addStudentToRoom(PDO $pdo, int $examId, int $subjectId, string $khoi, i
     $dup = $pdo->prepare('SELECT COUNT(*) FROM exam_students WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id = :subject_id');
     $dup->execute([':exam_id' => $examId, ':student_id' => $studentId, ':subject_id' => $subjectId]);
     if ((int) $dup->fetchColumn() > 0) {
-        throw new RuntimeException('Thí sinh đã có trong môn thi này.');
+        throw new RuntimeException('Học sinh đã tồn tại trong kỳ thi này.');
     }
 
     $baseStmt = $pdo->prepare('SELECT khoi, lop, sbd FROM exam_students WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL LIMIT 1');
@@ -223,6 +223,11 @@ function addStudentToRoom(PDO $pdo, int $examId, int $subjectId, string $khoi, i
         $studentKhoi = (string) ($base['khoi'] ?? '');
         $studentLop = (string) ($base['lop'] ?? '');
         $sbd = (string) ($base['sbd'] ?? '');
+        if ($sbd === '') {
+            $sbd = generateNextSBD($pdo, $examId);
+            $upBase = $pdo->prepare('UPDATE exam_students SET sbd = :sbd WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL AND sbd IS NULL');
+            $upBase->execute([':sbd' => $sbd, ':exam_id' => $examId, ':student_id' => $studentId]);
+        }
     } else {
         $studentStmt = $pdo->prepare('SELECT lop FROM students WHERE id = :id LIMIT 1');
         $studentStmt->execute([':id' => $studentId]);
@@ -234,10 +239,7 @@ function addStudentToRoom(PDO $pdo, int $examId, int $subjectId, string $khoi, i
         $studentKhoi = detectGradeFromClassName($lop) ?? $khoi;
         $studentLop = $lop;
 
-        $maxStmt = $pdo->prepare('SELECT MAX(CAST(substr(sbd, -4) AS INTEGER)) FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND khoi = :khoi AND sbd IS NOT NULL AND sbd <> ""');
-        $maxStmt->execute([':exam_id' => $examId, ':khoi' => $studentKhoi]);
-        $next = ((int) $maxStmt->fetchColumn()) + 1;
-        $sbd = generateExamSBD($examId, $studentKhoi, max(1, $next));
+        $sbd = generateNextSBD($pdo, $examId);
 
         $insBase = $pdo->prepare('INSERT INTO exam_students (exam_id, student_id, subject_id, khoi, lop, room_id, sbd) VALUES (:exam_id, :student_id, NULL, :khoi, :lop, NULL, :sbd)');
         $insBase->execute([

@@ -21,7 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $baseStudentsStmt = $pdo->prepare('SELECT id, student_id, khoi FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL ORDER BY student_id');
+        $duplicateRows = checkDuplicateSBD($pdo, $examId);
+        if (!empty($duplicateRows)) {
+            exams_set_flash('error', 'Phát hiện trùng SBD. Vui lòng xử lý trước khi sinh SBD mới.');
+            header('Location: generate_sbd.php?exam_id=' . $examId);
+            exit;
+        }
+
+        $baseStudentsStmt = $pdo->prepare('SELECT id FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL ORDER BY student_id');
         $baseStudentsStmt->execute([':exam_id' => $examId]);
         $rows = $baseStudentsStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -32,25 +39,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $pdo->beginTransaction();
-        $running = 1;
-        $updateBase = $pdo->prepare('UPDATE exam_students SET sbd = :sbd WHERE id = :id');
-
+        $updateBase = $pdo->prepare('UPDATE exam_students SET sbd = :sbd WHERE id = :id AND sbd IS NULL');
+        $generated = 0;
         foreach ($rows as $row) {
-            $grade = (string) ($row['khoi'] ?? '0');
-            $sbd = generateExamSBD($examId, $grade, $running);
+            $sbd = generateNextSBD($pdo, $examId);
             $updateBase->execute([':sbd' => $sbd, ':id' => (int) $row['id']]);
-            $running++;
+            if ($updateBase->rowCount() > 0) {
+                $generated++;
+            }
         }
 
-        $syncSubjectRows = $pdo->prepare('UPDATE exam_students SET sbd = (
-            SELECT b.sbd FROM exam_students b
-            WHERE b.exam_id = exam_students.exam_id AND b.student_id = exam_students.student_id AND b.subject_id IS NULL
-            LIMIT 1
-        ) WHERE exam_id = :exam_id AND subject_id IS NOT NULL');
+        $syncSubjectRows = $pdo->prepare('UPDATE exam_students
+            SET sbd = (
+                SELECT b.sbd FROM exam_students b
+                WHERE b.exam_id = exam_students.exam_id
+                  AND b.student_id = exam_students.student_id
+                  AND b.subject_id IS NULL
+                LIMIT 1
+            )
+            WHERE exam_id = :exam_id
+              AND subject_id IS NOT NULL
+              AND sbd IS NULL');
         $syncSubjectRows->execute([':exam_id' => $examId]);
 
         $pdo->commit();
-        exams_set_flash('success', 'Đã sinh SBD cho ' . count($rows) . ' học sinh.');
+        exams_set_flash('success', 'Đã sinh SBD mới cho ' . $generated . ' học sinh chưa có SBD.');
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -106,6 +119,12 @@ require_once __DIR__.'/../../layout/header.php';
                         <?php foreach ($wizard as $index => $step): ?>
                             <span class="badge <?= $step['done'] ? 'bg-success' : 'bg-secondary' ?> me-1">B<?= $index ?>: <?= htmlspecialchars($step['label'], ENT_QUOTES, 'UTF-8') ?></span>
                         <?php endforeach; ?>
+                    </div>
+
+
+                    <div class="mb-3 d-flex gap-2">
+                        <a class="btn btn-outline-warning btn-sm" href="check_duplicates.php?exam_id=<?= $examId ?>">Kiểm tra SBD trùng</a>
+                        <a class="btn btn-outline-secondary btn-sm" href="export_duplicates.php?exam_id=<?= $examId ?>">Xuất CSV lỗi SBD</a>
                     </div>
 
                     <form method="post" class="mb-3">

@@ -68,7 +68,11 @@ function exams_init_schema(PDO $pdo): void
         UNIQUE(exam_config_id, lop)
     )');
 
-    $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_sbd_unique ON exam_students(exam_id, sbd)');
+    $pdo->exec('DROP INDEX IF EXISTS idx_exam_sbd_unique');
+    $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_sbd_unique_base ON exam_students(exam_id, sbd) WHERE subject_id IS NULL AND sbd IS NOT NULL');
+
+    // Ensure one base exam row per student per exam (subject_id IS NULL)
+    $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_student_base_unique ON exam_students(exam_id, student_id) WHERE subject_id IS NULL');
 
     // Migration: allow multiple config rows per exam+subject+khoi and scope by class set.
     $cfgSql = (string) ($pdo->query("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'exam_subject_config'")->fetchColumn() ?: '');
@@ -188,6 +192,59 @@ function generateExamSBD(int $examId, string $grade, int $runningNumber): string
     $runPart = str_pad((string) $runningNumber, 4, '0', STR_PAD_LEFT);
 
     return $examId . $gradePart . $runPart;
+}
+
+
+function isSBDExists(PDO $pdo, int $examId, string $sbd): bool
+{
+    $stmt = $pdo->prepare('SELECT 1 FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND sbd = :sbd LIMIT 1');
+    $stmt->execute([':exam_id' => $examId, ':sbd' => $sbd]);
+    return (bool) $stmt->fetchColumn();
+}
+
+function generateNextSBD(PDO $pdo, int $examId): string
+{
+    $maxStmt = $pdo->prepare('SELECT MAX(CAST(sbd AS INTEGER)) FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND sbd IS NOT NULL AND trim(sbd) <> ""');
+    $maxStmt->execute([':exam_id' => $examId]);
+    $maxRaw = $maxStmt->fetchColumn();
+
+    $base = ($examId * 100000) + 1;
+    $next = $maxRaw === null ? $base : ((int) $maxRaw + 1);
+    if ($next < $base) {
+        $next = $base;
+    }
+
+    while (isSBDExists($pdo, $examId, (string) $next)) {
+        $next++;
+    }
+
+    return (string) $next;
+}
+
+/**
+ * @return array<int, array<string,mixed>>
+ */
+function checkDuplicateSBD(PDO $pdo, int $examId): array
+{
+    $dupStmt = $pdo->prepare('SELECT sbd FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND sbd IS NOT NULL AND trim(sbd) <> "" GROUP BY sbd HAVING COUNT(*) > 1');
+    $dupStmt->execute([':exam_id' => $examId]);
+    $dups = array_map(static fn(array $r): string => (string) $r['sbd'], $dupStmt->fetchAll(PDO::FETCH_ASSOC));
+
+    if (empty($dups)) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($dups), '?'));
+    $sql = 'SELECT es.sbd, es.student_id, es.exam_id, es.lop, s.hoten
+            FROM exam_students es
+            LEFT JOIN students s ON s.id = es.student_id
+            WHERE es.exam_id = ? AND es.subject_id IS NULL AND es.sbd IN (' . $placeholders . ')
+            ORDER BY es.sbd, s.hoten';
+    $params = array_merge([$examId], $dups);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 /**

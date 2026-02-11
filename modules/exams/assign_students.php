@@ -73,10 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->beginTransaction();
 
         $selStudent = $pdo->prepare('SELECT id, lop FROM students WHERE id = :id LIMIT 1');
-        $check = $pdo->prepare('SELECT id FROM exam_students WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL LIMIT 1');
+        $check = $pdo->prepare('SELECT id FROM exam_students WHERE exam_id = :exam_id AND student_id = :student_id LIMIT 1');
         $ins = $pdo->prepare('INSERT INTO exam_students (exam_id, student_id, subject_id, khoi, lop, room_id, sbd) VALUES (:exam_id, :student_id, NULL, :khoi, :lop, NULL, NULL)');
 
         $added = 0;
+        $duplicateCount = 0;
         foreach ($studentIds as $studentId) {
             if ($studentId <= 0) {
                 continue;
@@ -84,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $check->execute([':exam_id' => $examId, ':student_id' => $studentId]);
             if ($check->fetch(PDO::FETCH_ASSOC)) {
+                $duplicateCount++;
                 continue;
             }
 
@@ -106,7 +108,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $pdo->commit();
-        exams_set_flash('success', 'Đã thêm ' . $added . ' học sinh vào kỳ thi.');
+        if ($added > 0) {
+            $msg = 'Đã thêm ' . $added . ' học sinh vào kỳ thi.';
+            if ($duplicateCount > 0) {
+                $msg .= ' Bỏ qua ' . $duplicateCount . ' học sinh đã tồn tại trong kỳ thi này.';
+            }
+            exams_set_flash('success', $msg);
+        } else {
+            exams_set_flash('error', 'Học sinh đã tồn tại trong kỳ thi này.');
+        }
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
