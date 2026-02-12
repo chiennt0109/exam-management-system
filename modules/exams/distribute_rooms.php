@@ -815,7 +815,7 @@ require_once __DIR__.'/../../layout/header.php';
                             <form method="get" class="row g-2 mb-3">
                                 <div class="col-12"><small class="text-muted">Chọn môn, nhập khối và bấm <strong>Tinh chỉnh</strong> để mở các chức năng tinh chỉnh phòng thi.</small></div>
                                 <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                                <div class="col-md-5">
+                                <div class="col-md-7">
                                     <label class="form-label">Môn (tinh chỉnh)</label>
                                     <select name="subject_id" id="manualSubjectSelect" class="form-select" required>
                                         <option value="">-- Chọn môn --</option>
@@ -825,7 +825,7 @@ require_once __DIR__.'/../../layout/header.php';
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-5">
                                     <label class="form-label">Khối (tinh chỉnh)</label>
                                     <input name="khoi" id="manualKhoiSelect" class="form-control" list="manualKhoiOptions" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>" placeholder="Nhập khối, ví dụ: 10" required>
                                     <datalist id="manualKhoiOptions">
@@ -834,7 +834,9 @@ require_once __DIR__.'/../../layout/header.php';
                                         <?php endforeach; ?>
                                     </datalist>
                                 </div>
-                                <div class="col-md-2 align-self-end"><button class="btn btn-primary w-100" type="submit">Tinh chỉnh</button></div>
+                                <div class="col-12 d-grid d-md-flex justify-content-md-end">
+                                    <button class="btn btn-primary px-4" type="submit">Tinh chỉnh phòng thi</button>
+                                </div>
                             </form>
 
                             <?php if ($subjectId > 0 && $khoi !== ''): ?>
