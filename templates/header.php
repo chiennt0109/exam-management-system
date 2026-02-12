@@ -3,6 +3,13 @@ require_once __DIR__ . '/../bootstrap.php';
 header('Content-Type: text/html; charset=UTF-8');
 require_once BASE_PATH . '/core/auth.php';
 require_login();
+
+$currentExamInfo = null;
+if (in_array((string) ($_SESSION['user']['role'] ?? ''), ['admin', 'organizer'], true)) {
+    require_once BASE_PATH . '/core/db.php';
+    require_once BASE_PATH . '/modules/exams/exam_context_helper.php';
+    $currentExamInfo = getCurrentExamInfo();
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -47,5 +54,12 @@ require_login();
 <div class="header">
     Xin chào <b><?= $_SESSION['user']['username'] ?></b>
     | Quyền: <b><?= $_SESSION['user']['role'] ?></b>
+    <?php if ($currentExamInfo !== null): ?>
+        | Kỳ thi hiện tại: <b><?= htmlspecialchars((string) $currentExamInfo['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></b>
+        <?php if (($currentExamInfo['distribution_locked'] ?? 0) === 1 || ($currentExamInfo['rooms_locked'] ?? 0) === 1): ?>
+            <span class="badge bg-danger">ĐÃ KHOÁ</span>
+        <?php endif; ?>
+        | <a href="<?= BASE_URL ?>/modules/exams/index.php?change_exam=1" style="color:#fff">Đổi kỳ thi</a>
+    <?php endif; ?>
     | <a href="<?= BASE_URL ?>/logout.php" style="color:#fff">Đăng xuất</a>
 </div>

@@ -5,7 +5,13 @@ require_once __DIR__ . '/../../bootstrap.php';
 require_once BASE_PATH . '/modules/exams/_common.php';
 
 $exams = exams_get_all_exams($pdo);
-$examId = max(0, (int) ($_GET['exam_id'] ?? 0));
+$examId = exams_resolve_current_exam_from_request();
+if ($examId <= 0) {
+    exams_set_flash('warning', 'Vui lòng chọn kỳ thi hiện tại trước khi thao tác.');
+    header('Location: ' . BASE_URL . '/modules/exams/index.php');
+    exit;
+}
+$fixedExamContext = getCurrentExamId() > 0;
 $roomGroups = [];
 
 if ($examId > 0) {
@@ -59,12 +65,12 @@ require_once BASE_PATH . '/layout/header.php';
 
                 <form method="get" class="row g-2 mb-3">
                     <div class="col-md-6">
-                        <select name="exam_id" class="form-select" required>
+                        <?php if ($fixedExamContext): ?><input type="hidden" name="exam_id" value="<?= $examId ?>"><div class="form-control bg-light">#<?= $examId ?> - Kỳ thi hiện tại</div><?php else: ?><select name="exam_id" class="form-select" required>
                             <option value="">-- Chọn kỳ thi --</option>
                             <?php foreach ($exams as $exam): ?>
                                 <option value="<?= (int)$exam['id'] ?>" <?= $examId === (int)$exam['id'] ? 'selected' : '' ?>>#<?= (int)$exam['id'] ?> - <?= htmlspecialchars((string)$exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
-                        </select>
+                        </select><?php endif; ?>
                     </div>
                     <div class="col-md-3"><button class="btn btn-primary" type="submit">Xem danh sách</button></div>
                 </form>

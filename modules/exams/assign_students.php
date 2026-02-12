@@ -6,7 +6,13 @@ require_once BASE_PATH . '/modules/exams/_common.php';
 
 $csrf = exams_get_csrf_token();
 $exams = exams_get_all_exams($pdo);
-$examId = max(0, (int) ($_GET['exam_id'] ?? $_POST['exam_id'] ?? 0));
+$examId = exams_resolve_current_exam_from_request();
+if ($examId <= 0) {
+    exams_set_flash('warning', 'Vui lòng chọn kỳ thi hiện tại trước khi thao tác.');
+    header('Location: ' . BASE_URL . '/modules/exams/index.php');
+    exit;
+}
+$fixedExamContext = getCurrentExamId() > 0;
 $mode = (string) ($_POST['mode'] ?? 'manual');
 $activeTab = (string) ($_GET['tab'] ?? $_POST['tab'] ?? 'manual');
 $searchAssigned = trim((string) ($_GET['q_assigned'] ?? ''));
@@ -44,6 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($examId <= 0) {
         exams_set_flash('error', 'Vui lòng chọn kỳ thi.');
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php');
+        exit;
+    }
+    if (exams_is_locked($pdo, $examId)) {
+        exams_set_flash('error', 'Kỳ thi đã khoá phân phòng, không thể chỉnh sửa danh sách học sinh.');
         header('Location: ' . BASE_URL . '/modules/exams/assign_students.php');
         exit;
     }
@@ -245,12 +256,12 @@ require_once BASE_PATH . '/layout/header.php';
                 <form method="get" class="row g-2 mb-3">
                     <div class="col-md-6">
                         <label class="form-label">Kỳ thi</label>
-                        <select name="exam_id" class="form-select" required>
+                        <?php if ($fixedExamContext): ?><input type="hidden" name="exam_id" value="<?= $examId ?>"><div class="form-control bg-light">#<?= $examId ?> - Kỳ thi hiện tại</div><?php else: ?><select name="exam_id" class="form-select" required>
                             <option value="">-- Chọn kỳ thi --</option>
                             <?php foreach ($exams as $exam): ?>
                                 <option value="<?= (int) $exam['id'] ?>" <?= $examId === (int) $exam['id'] ? 'selected' : '' ?>>#<?= (int) $exam['id'] ?> - <?= htmlspecialchars((string) $exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars((string) $exam['nam'], ENT_QUOTES, 'UTF-8') ?>)</option>
                             <?php endforeach; ?>
-                        </select>
+                        </select><?php endif; ?>
                     </div>
                     <div class="col-md-3 align-self-end"><button class="btn btn-primary" type="submit">Tải dữ liệu</button></div>
                 </form>

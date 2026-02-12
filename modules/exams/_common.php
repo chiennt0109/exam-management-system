@@ -6,6 +6,7 @@ require_once BASE_PATH . '/core/auth.php';
 require_login();
 require_role(['admin', 'organizer']);
 require_once BASE_PATH . '/core/db.php';
+require_once BASE_PATH . '/modules/exams/exam_context_helper.php';
 
 const EXAM_ALLOWED_ROLES = ['admin', 'organizer'];
 const REMAINDER_KEEP_SMALL = 'keep_small';
@@ -176,6 +177,52 @@ function exams_display_flash(): string
     $class = $map[$flash['type'] ?? 'info'] ?? 'alert-info';
 
     return '<div class="alert ' . $class . '">' . htmlspecialchars((string) ($flash['message'] ?? ''), ENT_QUOTES, 'UTF-8') . '</div>';
+}
+
+function exams_resolve_current_exam_from_request(): int
+{
+    $current = getCurrentExamId();
+    if ($current > 0) {
+        return $current;
+    }
+
+    $candidate = max(0, (int) ($_GET['exam_id'] ?? $_POST['exam_id'] ?? 0));
+    if ($candidate > 0) {
+        setCurrentExam($candidate);
+        exams_set_flash('success', 'Đã chọn kỳ thi hiện tại.');
+        return $candidate;
+    }
+
+    return 0;
+}
+
+function exams_require_current_exam_or_redirect(string $redirect = '/modules/exams/index.php'): int
+{
+    $examId = exams_resolve_current_exam_from_request();
+    if ($examId > 0) {
+        return $examId;
+    }
+    exams_set_flash('warning', 'Vui lòng chọn kỳ thi hiện tại trước khi thao tác.');
+    header('Location: ' . BASE_URL . $redirect);
+    exit;
+}
+
+function exams_is_locked(PDO $pdo, int $examId): bool
+{
+    if ($examId <= 0) {
+        return false;
+    }
+    $cols = array_column($pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('distribution_locked', $cols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN distribution_locked INTEGER DEFAULT 0');
+    }
+    if (!in_array('rooms_locked', $cols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN rooms_locked INTEGER DEFAULT 0');
+    }
+    $stmt = $pdo->prepare('SELECT distribution_locked, rooms_locked FROM exams WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $examId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    return ((int) ($row['distribution_locked'] ?? 0)) === 1 || ((int) ($row['rooms_locked'] ?? 0)) === 1;
 }
 
 function detectGradeFromClassName(string $className): ?string

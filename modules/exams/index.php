@@ -6,6 +6,14 @@ require_once BASE_PATH . '/modules/exams/_common.php';
 
 $csrf = exams_get_csrf_token();
 $errors = [];
+$currentExamId = getCurrentExamId();
+
+if (isset($_GET['change_exam']) && $_GET['change_exam'] === '1') {
+    clearCurrentExam();
+    exams_set_flash('info', 'Đã xoá kỳ thi hiện tại. Vui lòng chọn kỳ thi mới.');
+    header('Location: ' . BASE_URL . '/modules/exams/index.php');
+    exit;
+}
 
 $columns = $pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::FETCH_ASSOC);
 $hasTrangThai = false;
@@ -29,6 +37,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $action = (string) ($_POST['action'] ?? 'create');
+
+    if (empty($errors) && $action === 'set_current_exam') {
+        $selectedExamId = max(0, (int) ($_POST['exam_id'] ?? 0));
+        try {
+            setCurrentExam($selectedExamId);
+            exams_set_flash('success', 'Đã chọn kỳ thi hiện tại.');
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php');
+            exit;
+        } catch (Throwable $e) {
+            $errors[] = 'Không thể chọn kỳ thi hiện tại.';
+        }
+    }
+
+    if (empty($errors) && $action === 'clear_current_exam') {
+        clearCurrentExam();
+        exams_set_flash('info', 'Đã xoá kỳ thi hiện tại.');
+        header('Location: ' . BASE_URL . '/modules/exams/index.php');
+        exit;
+    }
 
     if (empty($errors) && $action === 'create') {
         $tenKyThi = trim((string) ($_POST['ten_ky_thi'] ?? ''));
@@ -122,6 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $selectTrangThai = $hasTrangThai ? ', trang_thai' : '';
 $exams = $pdo->query('SELECT id, ten_ky_thi, nam, ngay_thi, deleted_at' . $selectTrangThai . ' FROM exams ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+$currentExamId = getCurrentExamId();
 
 require_once BASE_PATH . '/layout/header.php';
 ?>
@@ -137,6 +165,29 @@ require_once BASE_PATH . '/layout/header.php';
                 <?php if (!empty($errors)): ?>
                     <div class="alert alert-danger"><ul class="mb-0"><?php foreach ($errors as $e): ?><li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div>
                 <?php endif; ?>
+
+                <form method="post" class="row g-2 mb-3">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                    <?php if ($currentExamId > 0): ?>
+                        <input type="hidden" name="action" value="clear_current_exam">
+                        <div class="col-12">
+                            <button class="btn btn-outline-secondary btn-sm" type="submit">Đổi kỳ thi</button>
+                        </div>
+                    <?php else: ?>
+                        <input type="hidden" name="action" value="set_current_exam">
+                        <div class="col-md-8">
+                            <label class="form-label">Chọn kỳ thi hiện tại</label>
+                            <select class="form-select" name="exam_id" required>
+                                <option value="">-- Chọn kỳ thi --</option>
+                                <?php foreach ($exams as $exam): ?>
+                                    <?php if (!empty($exam['deleted_at'])) { continue; } ?>
+                                    <option value="<?= (int) $exam['id'] ?>">#<?= (int) $exam['id'] ?> - <?= htmlspecialchars((string) $exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4 align-self-end"><button class="btn btn-primary" type="submit">Dùng kỳ thi này</button></div>
+                    <?php endif; ?>
+                </form>
 
                 <form method="post" class="row g-2">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
@@ -171,11 +222,19 @@ require_once BASE_PATH . '/layout/header.php';
                                     <?php if ($isDeleted): ?><span class="badge bg-warning text-dark ms-1">đã xóa tạm</span><?php endif; ?>
                                 </td>
                                 <td class="d-flex flex-wrap gap-1">
-                                    <a class="btn btn-sm btn-outline-primary" href="assign_students.php?exam_id=<?= (int) $exam['id'] ?>">B2</a>
-                                    <a class="btn btn-sm btn-outline-primary" href="generate_sbd.php?exam_id=<?= (int) $exam['id'] ?>">B3</a>
-                                    <a class="btn btn-sm btn-outline-primary" href="configure_subjects.php?exam_id=<?= (int) $exam['id'] ?>">B4</a>
-                                    <a class="btn btn-sm btn-outline-primary" href="distribute_rooms.php?exam_id=<?= (int) $exam['id'] ?>">B5</a>
-                                    <a class="btn btn-sm btn-outline-primary" href="print_rooms.php?exam_id=<?= (int) $exam['id'] ?>">B6</a>
+                                    <form method="post" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                        <input type="hidden" name="action" value="set_current_exam">
+                                        <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                        <button class="btn btn-sm <?= $currentExamId === (int) $exam['id'] ? 'btn-success' : 'btn-outline-success' ?>" type="submit">Chọn kỳ thi</button>
+                                    </form>
+                                    <?php if ($currentExamId === (int) $exam['id']): ?>
+                                        <a class="btn btn-sm btn-outline-primary" href="assign_students.php">B2</a>
+                                        <a class="btn btn-sm btn-outline-primary" href="generate_sbd.php">B3</a>
+                                        <a class="btn btn-sm btn-outline-primary" href="configure_subjects.php">B4</a>
+                                        <a class="btn btn-sm btn-outline-primary" href="distribute_rooms.php">B5</a>
+                                        <a class="btn btn-sm btn-outline-primary" href="print_rooms.php">B6</a>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <div class="d-flex flex-column gap-1">

@@ -21,7 +21,13 @@ foreach ($addColumns as $col => $type) {
 $csrf = exams_get_csrf_token();
 $exams = exams_get_all_exams($pdo);
 $subjects = $pdo->query('SELECT id, ma_mon, ten_mon FROM subjects ORDER BY ten_mon')->fetchAll(PDO::FETCH_ASSOC);
-$examId = max(0, (int) ($_GET['exam_id'] ?? $_POST['exam_id'] ?? 0));
+$examId = exams_resolve_current_exam_from_request();
+if ($examId <= 0) {
+    exams_set_flash('warning', 'Vui lòng chọn kỳ thi hiện tại trước khi thao tác.');
+    header('Location: ' . BASE_URL . '/modules/exams/index.php');
+    exit;
+}
+$fixedExamContext = getCurrentExamId() > 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
@@ -32,6 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($examId <= 0) {
         exams_set_flash('error', 'Vui lòng chọn kỳ thi.');
+        header('Location: ' . BASE_URL . '/modules/exams/configure_subjects.php');
+        exit;
+    }
+    if (exams_is_locked($pdo, $examId)) {
+        exams_set_flash('error', 'Kỳ thi đã khoá phân phòng, không thể sửa cấu hình môn.');
         header('Location: ' . BASE_URL . '/modules/exams/configure_subjects.php');
         exit;
     }
@@ -283,12 +294,12 @@ require_once BASE_PATH . '/layout/header.php';
 
                 <form method="get" class="row g-2 mb-3">
                     <div class="col-md-6">
-                        <select name="exam_id" class="form-select" required>
+                        <?php if ($fixedExamContext): ?><input type="hidden" name="exam_id" value="<?= $examId ?>"><div class="form-control bg-light">#<?= $examId ?> - Kỳ thi hiện tại</div><?php else: ?><select name="exam_id" class="form-select" required>
                             <option value="">-- Chọn kỳ thi --</option>
                             <?php foreach ($exams as $exam): ?>
                                 <option value="<?= (int) $exam['id'] ?>" <?= $examId === (int) $exam['id'] ? 'selected' : '' ?>>#<?= (int) $exam['id'] ?> - <?= htmlspecialchars((string)$exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
-                        </select>
+                        </select><?php endif; ?>
                     </div>
                     <div class="col-md-3"><button class="btn btn-primary" type="submit">Tải dữ liệu</button></div>
                 </form>
