@@ -7,6 +7,43 @@ $csrf = exams_get_csrf_token();
 $exams = exams_get_all_exams($pdo);
 $examId = max(0, (int) ($_GET['exam_id'] ?? $_POST['exam_id'] ?? 0));
 
+function sbdSortNameKey(string $fullName): string
+{
+    $name = trim($fullName);
+    if ($name == '') {
+        return '';
+    }
+
+    $parts = preg_split('/\s+/u', $name) ?: [];
+    $last = (string) end($parts);
+    $lastLower = function_exists('mb_strtolower') ? mb_strtolower($last, 'UTF-8') : strtolower($last);
+    $fullLower = function_exists('mb_strtolower') ? mb_strtolower($name, 'UTF-8') : strtolower($name);
+
+    return $lastLower . '|' . $fullLower;
+}
+
+/**
+ * Trả về khóa khối để gom toàn bộ khối 10_* vào nhóm 10, khối 11_* vào nhóm 11...
+ *
+ * @return array{known:int, num:int, text:string}
+ */
+function sbdGradeGroupKey(string $khoi): array
+{
+    $raw = trim($khoi);
+    if ($raw === '') {
+        return ['known' => 0, 'num' => PHP_INT_MAX, 'text' => ''];
+    }
+
+    if (preg_match('/^(\d{1,2})/u', $raw, $m) === 1) {
+        return ['known' => 1, 'num' => (int) $m[1], 'text' => $m[1]];
+    }
+
+    $firstToken = preg_split('/[_\s-]+/u', $raw)[0] ?? $raw;
+    $firstLower = function_exists('mb_strtolower') ? mb_strtolower($firstToken, 'UTF-8') : strtolower($firstToken);
+
+    return ['known' => 1, 'num' => PHP_INT_MAX - 1, 'text' => $firstLower];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         exams_set_flash('error', 'CSRF token không hợp lệ.');
@@ -21,9 +58,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $baseStudentsStmt = $pdo->prepare('SELECT id, student_id, khoi FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL ORDER BY student_id');
+        $duplicateRows = checkDuplicateSBD($pdo, $examId);
+        if (!empty($duplicateRows)) {
+            exams_set_flash('error', 'Phát hiện trùng SBD. Vui lòng xử lý trước khi sinh SBD mới.');
+            header('Location: generate_sbd.php?exam_id=' . $examId);
+            exit;
+        }
+
+        $baseStudentsStmt = $pdo->prepare('SELECT es.id, es.khoi, s.hoten FROM exam_students es INNER JOIN students s ON s.id = es.student_id WHERE es.exam_id = :exam_id AND es.subject_id IS NULL');
         $baseStudentsStmt->execute([':exam_id' => $examId]);
         $rows = $baseStudentsStmt->fetchAll(PDO::FETCH_ASSOC);
+        usort($rows, static function (array $a, array $b): int {
+            $ga = sbdGradeGroupKey((string) ($a['khoi'] ?? ''));
+            $gb = sbdGradeGroupKey((string) ($b['khoi'] ?? ''));
+
+            $cmpKnown = $gb['known'] <=> $ga['known'];
+            if ($cmpKnown !== 0) {
+                return $cmpKnown;
+            }
+
+            $cmpGrade = $ga['num'] <=> $gb['num'];
+            if ($cmpGrade !== 0) {
+                return $cmpGrade;
+            }
+
+            $cmpText = $ga['text'] <=> $gb['text'];
+            if ($cmpText !== 0) {
+                return $cmpText;
+            }
+
+            $ka = sbdSortNameKey((string) ($a['hoten'] ?? ''));
+            $kb = sbdSortNameKey((string) ($b['hoten'] ?? ''));
+            if ($ka !== $kb) {
+                return $ka <=> $kb;
+            }
+
+            return ((int) ($a['id'] ?? 0)) <=> ((int) ($b['id'] ?? 0));
+        });
 
         if (empty($rows)) {
             exams_set_flash('warning', 'Chưa có học sinh gán cho kỳ thi.');
@@ -32,25 +103,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $pdo->beginTransaction();
-        $running = 1;
-        $updateBase = $pdo->prepare('UPDATE exam_students SET sbd = :sbd WHERE id = :id');
-
+        $updateBase = $pdo->prepare('UPDATE exam_students SET sbd = :sbd WHERE id = :id AND sbd IS NULL');
+        $generated = 0;
         foreach ($rows as $row) {
-            $grade = (string) ($row['khoi'] ?? '0');
-            $sbd = generateExamSBD($examId, $grade, $running);
+            $sbd = generateNextSBD($pdo, $examId);
             $updateBase->execute([':sbd' => $sbd, ':id' => (int) $row['id']]);
-            $running++;
+            if ($updateBase->rowCount() > 0) {
+                $generated++;
+            }
         }
 
-        $syncSubjectRows = $pdo->prepare('UPDATE exam_students SET sbd = (
-            SELECT b.sbd FROM exam_students b
-            WHERE b.exam_id = exam_students.exam_id AND b.student_id = exam_students.student_id AND b.subject_id IS NULL
-            LIMIT 1
-        ) WHERE exam_id = :exam_id AND subject_id IS NOT NULL');
+        $syncSubjectRows = $pdo->prepare('UPDATE exam_students
+            SET sbd = (
+                SELECT b.sbd FROM exam_students b
+                WHERE b.exam_id = exam_students.exam_id
+                  AND b.student_id = exam_students.student_id
+                  AND b.subject_id IS NULL
+                LIMIT 1
+            )
+            WHERE exam_id = :exam_id
+              AND subject_id IS NOT NULL
+              AND sbd IS NULL');
         $syncSubjectRows->execute([':exam_id' => $examId]);
 
         $pdo->commit();
-        exams_set_flash('success', 'Đã sinh SBD cho ' . count($rows) . ' học sinh.');
+        exams_set_flash('success', 'Đã sinh SBD mới cho ' . $generated . ' học sinh chưa có SBD.');
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -106,6 +183,12 @@ require_once __DIR__.'/../../layout/header.php';
                         <?php foreach ($wizard as $index => $step): ?>
                             <span class="badge <?= $step['done'] ? 'bg-success' : 'bg-secondary' ?> me-1">B<?= $index ?>: <?= htmlspecialchars($step['label'], ENT_QUOTES, 'UTF-8') ?></span>
                         <?php endforeach; ?>
+                    </div>
+
+
+                    <div class="mb-3 d-flex gap-2">
+                        <a class="btn btn-outline-warning btn-sm" href="check_duplicates.php?exam_id=<?= $examId ?>">Kiểm tra SBD trùng</a>
+                        <a class="btn btn-outline-secondary btn-sm" href="export_duplicates.php?exam_id=<?= $examId ?>">Xuất CSV lỗi SBD</a>
                     </div>
 
                     <form method="post" class="mb-3">
