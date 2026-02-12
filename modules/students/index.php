@@ -1,8 +1,9 @@
 <?php
-require_once __DIR__.'/../../core/auth.php';
+require_once __DIR__ . '/../../bootstrap.php';
+require_once BASE_PATH . '/core/auth.php';
 require_login();
 require_role(['admin']);
-require_once __DIR__.'/../../core/db.php';
+require_once BASE_PATH . '/core/db.php';
 
 $keyword = trim($_GET['q'] ?? '');
 $flash = $_GET['msg'] ?? '';
@@ -24,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $deleteStmt = $pdo->prepare("DELETE FROM students WHERE id IN ($placeholders)");
             $deleteStmt->execute($ids);
 
-            header('Location: index.php?msg=deleted_selected');
+            header('Location: ' . BASE_URL . '/modules/students/index.php?msg=deleted_selected');
             exit;
         }
     }
@@ -38,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $deleteStmt = $pdo->prepare('DELETE FROM students WHERE hoten LIKE :keyword OR sbd LIKE :keyword');
             $deleteStmt->execute([':keyword' => '%' . $keywordPost . '%']);
 
-            header('Location: index.php?msg=deleted_filtered');
+            header('Location: ' . BASE_URL . '/modules/students/index.php?msg=deleted_filtered');
             exit;
         }
     }
@@ -57,7 +58,7 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 
 <style>
@@ -183,7 +184,7 @@ require_once __DIR__.'/../../layout/header.php';
 </style>
 
 <div class="students-layout">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
 
     <div class="students-main">
         <div class="students-window">
@@ -315,4 +316,4 @@ require_once __DIR__.'/../../layout/header.php';
     }
 </script>
 
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

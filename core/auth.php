@@ -1,6 +1,7 @@
 <?php
+require_once __DIR__ . '/../bootstrap.php';
 session_start();
-require_once __DIR__ . '/db.php';
+require_once BASE_PATH . '/core/db.php';
 
 function app_base_path(): string {
     static $base = null;
@@ -21,8 +22,7 @@ function app_base_path(): string {
             $candidates[] = $val;
         }
     }
-
-    $markers = ['/modules/', '/core/', '/templates/', '/layout/'];
+    $markers = ['exam-management-system/modules/', 'exam-management-system/core/', 'exam-management-system/templates/', 'exam-management-system/layout/'];
     $best = '';
     foreach ($candidates as $candidate) {
         $path = parse_url($candidate, PHP_URL_PATH) ?: '';
@@ -99,25 +99,24 @@ function login($username, $password) {
     return false;
 }
 
-
 /* ========= LOGOUT ========= */
 function logout() {
     session_destroy();
-    header('Location: ' . app_url('login.php'));
+    header('Location: ' . BASE_URL . '/login.php');
     exit;
 }
 
 /* ========= MIDDLEWARE ========= */
 function require_login() {
     if (!isset($_SESSION['user'])) {
-        header('Location: ' . app_url('login.php'));
+        header('Location: ' . BASE_URL . '/login.php');
         exit;
     }
 }
 
 function require_role(array $roles) {
     require_login();
-    if (!in_array($_SESSION['user']['role'], $roles)) {
+    if (!in_array($_SESSION['user']['role'], $roles, true)) {
         die("⛔ Bạn không có quyền truy cập chức năng này");
     }
 }

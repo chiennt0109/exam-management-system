@@ -1,10 +1,11 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../bootstrap.php';
 
-require_once __DIR__.'/../../core/auth.php';
+require_once BASE_PATH . '/core/auth.php';
 require_login();
 require_role(['admin']);
-require_once __DIR__.'/../../core/db.php';
+require_once BASE_PATH . '/core/db.php';
 
 const USER_ALLOWED_ROLES = ['admin', 'organizer', 'scorer'];
 

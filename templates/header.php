@@ -1,12 +1,14 @@
 <?php
+require_once __DIR__ . '/../bootstrap.php';
 header('Content-Type: text/html; charset=UTF-8');
-require_once __DIR__ . '/../core/auth.php';
+require_once BASE_PATH . '/core/auth.php';
 require_login();
 ?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <base href="<?= BASE_URL ?>/">
     <title>Hệ thống quản lý kỳ thi</title>
     <style>
         * { box-sizing: border-box; }
@@ -45,5 +47,5 @@ require_login();
 <div class="header">
     Xin chào <b><?= $_SESSION['user']['username'] ?></b>
     | Quyền: <b><?= $_SESSION['user']['role'] ?></b>
-    | <a href="<?= htmlspecialchars(app_url('logout.php'), ENT_QUOTES, 'UTF-8') ?>" style="color:#fff">Đăng xuất</a>
+    | <a href="<?= BASE_URL ?>/logout.php" style="color:#fff">Đăng xuất</a>
 </div>

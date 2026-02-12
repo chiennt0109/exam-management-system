@@ -1,10 +1,11 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../bootstrap.php';
 
-require_once __DIR__.'/../../core/auth.php';
+require_once BASE_PATH . '/core/auth.php';
 require_login();
 require_role(['admin', 'organizer']);
-require_once __DIR__.'/../../core/db.php';
+require_once BASE_PATH . '/core/db.php';
 
 const EXAM_ALLOWED_ROLES = ['admin', 'organizer'];
 const REMAINDER_KEEP_SMALL = 'keep_small';

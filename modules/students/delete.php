@@ -1,12 +1,13 @@
 <?php
-require_once __DIR__.'/../../core/auth.php';
+require_once __DIR__ . '/../../bootstrap.php';
+require_once BASE_PATH . '/core/auth.php';
 require_login();
 require_role(['admin']);
-require_once __DIR__.'/../../core/db.php';
+require_once BASE_PATH . '/core/db.php';
 
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id) {
-    header('Location: index.php');
+    header('Location: ' . BASE_URL . '/modules/students/index.php');
     exit;
 }
 
@@ -15,7 +16,7 @@ $stmt->execute([':id' => $id]);
 $student = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$student) {
-    header('Location: index.php');
+    header('Location: ' . BASE_URL . '/modules/students/index.php');
     exit;
 }
 
@@ -26,11 +27,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $deleteStmt->execute([':id' => $id]);
     }
 
-    header('Location: index.php?msg=deleted_one');
+    header('Location: ' . BASE_URL . '/modules/students/index.php?msg=deleted_one');
     exit;
 }
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 
 <style>
@@ -60,7 +61,7 @@ require_once __DIR__.'/../../layout/header.php';
 </style>
 
 <div class="students-layout">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
 
     <div class="students-main">
         <div class="window-box" style="max-width:680px;">
@@ -83,4 +84,4 @@ require_once __DIR__.'/../../layout/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../bootstrap.php';
 
-require_once __DIR__.'/_common.php';
+require_once BASE_PATH . '/modules/exams/_common.php';
 
 // Lightweight migration for new score-structure fields (only if missing)
 $existingCols = array_column($pdo->query('PRAGMA table_info(exam_subject_config)')->fetchAll(PDO::FETCH_ASSOC), 'name');
@@ -25,20 +26,20 @@ $examId = max(0, (int) ($_GET['exam_id'] ?? $_POST['exam_id'] ?? 0));
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         exams_set_flash('error', 'CSRF token không hợp lệ.');
-        header('Location: configure_subjects.php?exam_id=' . $examId);
+        header('Location: ' . BASE_URL . '/modules/exams/configure_subjects.php?exam_id=' . $examId);
         exit;
     }
 
     if ($examId <= 0) {
         exams_set_flash('error', 'Vui lòng chọn kỳ thi.');
-        header('Location: configure_subjects.php');
+        header('Location: ' . BASE_URL . '/modules/exams/configure_subjects.php');
         exit;
     }
 
     $baseReady = (int) $pdo->query('SELECT COUNT(*) FROM exam_students WHERE exam_id = ' . $examId . ' AND subject_id IS NULL')->fetchColumn();
     if ($baseReady <= 0) {
         exams_set_flash('warning', 'Cần hoàn thành bước gán học sinh trước.');
-        header('Location: configure_subjects.php?exam_id=' . $examId);
+        header('Location: ' . BASE_URL . '/modules/exams/configure_subjects.php?exam_id=' . $examId);
         exit;
     }
 
@@ -226,7 +227,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exams_set_flash('error', $e->getMessage());
     }
 
-    header('Location: configure_subjects.php?exam_id=' . $examId);
+    header('Location: ' . BASE_URL . '/modules/exams/configure_subjects.php?exam_id=' . $examId);
     exit;
 }
 
@@ -268,12 +269,12 @@ if ($examId > 0) {
 
 $wizard = $examId > 0 ? exams_wizard_steps($pdo, $examId) : [];
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <div style="display:flex;min-height:calc(100vh - 44px);">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
     <div style="flex:1;padding:20px;min-width:0;">
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white"><strong>Bước 4: Cấu hình môn theo khối</strong></div>
@@ -522,4 +523,4 @@ updateScopePanel();
 refreshAvailableByGrade();
 </script>
 
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

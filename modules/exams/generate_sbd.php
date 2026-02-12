@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../bootstrap.php';
 
-require_once __DIR__.'/_common.php';
+require_once BASE_PATH . '/modules/exams/_common.php';
 
 $csrf = exams_get_csrf_token();
 $exams = exams_get_all_exams($pdo);
@@ -47,13 +48,13 @@ function sbdGradeGroupKey(string $khoi): array
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         exams_set_flash('error', 'CSRF token không hợp lệ.');
-        header('Location: generate_sbd.php?exam_id=' . $examId);
+        header('Location: ' . BASE_URL . '/modules/exams/generate_sbd.php?exam_id=' . $examId);
         exit;
     }
 
     if ($examId <= 0) {
         exams_set_flash('error', 'Vui lòng chọn kỳ thi.');
-        header('Location: generate_sbd.php');
+        header('Location: ' . BASE_URL . '/modules/exams/generate_sbd.php');
         exit;
     }
 
@@ -61,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $duplicateRows = checkDuplicateSBD($pdo, $examId);
         if (!empty($duplicateRows)) {
             exams_set_flash('error', 'Phát hiện trùng SBD. Vui lòng xử lý trước khi sinh SBD mới.');
-            header('Location: generate_sbd.php?exam_id=' . $examId);
+            header('Location: ' . BASE_URL . '/modules/exams/generate_sbd.php?exam_id=' . $examId);
             exit;
         }
 
@@ -98,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (empty($rows)) {
             exams_set_flash('warning', 'Chưa có học sinh gán cho kỳ thi.');
-            header('Location: generate_sbd.php?exam_id=' . $examId);
+            header('Location: ' . BASE_URL . '/modules/exams/generate_sbd.php?exam_id=' . $examId);
             exit;
         }
 
@@ -135,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exams_set_flash('error', 'Không thể sinh SBD.');
     }
 
-    header('Location: generate_sbd.php?exam_id=' . $examId);
+    header('Location: ' . BASE_URL . '/modules/exams/generate_sbd.php?exam_id=' . $examId);
     exit;
 }
 
@@ -152,12 +153,12 @@ if ($examId > 0) {
 
 $wizard = $examId > 0 ? exams_wizard_steps($pdo, $examId) : [];
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <div style="display:flex;min-height:calc(100vh - 44px);">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
     <div style="flex:1;padding:20px;min-width:0;">
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white"><strong>Bước 3: Sinh SBD</strong></div>
@@ -221,4 +222,4 @@ require_once __DIR__.'/../../layout/header.php';
         </div>
     </div>
 </div>
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

@@ -1,8 +1,9 @@
 <?php
-require_once __DIR__.'/../../core/auth.php';
+require_once __DIR__ . '/../../bootstrap.php';
+require_once BASE_PATH . '/core/auth.php';
 require_login();
 require_role(['admin']);
-require_once __DIR__.'/../../core/db.php';
+require_once BASE_PATH . '/core/db.php';
 
 $errors = [];
 $formData = [
@@ -42,12 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':truong' => $formData['truong']
         ]);
 
-        header('Location: index.php?msg=created');
+        header('Location: ' . BASE_URL . '/modules/students/index.php?msg=created');
         exit;
     }
 }
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 
 <style>
@@ -84,7 +85,7 @@ require_once __DIR__.'/../../layout/header.php';
 </style>
 
 <div class="students-layout">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
 
     <div class="students-main">
         <div class="window-box" style="max-width:760px;">
@@ -133,4 +134,4 @@ require_once __DIR__.'/../../layout/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

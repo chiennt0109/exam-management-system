@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../bootstrap.php';
 
-require_once __DIR__.'/_common.php';
+require_once BASE_PATH . '/modules/exams/_common.php';
 
 $csrf = exams_get_csrf_token();
 $exams = exams_get_all_exams($pdo);
@@ -37,13 +38,13 @@ function backfillExamKhoi(PDO $pdo, int $examId): void
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         exams_set_flash('error', 'CSRF token không hợp lệ.');
-        header('Location: assign_students.php?exam_id=' . $examId);
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?exam_id=' . $examId);
         exit;
     }
 
     if ($examId <= 0) {
         exams_set_flash('error', 'Vui lòng chọn kỳ thi.');
-        header('Location: assign_students.php');
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php');
         exit;
     }
 
@@ -54,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $studentId = (int) ($_POST['student_id'] ?? 0);
         if ($studentId <= 0) {
             exams_set_flash('error', 'Thiếu học sinh cần loại khỏi kỳ thi.');
-            header('Location: assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected']));
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected']));
             exit;
         }
 
@@ -71,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exams_set_flash('error', 'Không thể loại học sinh khỏi kỳ thi.');
         }
 
-        header('Location: assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected']));
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected']));
         exit;
     }
 
@@ -118,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($studentIds)) {
         exams_set_flash('warning', 'Không có học sinh phù hợp để thêm vào kỳ thi.');
-        header('Location: assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => $activeTab]));
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => $activeTab]));
         exit;
     }
 
@@ -180,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exams_set_flash('error', 'Lỗi khi thêm học sinh vào kỳ thi.');
     }
 
-    header('Location: assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => $activeTab]));
+    header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => $activeTab]));
     exit;
 }
 
@@ -229,12 +230,12 @@ if ($examId > 0) {
 $totalPages = max(1, (int) ceil($totalSelected / $perPage));
 $wizard = $examId > 0 ? exams_wizard_steps($pdo, $examId) : [];
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <div style="display:flex;min-height:calc(100vh - 44px);">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
     <div style="flex:1;padding:20px;min-width:0;">
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white"><strong>Bước 2: Gán học sinh vào kỳ thi</strong></div>
@@ -380,4 +381,4 @@ require_once __DIR__.'/../../layout/header.php';
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

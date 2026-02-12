@@ -1,12 +1,13 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../bootstrap.php';
 
-require_once __DIR__.'/_common.php';
+require_once BASE_PATH . '/modules/users/_common.php';
 
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id) {
     set_flash('error', 'ID không hợp lệ.');
-    header('Location: index.php');
+    header('Location: ' . BASE_URL . '/modules/users/index.php');
     exit;
 }
 
@@ -15,7 +16,7 @@ $stmt->execute([':id' => $id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$user) {
     set_flash('error', 'Không tìm thấy user.');
-    header('Location: index.php');
+    header('Location: ' . BASE_URL . '/modules/users/index.php');
     exit;
 }
 
@@ -77,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             set_flash('success', 'Đã cập nhật người dùng.');
-            header('Location: index.php');
+            header('Location: ' . BASE_URL . '/modules/users/index.php');
             exit;
         } catch (PDOException $e) {
             $errors[] = 'Không thể cập nhật người dùng.';
@@ -85,12 +86,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <div class="students-layout" style="display:flex;min-height:calc(100vh - 44px);">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
     <div class="students-main" style="flex:1;padding:20px;min-width:0;">
         <div class="card shadow-sm" style="max-width:760px;">
             <div class="card-header bg-warning"><strong>Sửa user: <?= htmlspecialchars((string)$user['username'], ENT_QUOTES, 'UTF-8') ?></strong></div>
@@ -136,4 +137,4 @@ require_once __DIR__.'/../../layout/header.php';
         </div>
     </div>
 </div>
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

@@ -1,12 +1,13 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../bootstrap.php';
 
-require_once __DIR__.'/_common.php';
+require_once BASE_PATH . '/modules/users/_common.php';
 
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id) {
     set_flash('error', 'ID không hợp lệ.');
-    header('Location: index.php');
+    header('Location: ' . BASE_URL . '/modules/users/index.php');
     exit;
 }
 
@@ -16,7 +17,7 @@ $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$user) {
     set_flash('error', 'Không tìm thấy user.');
-    header('Location: index.php');
+    header('Location: ' . BASE_URL . '/modules/users/index.php');
     exit;
 }
 
@@ -26,13 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? null;
     if (!users_verify_csrf_token(is_string($token) ? $token : null)) {
         set_flash('error', 'CSRF token không hợp lệ.');
-        header('Location: index.php');
+        header('Location: ' . BASE_URL . '/modules/users/index.php');
         exit;
     }
 
     if ((int) $_SESSION['user']['id'] === (int) $user['id']) {
         set_flash('error', 'Không thể xóa tài khoản đang đăng nhập.');
-        header('Location: index.php');
+        header('Location: ' . BASE_URL . '/modules/users/index.php');
         exit;
     }
 
@@ -46,16 +47,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    header('Location: index.php');
+    header('Location: ' . BASE_URL . '/modules/users/index.php');
     exit;
 }
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <div class="students-layout" style="display:flex;min-height:calc(100vh - 44px);">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
     <div class="students-main" style="flex:1;padding:20px;min-width:0;">
         <div class="card border-danger shadow-sm" style="max-width:700px;">
             <div class="card-header bg-danger text-white"><strong>Xóa người dùng</strong></div>
@@ -81,4 +82,4 @@ require_once __DIR__.'/../../layout/header.php';
         </div>
     </div>
 </div>
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

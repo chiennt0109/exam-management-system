@@ -1,11 +1,12 @@
 <?php
-require 'core/auth.php';
+require_once __DIR__ . '/bootstrap.php';
+require_once BASE_PATH . '/core/auth.php';
 
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (login($_POST['username'], $_POST['password'])) {
-        header("Location: index.php");
+        header('Location: ' . BASE_URL . '/index.php');
         exit;
     } else {
         $error = "Sai tài khoản hoặc mật khẩu";

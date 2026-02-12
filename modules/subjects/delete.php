@@ -1,12 +1,13 @@
 <?php
-require_once __DIR__.'/../../core/auth.php';
+require_once __DIR__ . '/../../bootstrap.php';
+require_once BASE_PATH . '/core/auth.php';
 require_login();
 require_role(['admin']);
-require_once __DIR__.'/../../core/db.php';
+require_once BASE_PATH . '/core/db.php';
 
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id) {
-    header('Location: index.php');
+    header('Location: ' . BASE_URL . '/modules/subjects/index.php');
     exit;
 }
 
@@ -14,7 +15,7 @@ $stmt = $pdo->prepare('SELECT id, ma_mon, ten_mon FROM subjects WHERE id = :id L
 $stmt->execute([':id' => $id]);
 $subject = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$subject) {
-    header('Location: index.php');
+    header('Location: ' . BASE_URL . '/modules/subjects/index.php');
     exit;
 }
 
@@ -23,11 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $del = $pdo->prepare('DELETE FROM subjects WHERE id = :id');
         $del->execute([':id' => $id]);
     }
-    header('Location: index.php?msg=deleted');
+    header('Location: ' . BASE_URL . '/modules/subjects/index.php?msg=deleted');
     exit;
 }
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 
 <style>
@@ -43,7 +44,7 @@ require_once __DIR__.'/../../layout/header.php';
 </style>
 
 <div class="subjects-layout">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
     <div class="subjects-main">
         <div class="card">
             <div class="head"><strong>Xóa môn học</strong></div>
@@ -64,4 +65,4 @@ require_once __DIR__.'/../../layout/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

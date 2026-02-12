@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../bootstrap.php';
 
-require_once __DIR__.'/_common.php';
+require_once BASE_PATH . '/modules/exams/_common.php';
 
 $exams = exams_get_all_exams($pdo);
 $examId = max(0, (int) ($_GET['exam_id'] ?? 0));
@@ -10,12 +11,12 @@ if ($examId > 0) {
     $rows = checkDuplicateSBD($pdo, $examId);
 }
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <div style="display:flex;min-height:calc(100vh - 44px);">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
     <div style="flex:1;padding:20px;min-width:0;">
         <div class="card shadow-sm">
             <div class="card-header bg-warning"><strong>Kiểm tra SBD trùng</strong></div>
@@ -61,4 +62,4 @@ require_once __DIR__.'/../../layout/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

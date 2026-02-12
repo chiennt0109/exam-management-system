@@ -1,14 +1,15 @@
 <?php
-require_once __DIR__.'/../../core/auth.php';
+require_once __DIR__ . '/../../bootstrap.php';
+require_once BASE_PATH . '/core/auth.php';
 require_login();
 require_role(['admin']);
-require_once __DIR__.'/../../core/db.php';
+require_once BASE_PATH . '/core/db.php';
 
 $flash = $_GET['msg'] ?? '';
 $stmt = $pdo->query('SELECT id, ma_mon, ten_mon, he_so FROM subjects ORDER BY id DESC');
 $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 
 <style>
@@ -29,7 +30,7 @@ require_once __DIR__.'/../../layout/header.php';
 </style>
 
 <div class="subjects-layout">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
 
     <div class="subjects-main">
         <div class="panel">
@@ -78,4 +79,4 @@ require_once __DIR__.'/../../layout/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

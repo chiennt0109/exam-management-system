@@ -1,8 +1,9 @@
 <?php
-require_once __DIR__.'/../../core/auth.php';
+require_once __DIR__ . '/../../bootstrap.php';
+require_once BASE_PATH . '/core/auth.php';
 require_login();
 require_role(['admin']);
-require_once __DIR__.'/../../core/db.php';
+require_once BASE_PATH . '/core/db.php';
 
 $errors = [];
 $formData = ['ma_mon' => '', 'ten_mon' => '', 'he_so' => '1'];
@@ -24,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':ten_mon' => $formData['ten_mon'],
                 ':he_so' => (float) $formData['he_so']
             ]);
-            header('Location: index.php?msg=created');
+            header('Location: ' . BASE_URL . '/modules/subjects/index.php?msg=created');
             exit;
         } catch (PDOException $e) {
             $errors[] = 'Mã môn đã tồn tại hoặc dữ liệu không hợp lệ.';
@@ -32,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 
 <style>
@@ -52,7 +53,7 @@ require_once __DIR__.'/../../layout/header.php';
 </style>
 
 <div class="subjects-layout">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
     <div class="subjects-main">
         <div class="card">
             <div class="head"><strong>Thêm môn học</strong></div>
@@ -72,4 +73,4 @@ require_once __DIR__.'/../../layout/header.php';
     </div>
 </div>
 
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>

@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../bootstrap.php';
 
-require_once __DIR__.'/_common.php';
+require_once BASE_PATH . '/modules/users/_common.php';
 
 $csrf = users_get_csrf_token();
 $errors = [];
@@ -51,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             set_flash('success', 'Đã tạo người dùng mới.');
-            header('Location: index.php');
+            header('Location: ' . BASE_URL . '/modules/users/index.php');
             exit;
         } catch (PDOException $e) {
             $errors[] = 'Username đã tồn tại hoặc dữ liệu không hợp lệ.';
@@ -59,12 +60,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-require_once __DIR__.'/../../layout/header.php';
+require_once BASE_PATH . '/layout/header.php';
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <div class="students-layout" style="display:flex;min-height:calc(100vh - 44px);">
-    <?php require_once __DIR__.'/../../layout/sidebar.php'; ?>
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
     <div class="students-main" style="flex:1;padding:20px;min-width:0;">
         <div class="card shadow-sm" style="max-width:760px;">
             <div class="card-header bg-primary text-white"><strong>Tạo người dùng</strong></div>
@@ -108,4 +109,4 @@ require_once __DIR__.'/../../layout/header.php';
         </div>
     </div>
 </div>
-<?php require_once __DIR__.'/../../layout/footer.php'; ?>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>
