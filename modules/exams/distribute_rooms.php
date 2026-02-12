@@ -815,7 +815,7 @@ require_once __DIR__.'/../../layout/header.php';
                             <form method="get" class="row g-2 mb-3">
                                 <div class="col-12"><small class="text-muted">Chọn môn, nhập khối và bấm <strong>Tinh chỉnh</strong> để mở các chức năng tinh chỉnh phòng thi.</small></div>
                                 <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                                <div class="col-md-5">
+                                <div class="col-md-7">
                                     <label class="form-label">Môn (tinh chỉnh)</label>
                                     <select name="subject_id" id="manualSubjectSelect" class="form-select" required>
                                         <option value="">-- Chọn môn --</option>
@@ -825,7 +825,7 @@ require_once __DIR__.'/../../layout/header.php';
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-5">
                                     <label class="form-label">Khối (tinh chỉnh)</label>
                                     <input name="khoi" id="manualKhoiSelect" class="form-control" list="manualKhoiOptions" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>" placeholder="Nhập khối, ví dụ: 10" required>
                                     <datalist id="manualKhoiOptions">
@@ -834,11 +834,24 @@ require_once __DIR__.'/../../layout/header.php';
                                         <?php endforeach; ?>
                                     </datalist>
                                 </div>
-                                <div class="col-md-2 align-self-end"><button class="btn btn-primary w-100" type="submit">Tinh chỉnh</button></div>
+                                <div class="col-12 d-grid d-md-flex justify-content-md-end">
+                                    <button class="btn btn-primary px-4" type="submit">Tinh chỉnh phòng thi</button>
+                                </div>
                             </form>
 
                             <?php if ($subjectId > 0 && $khoi !== ''): ?>
                                 <div class="alert alert-success py-2">Đã vào chế độ tinh chỉnh cho môn và khối đã chọn. Dùng các nút chức năng bên dưới để thực hiện tinh chỉnh phân phòng.</div>
+                                <div class="card border-info mb-3">
+                                    <div class="card-header bg-info-subtle"><strong>Mô tả các chức năng tinh chỉnh phòng thi</strong></div>
+                                    <div class="card-body py-2">
+                                        <ul class="mb-0 ps-3">
+                                            <li><strong>Chuyển phòng:</strong> chuyển thí sinh từ phòng hiện tại sang phòng đích.</li>
+                                            <li><strong>Bỏ khỏi phòng:</strong> đưa thí sinh về trạng thái chưa phân phòng.</li>
+                                            <li><strong>Gộp / Đổi tên / Reset tên phòng:</strong> quản lý cấu trúc và tên phòng thi.</li>
+                                            <li><strong>Thêm thí sinh vào phòng:</strong> thêm thí sinh cùng khối vào phòng phù hợp.</li>
+                                        </ul>
+                                    </div>
+                                </div>
                                 <?php if ($hasDistribution): ?>
                                     <div class="table-responsive mb-3"><table class="table table-bordered table-sm"><thead><tr><th>Scope</th><th>Phòng</th><th>Số thí sinh</th></tr></thead><tbody>
                                         <?php foreach ($roomSummary as $row): ?>
@@ -896,7 +909,11 @@ require_once __DIR__.'/../../layout/header.php';
                                         </div>
                                     </div>
                                 <?php else: ?>
-                                    <div class="alert alert-warning">Chưa có phòng cho môn/khối đang chọn. Hãy chạy “Phân phòng tự động”.</div>
+                                    <?php $suggestGrades = $manualGradesBySubject[$subjectId] ?? []; ?>
+                                    <div class="alert alert-warning mb-2">Chưa có phòng cho môn/khối đang chọn. Hãy chạy “Phân phòng tự động”.</div>
+                                    <?php if (!empty($suggestGrades)): ?>
+                                        <div class="alert alert-secondary py-2 mb-0">Khối khả dụng cho môn này: <strong><?= htmlspecialchars(implode(', ', $suggestGrades), ENT_QUOTES, 'UTF-8') ?></strong>. Vui lòng chọn đúng khối để xem/điều chỉnh.</div>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             <?php else: ?>
                                 <div class="alert alert-info">Chọn môn + khối để vào chế độ tinh chỉnh.</div>
