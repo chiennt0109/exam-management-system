@@ -43,10 +43,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        $baseStudentsStmt = $pdo->prepare('SELECT es.id, s.hoten FROM exam_students es INNER JOIN students s ON s.id = es.student_id WHERE es.exam_id = :exam_id AND es.subject_id IS NULL');
+        $baseStudentsStmt = $pdo->prepare('SELECT es.id, es.khoi, s.hoten FROM exam_students es INNER JOIN students s ON s.id = es.student_id WHERE es.exam_id = :exam_id AND es.subject_id IS NULL');
         $baseStudentsStmt->execute([':exam_id' => $examId]);
         $rows = $baseStudentsStmt->fetchAll(PDO::FETCH_ASSOC);
         usort($rows, static function (array $a, array $b): int {
+            $ga = (string) ($a['khoi'] ?? '');
+            $gb = (string) ($b['khoi'] ?? '');
+            $cmpGrade = $ga <=> $gb;
+            if ($cmpGrade !== 0) {
+                return $cmpGrade;
+            }
+
             $ka = sbdSortNameKey((string) ($a['hoten'] ?? ''));
             $kb = sbdSortNameKey((string) ($b['hoten'] ?? ''));
             return $ka <=> $kb;
