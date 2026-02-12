@@ -22,6 +22,28 @@ function sbdSortNameKey(string $fullName): string
     return $lastLower . '|' . $fullLower;
 }
 
+/**
+ * Trả về khóa khối để gom toàn bộ khối 10_* vào nhóm 10, khối 11_* vào nhóm 11...
+ *
+ * @return array{known:int, num:int, text:string}
+ */
+function sbdGradeGroupKey(string $khoi): array
+{
+    $raw = trim($khoi);
+    if ($raw === '') {
+        return ['known' => 0, 'num' => PHP_INT_MAX, 'text' => ''];
+    }
+
+    if (preg_match('/^(\d{1,2})/u', $raw, $m) === 1) {
+        return ['known' => 1, 'num' => (int) $m[1], 'text' => $m[1]];
+    }
+
+    $firstToken = preg_split('/[_\s-]+/u', $raw)[0] ?? $raw;
+    $firstLower = function_exists('mb_strtolower') ? mb_strtolower($firstToken, 'UTF-8') : strtolower($firstToken);
+
+    return ['known' => 1, 'num' => PHP_INT_MAX - 1, 'text' => $firstLower];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         exams_set_flash('error', 'CSRF token không hợp lệ.');
@@ -47,16 +69,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $baseStudentsStmt->execute([':exam_id' => $examId]);
         $rows = $baseStudentsStmt->fetchAll(PDO::FETCH_ASSOC);
         usort($rows, static function (array $a, array $b): int {
-            $ga = (string) ($a['khoi'] ?? '');
-            $gb = (string) ($b['khoi'] ?? '');
-            $cmpGrade = $ga <=> $gb;
+            $ga = sbdGradeGroupKey((string) ($a['khoi'] ?? ''));
+            $gb = sbdGradeGroupKey((string) ($b['khoi'] ?? ''));
+
+            $cmpKnown = $gb['known'] <=> $ga['known'];
+            if ($cmpKnown !== 0) {
+                return $cmpKnown;
+            }
+
+            $cmpGrade = $ga['num'] <=> $gb['num'];
             if ($cmpGrade !== 0) {
                 return $cmpGrade;
             }
 
+            $cmpText = $ga['text'] <=> $gb['text'];
+            if ($cmpText !== 0) {
+                return $cmpText;
+            }
+
             $ka = sbdSortNameKey((string) ($a['hoten'] ?? ''));
             $kb = sbdSortNameKey((string) ($b['hoten'] ?? ''));
-            return $ka <=> $kb;
+            if ($ka !== $kb) {
+                return $ka <=> $kb;
+            }
+
+            return ((int) ($a['id'] ?? 0)) <=> ((int) ($b['id'] ?? 0));
         });
 
         if (empty($rows)) {
