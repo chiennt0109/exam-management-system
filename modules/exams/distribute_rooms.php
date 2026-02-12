@@ -808,6 +808,7 @@ require_once __DIR__.'/../../layout/header.php';
                     <div class="tab-content border border-top-0 p-3">
                         <div class="tab-pane fade show active" id="tab-adjust">
                             <form method="get" class="row g-2 mb-3">
+                                <div class="col-12"><small class="text-muted">Chọn môn, nhập khối và bấm <strong>Tinh chỉnh</strong> để mở các chức năng tinh chỉnh phòng thi.</small></div>
                                 <input type="hidden" name="exam_id" value="<?= $examId ?>">
                                 <div class="col-md-5">
                                     <label class="form-label">Môn (tinh chỉnh)</label>
@@ -828,7 +829,7 @@ require_once __DIR__.'/../../layout/header.php';
                                         <?php endforeach; ?>
                                     </datalist>
                                 </div>
-                                <div class="col-md-2 align-self-end"><button class="btn btn-primary w-100" type="submit">Tải phòng</button></div>
+                                <div class="col-md-2 align-self-end"><button class="btn btn-primary w-100" type="submit">Tinh chỉnh</button></div>
                             </form>
 
                             <?php if ($subjectId > 0 && $khoi !== ''): ?>
