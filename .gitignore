@@ -1,6 +1,10 @@
 # Database
 /data/*.db
 
+*.db
+data/*.db
+
+
 # Temp / backup
 *.bak
 *.tmp
