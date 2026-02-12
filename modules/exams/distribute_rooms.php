@@ -13,6 +13,9 @@ $examCols = array_column($pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::
 if (!in_array('distribution_locked', $examCols, true)) {
     $pdo->exec('ALTER TABLE exams ADD COLUMN distribution_locked INTEGER DEFAULT 0');
 }
+if (!in_array('rooms_locked', $examCols, true)) {
+    $pdo->exec('ALTER TABLE exams ADD COLUMN rooms_locked INTEGER DEFAULT 0');
+}
 
 /**
  * @param array<int,string> $classes
@@ -396,11 +399,22 @@ if (!in_array($activeTab, ['adjust', 'unassigned'], true)) {
     $activeTab = 'adjust';
 }
 
+$ctx = $_SESSION['distribution_context'] ?? null;
+if ($examId > 0 && is_array($ctx) && (int) ($ctx['exam_id'] ?? 0) === $examId) {
+    if ($subjectId <= 0 && !empty($ctx['subject_id'])) {
+        $subjectId = (int) $ctx['subject_id'];
+    }
+    if ($khoi === '' && !empty($ctx['khoi'])) {
+        $khoi = (string) $ctx['khoi'];
+    }
+}
+
 $examLocked = false;
 if ($examId > 0) {
-    $lockStmt = $pdo->prepare('SELECT distribution_locked FROM exams WHERE id = :id LIMIT 1');
+    $lockStmt = $pdo->prepare('SELECT distribution_locked, rooms_locked FROM exams WHERE id = :id LIMIT 1');
     $lockStmt->execute([':id' => $examId]);
-    $examLocked = ((int) ($lockStmt->fetchColumn() ?: 0)) === 1;
+    $rowLock = $lockStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $examLocked = ((int) ($rowLock['distribution_locked'] ?? 0)) === 1 || ((int) ($rowLock['rooms_locked'] ?? 0)) === 1;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -419,19 +433,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($khoi !== '') {
         $redirectParams['khoi'] = $khoi;
     }
+    if ($subjectId > 0 && $khoi !== '') {
+        $_SESSION['distribution_context'] = ['exam_id' => $examId, 'subject_id' => $subjectId, 'khoi' => $khoi];
+    }
 
     try {
         if ($examId <= 0) {
             throw new RuntimeException('Vui lòng chọn kỳ thi.');
         }
 
-        if ($action === 'lock_distribution') {
+        if ($action === 'lock_distribution' || $action === 'lock_rooms') {
             if ($examLocked) {
                 throw new RuntimeException('Kỳ thi đã khóa phân phòng trước đó.');
             }
 
             $pdo->beginTransaction();
-            $up = $pdo->prepare('UPDATE exams SET distribution_locked = 1 WHERE id = :id');
+            $up = $pdo->prepare('UPDATE exams SET distribution_locked = 1, rooms_locked = 1 WHERE id = :id');
             $up->execute([':id' => $examId]);
             $pdo->commit();
             exams_set_flash('success', 'Đã khóa phân phòng. Chỉ còn thao tác in danh sách phòng.');
@@ -491,6 +508,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $insertExamStudent = $pdo->prepare('INSERT INTO exam_students (exam_id, student_id, subject_id, khoi, lop, room_id, sbd) VALUES (:exam_id, :student_id, :subject_id, :khoi, :lop, :room_id, :sbd)');
 
                 $assignedInSubject = [];
+                $firstDistributedContext = null;
                 foreach ($groups as $g) {
                     $subId = (int) $g['subject_id'];
                     $groupKhoi = (string) $g['khoi'];
@@ -501,6 +519,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $eligibleStudents = getEligibleStudentsByScope($pdo, $examId, $groupKhoi, $scopeMode, $classes);
                     if (empty($eligibleStudents)) {
                         continue;
+                    }
+                    if ($firstDistributedContext === null) {
+                        $firstDistributedContext = ['exam_id' => $examId, 'subject_id' => $subId, 'khoi' => $groupKhoi];
                     }
 
                     $eligibleStudents = array_values(array_filter($eligibleStudents, static function (array $row) use (&$assignedInSubject, $subId): bool {
@@ -553,6 +574,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $pdo->commit();
+                if ($firstDistributedContext !== null) {
+                    $_SESSION['distribution_context'] = $firstDistributedContext;
+                    $redirectParams['subject_id'] = (int) $firstDistributedContext['subject_id'];
+                    $redirectParams['khoi'] = (string) $firstDistributedContext['khoi'];
+                }
                 exams_set_flash('success', 'Đã phân phòng tự động cho toàn bộ môn/khối theo cấu hình.');
             } else {
                 if ($subjectId <= 0 || $khoi === '') {
@@ -799,10 +825,29 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <form method="post" class="mb-3">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="action" value="lock_distribution">
+                        <input type="hidden" name="action" value="lock_rooms">
                         <input type="hidden" name="exam_id" value="<?= $examId ?>">
                         <button class="btn btn-outline-danger" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Khoá phân phòng</button>
                     </form>
+
+                    <?php
+                        $canAdjust = false;
+                        if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
+                            $checkRoomsStmt = $pdo->prepare('SELECT COUNT(*) FROM rooms WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
+                            $checkRoomsStmt->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
+                            $canAdjust = ((int) $checkRoomsStmt->fetchColumn()) > 0;
+                        }
+                    ?>
+                    <?php if ($canAdjust): ?>
+                        <form method="get" action="<?= BASE_URL ?>/modules/exams/adjust_rooms.php" class="mb-3">
+                            <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                            <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
+                            <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
+                            <button class="btn btn-primary" type="submit">Tinh chỉnh phòng thi</button>
+                        </form>
+                    <?php else: ?>
+                        <div class="alert alert-secondary py-2 mb-3">Phân phòng xong sẽ hiển thị nút <strong>Tinh chỉnh phòng thi</strong> cho môn/khối đã chọn.</div>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <?php if ($examId > 0): ?>
