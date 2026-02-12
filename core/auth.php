@@ -2,6 +2,67 @@
 session_start();
 require_once __DIR__ . '/db.php';
 
+function app_base_path(): string {
+    static $base = null;
+    if ($base !== null) {
+        return $base;
+    }
+
+    $envBase = trim((string) ($_SERVER['APP_BASE_PATH'] ?? ''));
+    if ($envBase !== '') {
+        $base = '/' . trim($envBase, '/');
+        return $base;
+    }
+
+    $candidates = [];
+    foreach (['SCRIPT_NAME', 'PHP_SELF', 'REQUEST_URI'] as $key) {
+        $val = str_replace('\\', '/', (string) ($_SERVER[$key] ?? ''));
+        if ($val !== '') {
+            $candidates[] = $val;
+        }
+    }
+
+    $markers = ['/modules/', '/core/', '/templates/', '/layout/'];
+    $best = '';
+    foreach ($candidates as $candidate) {
+        $path = parse_url($candidate, PHP_URL_PATH) ?: '';
+        if ($path === '') {
+            continue;
+        }
+
+        $detected = '';
+        foreach ($markers as $marker) {
+            $pos = strpos($path, $marker);
+            if ($pos !== false) {
+                $detected = rtrim(substr($path, 0, $pos), '/');
+                break;
+            }
+        }
+
+        if ($detected === '') {
+            $dir = str_replace('\\', '/', dirname($path));
+            $detected = ($dir === '/' || $dir === '\\' || $dir === '.') ? '' : rtrim($dir, '/');
+        }
+
+        if (strlen($detected) > strlen($best)) {
+            $best = $detected;
+        }
+    }
+
+    $base = $best;
+    return $base;
+}
+
+function app_url(string $path = ''): string {
+    $base = app_base_path();
+    $cleanPath = ltrim($path, '/');
+    if ($cleanPath === '') {
+        return $base === '' ? '/' : $base . '/';
+    }
+
+    return ($base === '' ? '' : $base) . '/' . $cleanPath;
+}
+
 /* ========= LOGIN ========= */
 function login($username, $password) {
     global $pdo;
@@ -16,11 +77,18 @@ function login($username, $password) {
 
     if (!$user) return false;
 
-    // HASH PHP 5.4
-    $salt = 'exam_system_salt';
-    $hash = hash('sha256', $password . $salt);
+    $isValid = false;
 
-    if ($hash === $user['password']) {
+    if (is_string($user['password']) && password_verify($password, $user['password'])) {
+        $isValid = true;
+    } else {
+        // Legacy SHA-256 compatibility for older accounts
+        $salt = 'exam_system_salt';
+        $hash = hash('sha256', $password . $salt);
+        $isValid = ($hash === $user['password']);
+    }
+
+    if ($isValid) {
         $_SESSION['user'] = [
             'id' => $user['id'],
             'username' => $user['username'],
@@ -35,14 +103,14 @@ function login($username, $password) {
 /* ========= LOGOUT ========= */
 function logout() {
     session_destroy();
-    header("Location: Diemthi/exam-management-system/login.php");
+    header('Location: ' . app_url('login.php'));
     exit;
 }
 
 /* ========= MIDDLEWARE ========= */
 function require_login() {
     if (!isset($_SESSION['user'])) {
-        header("Location: /login.php");
+        header('Location: ' . app_url('login.php'));
         exit;
     }
 }

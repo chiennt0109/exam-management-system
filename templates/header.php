@@ -9,11 +9,31 @@ require_login();
     <meta charset="UTF-8">
     <title>Hệ thống quản lý kỳ thi</title>
     <style>
+        * { box-sizing: border-box; }
         body { margin:0; font-family: Arial; }
         .header { background:#2c3e50; color:#fff; padding:10px 20px; }
-        .container { display:flex; }
-        .sidebar { width:220px; background:#ecf0f1; min-height:100vh; }
-        .content { flex:1; padding:20px; }
+
+        /* Force app shell layout so sidebar and main content always stay on one row */
+        .container {
+            display:flex !important;
+            flex-direction: row !important;
+            align-items: stretch;
+            width: 100%;
+            min-height: calc(100vh - 44px);
+        }
+        .sidebar {
+            width:220px;
+            min-width:220px;
+            background:#ecf0f1;
+            min-height: calc(100vh - 44px);
+            flex: 0 0 220px;
+        }
+        .content {
+            flex:1 1 auto;
+            min-width:0;
+            padding:20px;
+        }
+
         .sidebar ul { list-style:none; padding:0; margin:0; }
         .sidebar li { padding:10px; }
         .sidebar li a { text-decoration:none; color:#333; display:block; }
@@ -25,5 +45,5 @@ require_login();
 <div class="header">
     Xin chào <b><?= $_SESSION['user']['username'] ?></b>
     | Quyền: <b><?= $_SESSION['user']['role'] ?></b>
-    | <a href="/diemthi/exam-management-system/logout.php" style="color:#fff">Đăng xuất</a>
+    | <a href="<?= htmlspecialchars(app_url('logout.php'), ENT_QUOTES, 'UTF-8') ?>" style="color:#fff">Đăng xuất</a>
 </div>
