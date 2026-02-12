@@ -1,9 +1,15 @@
 <?php
-require_once __DIR__ . '/templates/header.php';
+declare(strict_types=1);
+
+define('BASE_PATH', __DIR__);
+define('BASE_URL', '/exam-management-system');
+session_start();
+
+require_once BASE_PATH . '/templates/header.php';
 ?>
 
 <div class="container">
-<?php require_once __DIR__ . '/templates/sidebar.php'; ?>
+<?php require_once BASE_PATH . '/templates/sidebar.php'; ?>
 
 <div class="content">
     <h2>Dashboard</h2>
@@ -18,4 +24,4 @@ require_once __DIR__ . '/templates/header.php';
 </div>
 </div>
 
-<?php require_once __DIR__ . '/templates/footer.php'; ?>
+<?php require_once BASE_PATH . '/templates/footer.php'; ?>

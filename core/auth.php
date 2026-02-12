@@ -22,7 +22,7 @@ function app_base_path(): string {
         }
     }
 
-    $markers = ['/modules/', '/core/', '/templates/', '/layout/'];
+    $markers = ['exam-management-system/modules/', 'exam-management-system/core/', 'exam-management-system/templates/', 'exam-management-system/layout/'];
     $best = '';
     foreach ($candidates as $candidate) {
         $path = parse_url($candidate, PHP_URL_PATH) ?: '';
