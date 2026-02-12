@@ -63,3 +63,4 @@ if (in_array((string) ($_SESSION['user']['role'] ?? ''), ['admin', 'organizer'],
     <?php endif; ?>
     | <a href="<?= BASE_URL ?>/logout.php" style="color:#fff">Đăng xuất</a>
 </div>
+<?php if (!empty($_SESSION['maintenance_notice'])): ?><div style="background:#fff3cd;color:#664d03;padding:8px 20px;border-bottom:1px solid #ffecb5;"><?= htmlspecialchars((string) $_SESSION['maintenance_notice'], ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
