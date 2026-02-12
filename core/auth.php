@@ -7,11 +7,7 @@ require_once BASE_PATH . '/core/db.php';
 function login($username, $password) {
     global $pdo;
 
-    $stmt = $pdo->prepare("
-        SELECT * FROM users
-        WHERE username = ? AND active = 1
-        LIMIT 1
-    ");
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? AND active = 1 LIMIT 1");
     $stmt->execute([$username]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -32,10 +28,11 @@ function login($username, $password) {
         $_SESSION['user'] = [
             'id' => $user['id'],
             'username' => $user['username'],
-            'role' => $user['role']
+            'role' => $role,
         ];
         return true;
     }
+
     return false;
 }
 
