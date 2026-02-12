@@ -1,0 +1,13 @@
+# Database
+/data/*.db
+
+# Temp / backup
+*.bak
+*.tmp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
