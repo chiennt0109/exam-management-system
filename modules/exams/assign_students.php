@@ -13,6 +13,10 @@ if ($examId <= 0) {
     exit;
 }
 $fixedExamContext = getCurrentExamId() > 0;
+<<<<<<< HEAD
+=======
+exams_debug_log_context($pdo, $examId);
+>>>>>>> fecd3f41d2c357534c9f0613ebf574371beb9088
 $mode = (string) ($_POST['mode'] ?? 'manual');
 $activeTab = (string) ($_GET['tab'] ?? $_POST['tab'] ?? 'manual');
 $searchAssigned = trim((string) ($_GET['q_assigned'] ?? ''));
