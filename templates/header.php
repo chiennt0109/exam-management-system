@@ -45,5 +45,5 @@ require_login();
 <div class="header">
     Xin chào <b><?= $_SESSION['user']['username'] ?></b>
     | Quyền: <b><?= $_SESSION['user']['role'] ?></b>
-    | <a href="/diemthi/exam-management-system/logout.php" style="color:#fff">Đăng xuất</a>
+    | <a href="<?= htmlspecialchars(app_url('logout.php'), ENT_QUOTES, 'UTF-8') ?>" style="color:#fff">Đăng xuất</a>
 </div>

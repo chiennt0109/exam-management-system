@@ -2,6 +2,37 @@
 session_start();
 require_once __DIR__ . '/db.php';
 
+function app_base_path(): string {
+    static $base = null;
+    if ($base !== null) {
+        return $base;
+    }
+
+    $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    $markers = ['/modules/', '/core/', '/templates/', '/layout/'];
+    foreach ($markers as $marker) {
+        $pos = strpos($scriptName, $marker);
+        if ($pos !== false) {
+            $base = rtrim(substr($scriptName, 0, $pos), '/');
+            return $base;
+        }
+    }
+
+    $dir = str_replace('\\', '/', dirname($scriptName));
+    $base = ($dir === '/' || $dir === '\\' || $dir === '.') ? '' : rtrim($dir, '/');
+    return $base;
+}
+
+function app_url(string $path = ''): string {
+    $base = app_base_path();
+    $cleanPath = ltrim($path, '/');
+    if ($cleanPath === '') {
+        return $base === '' ? '/' : $base . '/';
+    }
+
+    return ($base === '' ? '' : $base) . '/' . $cleanPath;
+}
+
 /* ========= LOGIN ========= */
 function login($username, $password) {
     global $pdo;
@@ -42,14 +73,14 @@ function login($username, $password) {
 /* ========= LOGOUT ========= */
 function logout() {
     session_destroy();
-    header("Location: Diemthi/exam-management-system/login.php");
+    header('Location: ' . app_url('login.php'));
     exit;
 }
 
 /* ========= MIDDLEWARE ========= */
 function require_login() {
     if (!isset($_SESSION['user'])) {
-        header("Location: /login.php");
+        header('Location: ' . app_url('login.php'));
         exit;
     }
 }
