@@ -8,18 +8,48 @@ function app_base_path(): string {
         return $base;
     }
 
-    $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
-    $markers = ['/modules/', '/core/', '/templates/', '/layout/'];
-    foreach ($markers as $marker) {
-        $pos = strpos($scriptName, $marker);
-        if ($pos !== false) {
-            $base = rtrim(substr($scriptName, 0, $pos), '/');
-            return $base;
+    $envBase = trim((string) ($_SERVER['APP_BASE_PATH'] ?? ''));
+    if ($envBase !== '') {
+        $base = '/' . trim($envBase, '/');
+        return $base;
+    }
+
+    $candidates = [];
+    foreach (['SCRIPT_NAME', 'PHP_SELF', 'REQUEST_URI'] as $key) {
+        $val = str_replace('\\', '/', (string) ($_SERVER[$key] ?? ''));
+        if ($val !== '') {
+            $candidates[] = $val;
         }
     }
 
-    $dir = str_replace('\\', '/', dirname($scriptName));
-    $base = ($dir === '/' || $dir === '\\' || $dir === '.') ? '' : rtrim($dir, '/');
+    $markers = ['/modules/', '/core/', '/templates/', '/layout/'];
+    $best = '';
+    foreach ($candidates as $candidate) {
+        $path = parse_url($candidate, PHP_URL_PATH) ?: '';
+        if ($path === '') {
+            continue;
+        }
+
+        $detected = '';
+        foreach ($markers as $marker) {
+            $pos = strpos($path, $marker);
+            if ($pos !== false) {
+                $detected = rtrim(substr($path, 0, $pos), '/');
+                break;
+            }
+        }
+
+        if ($detected === '') {
+            $dir = str_replace('\\', '/', dirname($path));
+            $detected = ($dir === '/' || $dir === '\\' || $dir === '.') ? '' : rtrim($dir, '/');
+        }
+
+        if (strlen($detected) > strlen($best)) {
+            $best = $detected;
+        }
+    }
+
+    $base = $best;
     return $base;
 }
 
