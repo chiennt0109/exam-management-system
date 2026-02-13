@@ -14,9 +14,13 @@ if ($examId <= 0) {
 }
 $fixedExamContext = getCurrentExamId() > 0;
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 exams_debug_log_context($pdo, $examId);
 >>>>>>> fecd3f41d2c357534c9f0613ebf574371beb9088
+=======
+exams_debug_log_context($pdo, $examId);
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
 $mode = (string) ($_POST['mode'] ?? 'manual');
 $activeTab = (string) ($_GET['tab'] ?? $_POST['tab'] ?? 'manual');
 $searchAssigned = trim((string) ($_GET['q_assigned'] ?? ''));
@@ -52,6 +56,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+<<<<<<< HEAD
+=======
+    try {
+        exams_guard_write_access($pdo, $examId);
+    } catch (Throwable $e) {
+        exams_set_flash('error', $e->getMessage());
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?exam_id=' . $examId);
+        exit;
+    }
+
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
     if ($examId <= 0) {
         exams_set_flash('error', 'Vui lòng chọn kỳ thi.');
         header('Location: ' . BASE_URL . '/modules/exams/assign_students.php');

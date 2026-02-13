@@ -4,11 +4,19 @@ require_once __DIR__ . '/../../bootstrap.php';
 
 require_once BASE_PATH . '/core/auth.php';
 require_login();
+<<<<<<< HEAD
 require_role(['admin', 'organizer']);
 require_once BASE_PATH . '/core/db.php';
 require_once BASE_PATH . '/modules/exams/exam_context_helper.php';
 
 const EXAM_ALLOWED_ROLES = ['admin', 'organizer'];
+=======
+require_role(['admin', 'organizer', 'exam_manager']);
+require_once BASE_PATH . '/core/db.php';
+require_once BASE_PATH . '/modules/exams/exam_context_helper.php';
+
+const EXAM_ALLOWED_ROLES = ['admin', 'organizer', 'exam_manager'];
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
 const REMAINDER_KEEP_SMALL = 'keep_small';
 const REMAINDER_REDISTRIBUTE = 'redistribute';
 
@@ -111,6 +119,51 @@ function exams_init_schema(PDO $pdo): void
     }
 
     // Migration: link class scopes to each config record.
+<<<<<<< HEAD
+=======
+    // Global settings for maintenance mode / runtime flags
+    $pdo->exec('CREATE TABLE IF NOT EXISTS system_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT)');
+
+    // Scoring assignments
+    $pdo->exec('CREATE TABLE IF NOT EXISTS score_assignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_id INTEGER NOT NULL,
+        subject_id INTEGER NOT NULL,
+        khoi TEXT,
+        room_id INTEGER,
+        user_id INTEGER NOT NULL
+    )');
+    $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_score_assignments_subject_khoi ON score_assignments(exam_id, subject_id, khoi) WHERE room_id IS NULL');
+    $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_score_assignments_subject_room ON score_assignments(exam_id, subject_id, room_id) WHERE room_id IS NOT NULL');
+
+    // Scores table extension for component scoring
+    $scoreCols = array_column($pdo->query('PRAGMA table_info(scores)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('component_1', $scoreCols, true)) {
+        $pdo->exec('ALTER TABLE scores ADD COLUMN component_1 REAL');
+    }
+    if (!in_array('component_2', $scoreCols, true)) {
+        $pdo->exec('ALTER TABLE scores ADD COLUMN component_2 REAL');
+    }
+    if (!in_array('component_3', $scoreCols, true)) {
+        $pdo->exec('ALTER TABLE scores ADD COLUMN component_3 REAL');
+    }
+    if (!in_array('total_score', $scoreCols, true)) {
+        $pdo->exec('ALTER TABLE scores ADD COLUMN total_score REAL');
+    }
+
+    // Exams table lock flags
+    $examCols = array_column($pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('distribution_locked', $examCols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN distribution_locked INTEGER DEFAULT 0');
+    }
+    if (!in_array('rooms_locked', $examCols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN rooms_locked INTEGER DEFAULT 0');
+    }
+    if (!in_array('exam_locked', $examCols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN exam_locked INTEGER DEFAULT 0');
+    }
+
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
     $classCols = array_column($pdo->query('PRAGMA table_info(exam_subject_classes)')->fetchAll(PDO::FETCH_ASSOC), 'name');
     if (!in_array('exam_config_id', $classCols, true)) {
         $pdo->beginTransaction();
@@ -179,6 +232,23 @@ function exams_display_flash(): string
     return '<div class="alert ' . $class . '">' . htmlspecialchars((string) ($flash['message'] ?? ''), ENT_QUOTES, 'UTF-8') . '</div>';
 }
 
+<<<<<<< HEAD
+=======
+
+function exams_set_maintenance_mode(PDO $pdo, int $examId, int $adminUserId): void
+{
+    $stmt = $pdo->prepare('INSERT INTO system_settings(setting_key, setting_value) VALUES(:k, :v) ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value');
+    $stmt->execute([':k' => 'maintenance_mode', ':v' => '1']);
+    $stmt->execute([':k' => 'maintenance_exam_id', ':v' => (string) $examId]);
+    $stmt->execute([':k' => 'maintenance_by', ':v' => (string) $adminUserId]);
+}
+
+function exams_clear_maintenance_mode(PDO $pdo): void
+{
+    $pdo->prepare('DELETE FROM system_settings WHERE setting_key IN ("maintenance_mode", "maintenance_exam_id", "maintenance_by")')->execute();
+}
+
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
 function exams_resolve_current_exam_from_request(): int
 {
     $current = getCurrentExamId();
@@ -207,6 +277,7 @@ function exams_require_current_exam_or_redirect(string $redirect = '/modules/exa
     exit;
 }
 
+<<<<<<< HEAD
 function exams_is_locked(PDO $pdo, int $examId): bool
 {
     if ($examId <= 0) {
@@ -225,6 +296,84 @@ function exams_is_locked(PDO $pdo, int $examId): bool
     return ((int) ($row['distribution_locked'] ?? 0)) === 1 || ((int) ($row['rooms_locked'] ?? 0)) === 1;
 }
 
+=======
+
+function exams_is_maintenance_mode(PDO $pdo): bool
+{
+    try {
+        $stmt = $pdo->prepare('SELECT setting_value FROM system_settings WHERE setting_key = :key LIMIT 1');
+        $stmt->execute([':key' => 'maintenance_mode']);
+        return ((string) $stmt->fetchColumn()) === '1';
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function exams_debug_log_context(PDO $pdo, int $examId = 0): void
+{
+    $role = (string) ($_SESSION['user']['role'] ?? $_SESSION['role'] ?? 'guest');
+    $currentExamId = (int) ($_SESSION['current_exam_id'] ?? 0);
+    $lock = $examId > 0 ? exams_get_lock_state($pdo, $examId) : ['exam_locked' => 0];
+    error_log(sprintf(
+        '[exam_debug] role=%s exam_locked=%d current_exam_id=%d method=%s',
+        $role,
+        (int) ($lock['exam_locked'] ?? 0),
+        $currentExamId,
+        (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')
+    ));
+}
+
+function exams_guard_write_access(PDO $pdo, int $examId, string $maintenanceMessage = 'Hệ thống đang bảo trì bởi quản trị viên. Vui lòng thử lại sau.'): void
+{
+    if (!isWriteRequest()) {
+        return;
+    }
+
+    if (exams_is_maintenance_mode($pdo) && (string) ($_SESSION['user']['role'] ?? '') !== 'admin') {
+        throw new RuntimeException($maintenanceMessage);
+    }
+
+    exams_assert_exam_unlocked_for_write($pdo, $examId);
+}
+
+function exams_get_lock_state(PDO $pdo, int $examId): array
+{
+    if ($examId <= 0) {
+        return ['distribution_locked' => 0, 'rooms_locked' => 0, 'exam_locked' => 0];
+    }
+
+    $stmt = $pdo->prepare('SELECT distribution_locked, rooms_locked, exam_locked FROM exams WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $examId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    return [
+        'distribution_locked' => (int) ($row['distribution_locked'] ?? 0),
+        'rooms_locked' => (int) ($row['rooms_locked'] ?? 0),
+        'exam_locked' => (int) ($row['exam_locked'] ?? 0),
+    ];
+}
+
+function exams_is_locked(PDO $pdo, int $examId): bool
+{
+    $state = exams_get_lock_state($pdo, $examId);
+    return $state['distribution_locked'] === 1 || $state['rooms_locked'] === 1;
+}
+
+function exams_is_exam_locked(PDO $pdo, int $examId): bool
+{
+    $state = exams_get_lock_state($pdo, $examId);
+    return $state['exam_locked'] === 1;
+}
+
+function exams_assert_exam_unlocked_for_write(PDO $pdo, int $examId): void
+{
+    if (exams_is_exam_locked($pdo, $examId)) {
+        throw new RuntimeException('Kỳ thi đã bị khoá cho giai đoạn nhập điểm. Không thể chỉnh sửa dữ liệu tổ chức thi.');
+    }
+}
+
+
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
 function detectGradeFromClassName(string $className): ?string
 {
     if (preg_match('/(\d+)/', $className, $matches) === 1) {
