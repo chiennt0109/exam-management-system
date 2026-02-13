@@ -57,10 +57,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 <<<<<<< HEAD
+    exams_assert_exam_unlocked_for_write($pdo, $examId);
+
+=======
+<<<<<<< HEAD
 =======
     exams_assert_exam_unlocked_for_write($pdo, $examId);
 
 >>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
+>>>>>>> main
     $action = (string) ($_POST['action'] ?? '');
 
     try {

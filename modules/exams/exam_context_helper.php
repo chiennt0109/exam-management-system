@@ -53,11 +53,14 @@ function ensureExamLockColumns(PDO $pdo): void
     if (!in_array('rooms_locked', $cols, true)) {
         $pdo->exec('ALTER TABLE exams ADD COLUMN rooms_locked INTEGER DEFAULT 0');
     }
+    if (!in_array('exam_locked', $cols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN exam_locked INTEGER DEFAULT 0');
+    }
 
     $checked = true;
 }
 
-/** @return array{id:int,ten_ky_thi:string,distribution_locked:int,rooms_locked:int}|null */
+/** @return array{id:int,ten_ky_thi:string,distribution_locked:int,rooms_locked:int,exam_locked:int}|null */
 function getCurrentExamInfo(): ?array
 {
     $examId = getCurrentExamId();
@@ -68,7 +71,7 @@ function getCurrentExamInfo(): ?array
     global $pdo;
     ensureExamLockColumns($pdo);
 
-    $stmt = $pdo->prepare('SELECT id, ten_ky_thi, distribution_locked, rooms_locked FROM exams WHERE id = :id LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, ten_ky_thi, distribution_locked, rooms_locked, exam_locked FROM exams WHERE id = :id LIMIT 1');
     $stmt->execute([':id' => $examId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
@@ -81,6 +84,7 @@ function getCurrentExamInfo(): ?array
         'ten_ky_thi' => (string) $row['ten_ky_thi'],
         'distribution_locked' => (int) ($row['distribution_locked'] ?? 0),
         'rooms_locked' => (int) ($row['rooms_locked'] ?? 0),
+        'exam_locked' => (int) ($row['exam_locked'] ?? 0),
     ];
 }
 

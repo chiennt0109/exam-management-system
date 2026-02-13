@@ -7,7 +7,7 @@ $maintenanceNotice = (string) ($_SESSION['maintenance_notice'] ?? '');
 unset($_SESSION['maintenance_notice']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (login($_POST['username'], $_POST['password'])) {
+    if (login($_POST['username'] ?? '', $_POST['password'] ?? '')) {
         header('Location: ' . BASE_URL . '/index.php');
         exit;
     }

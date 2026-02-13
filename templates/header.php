@@ -5,7 +5,8 @@ require_once BASE_PATH . '/core/auth.php';
 require_login();
 
 $currentExamInfo = null;
-if (in_array((string) ($_SESSION['user']['role'] ?? ''), ['admin', 'organizer'], true)) {
+$role = function_exists('current_user_role') ? current_user_role() : strtolower(trim((string) ($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '')));
+if (in_array($role, ['admin', 'organizer', 'exam_manager'], true)) {
     require_once BASE_PATH . '/core/db.php';
     require_once BASE_PATH . '/modules/exams/exam_context_helper.php';
     $currentExamInfo = getCurrentExamInfo();
@@ -53,11 +54,14 @@ if (in_array((string) ($_SESSION['user']['role'] ?? ''), ['admin', 'organizer'],
 
 <div class="header">
     Xin chào <b><?= $_SESSION['user']['username'] ?></b>
-    | Quyền: <b><?= $_SESSION['user']['role'] ?></b>
+    | Quyền: <b><?= htmlspecialchars((string) $role, ENT_QUOTES, 'UTF-8') ?></b>
     <?php if ($currentExamInfo !== null): ?>
         | Kỳ thi hiện tại: <b><?= htmlspecialchars((string) $currentExamInfo['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></b>
         <?php if (($currentExamInfo['distribution_locked'] ?? 0) === 1 || ($currentExamInfo['rooms_locked'] ?? 0) === 1): ?>
-            <span class="badge bg-danger">ĐÃ KHOÁ</span>
+            <span class="badge bg-danger">ĐÃ KHOÁ PHÂN PHÒNG</span>
+        <?php endif; ?>
+        <?php if (($currentExamInfo['exam_locked'] ?? 0) === 1): ?>
+            <span class="badge bg-dark">ĐÃ KHOÁ KỲ THI</span>
         <?php endif; ?>
         | <a href="<?= BASE_URL ?>/modules/exams/index.php?change_exam=1" style="color:#fff">Đổi kỳ thi</a>
     <?php endif; ?>

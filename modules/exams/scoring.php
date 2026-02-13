@@ -2,13 +2,14 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../bootstrap.php';
 require_once BASE_PATH . '/modules/exams/_common.php';
-require_role(['admin', 'exam_manager', 'score_entry']);
+require_role(['admin', 'exam_manager', 'score_entry', 'scorer']);
 
 $csrf = exams_get_csrf_token();
 $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
 $role = (string) ($_SESSION['user']['role'] ?? '');
 $userId = (int) ($_SESSION['user']['id'] ?? 0);
 $errors = [];
+exams_debug_log_context($pdo, $examId);
 
 
 // Ensure score rows exist for all assigned exam students by subject
@@ -24,6 +25,18 @@ if (!exams_is_exam_locked($pdo, $examId)) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        exams_guard_write_access($pdo, $examId);
+    } catch (Throwable $e) {
+        $errors[] = $e->getMessage();
+    }
+
+    if (!empty($errors)) {
+        exams_set_flash('error', implode(' | ', $errors));
+        header('Location: ' . BASE_URL . '/modules/exams/scoring.php');
+        exit;
+    }
+
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         $errors[] = 'CSRF token không hợp lệ.';
     }
@@ -78,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $scopeWhere = '';
 $params = [':exam_id' => $examId];
-if ($role === 'score_entry') {
+if (in_array($role, ['score_entry', 'scorer'], true)) {
     $scopeWhere = ' AND EXISTS (SELECT 1 FROM score_assignments sa WHERE sa.exam_id = sc.exam_id AND sa.subject_id = sc.subject_id AND sa.user_id = :user_id)';
     $params[':user_id'] = $userId;
 }

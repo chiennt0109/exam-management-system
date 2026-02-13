@@ -58,6 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    exams_assert_exam_unlocked_for_write($pdo, $examId);
+
     if ($examId <= 0) {
         exams_set_flash('error', 'Vui lòng chọn kỳ thi.');
         header('Location: ' . BASE_URL . '/modules/exams/generate_sbd.php');

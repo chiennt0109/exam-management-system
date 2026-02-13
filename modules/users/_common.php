@@ -7,7 +7,7 @@ require_login();
 require_role(['admin']);
 require_once BASE_PATH . '/core/db.php';
 
-const USER_ALLOWED_ROLES = ['admin', 'organizer', 'scorer'];
+const USER_ALLOWED_ROLES = ['admin', 'organizer', 'exam_manager', 'score_entry', 'scorer'];
 
 function users_get_csrf_token(): string
 {
@@ -62,8 +62,8 @@ function users_badge_class(string $role): string
 {
     return match ($role) {
         'admin' => 'bg-danger',
-        'organizer' => 'bg-primary',
-        'scorer' => 'bg-success',
+        'organizer', 'exam_manager' => 'bg-primary',
+        'score_entry', 'scorer' => 'bg-success',
         default => 'bg-secondary',
     };
 }
