@@ -4,11 +4,25 @@ require_once __DIR__ . '/../../bootstrap.php';
 
 require_once BASE_PATH . '/core/auth.php';
 require_login();
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+require_role(['admin', 'organizer']);
+require_once BASE_PATH . '/core/db.php';
+require_once BASE_PATH . '/modules/exams/exam_context_helper.php';
+
+const EXAM_ALLOWED_ROLES = ['admin', 'organizer'];
+=======
+>>>>>>> main
 require_role(['admin', 'organizer', 'exam_manager']);
 require_once BASE_PATH . '/core/db.php';
 require_once BASE_PATH . '/modules/exams/exam_context_helper.php';
 
 const EXAM_ALLOWED_ROLES = ['admin', 'organizer', 'exam_manager'];
+<<<<<<< HEAD
+=======
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
+>>>>>>> main
 const REMAINDER_KEEP_SMALL = 'keep_small';
 const REMAINDER_REDISTRIBUTE = 'redistribute';
 
@@ -111,6 +125,11 @@ function exams_init_schema(PDO $pdo): void
     }
 
     // Migration: link class scopes to each config record.
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> main
     // Global settings for maintenance mode / runtime flags
     $pdo->exec('CREATE TABLE IF NOT EXISTS system_settings (setting_key TEXT PRIMARY KEY, setting_value TEXT)');
 
@@ -153,6 +172,10 @@ function exams_init_schema(PDO $pdo): void
         $pdo->exec('ALTER TABLE exams ADD COLUMN exam_locked INTEGER DEFAULT 0');
     }
 
+<<<<<<< HEAD
+=======
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
+>>>>>>> main
     $classCols = array_column($pdo->query('PRAGMA table_info(exam_subject_classes)')->fetchAll(PDO::FETCH_ASSOC), 'name');
     if (!in_array('exam_config_id', $classCols, true)) {
         $pdo->beginTransaction();
@@ -221,6 +244,11 @@ function exams_display_flash(): string
     return '<div class="alert ' . $class . '">' . htmlspecialchars((string) ($flash['message'] ?? ''), ENT_QUOTES, 'UTF-8') . '</div>';
 }
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> main
 
 function exams_set_maintenance_mode(PDO $pdo, int $examId, int $adminUserId): void
 {
@@ -235,6 +263,10 @@ function exams_clear_maintenance_mode(PDO $pdo): void
     $pdo->prepare('DELETE FROM system_settings WHERE setting_key IN ("maintenance_mode", "maintenance_exam_id", "maintenance_by")')->execute();
 }
 
+<<<<<<< HEAD
+=======
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
+>>>>>>> main
 function exams_resolve_current_exam_from_request(): int
 {
     $current = getCurrentExamId();
@@ -263,6 +295,29 @@ function exams_require_current_exam_or_redirect(string $redirect = '/modules/exa
     exit;
 }
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+function exams_is_locked(PDO $pdo, int $examId): bool
+{
+    if ($examId <= 0) {
+        return false;
+    }
+    $cols = array_column($pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('distribution_locked', $cols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN distribution_locked INTEGER DEFAULT 0');
+    }
+    if (!in_array('rooms_locked', $cols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN rooms_locked INTEGER DEFAULT 0');
+    }
+    $stmt = $pdo->prepare('SELECT distribution_locked, rooms_locked FROM exams WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $examId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    return ((int) ($row['distribution_locked'] ?? 0)) === 1 || ((int) ($row['rooms_locked'] ?? 0)) === 1;
+}
+
+=======
+>>>>>>> main
 
 function exams_is_maintenance_mode(PDO $pdo): bool
 {
@@ -339,6 +394,10 @@ function exams_assert_exam_unlocked_for_write(PDO $pdo, int $examId): void
 }
 
 
+<<<<<<< HEAD
+=======
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
+>>>>>>> main
 function detectGradeFromClassName(string $className): ?string
 {
     if (preg_match('/(\d+)/', $className, $matches) === 1) {
