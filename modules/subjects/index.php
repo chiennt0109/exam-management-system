@@ -36,7 +36,7 @@ require_once BASE_PATH . '/layout/header.php';
         <div class="panel">
             <div class="panel-head">
                 <strong>Quản lý môn học</strong>
-                <a class="btn btn-success" href="create.php">+ Thêm môn học</a>
+                <a class="btn btn-success" href="<?= BASE_URL ?>/modules/subjects/create.php">+ Thêm môn học</a>
             </div>
             <div class="panel-body">
                 <?php if (in_array($flash, ['created', 'updated', 'deleted'], true)): ?>
@@ -66,8 +66,8 @@ require_once BASE_PATH . '/layout/header.php';
                                     <td><?= htmlspecialchars($subject['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= htmlspecialchars((string) $subject['he_so'], ENT_QUOTES, 'UTF-8') ?></td>
                                     <td>
-                                        <a class="btn btn-warning" href="edit.php?id=<?= (int) $subject['id'] ?>" title="Sửa">✏️</a>
-                                        <a class="btn btn-danger" href="delete.php?id=<?= (int) $subject['id'] ?>" title="Xóa">🗑️</a>
+                                        <a class="btn btn-warning" href="<?= BASE_URL ?>/modules/subjects/edit.php?id=<?= (int) $subject['id'] ?>" title="Sửa">✏️</a>
+                                        <a class="btn btn-danger" href="<?= BASE_URL ?>/modules/subjects/delete.php?id=<?= (int) $subject['id'] ?>" title="Xóa">🗑️</a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

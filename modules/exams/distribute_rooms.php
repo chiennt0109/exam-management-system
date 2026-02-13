@@ -398,14 +398,7 @@ if ($examId <= 0) {
     exit;
 }
 $fixedExamContext = getCurrentExamId() > 0;
-<<<<<<< HEAD
 exams_debug_log_context($pdo, $examId);
-=======
-<<<<<<< HEAD
-=======
-exams_debug_log_context($pdo, $examId);
->>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
->>>>>>> main
 $subjectId = max(0, (int) ($_GET['subject_id'] ?? $_POST['subject_id'] ?? 0));
 $khoi = trim((string) ($_GET['khoi'] ?? $_POST['khoi'] ?? ''));
 $activeTab = (string) ($_GET['tab'] ?? 'adjust');
@@ -438,11 +431,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
->>>>>>> main
     try {
         exams_guard_write_access($pdo, $examId);
     } catch (Throwable $e) {
@@ -451,10 +439,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-<<<<<<< HEAD
-=======
->>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
->>>>>>> main
     $action = (string) ($_POST['action'] ?? 'auto_distribute');
     $redirectParams = ['exam_id' => $examId, 'tab' => $activeTab];
 

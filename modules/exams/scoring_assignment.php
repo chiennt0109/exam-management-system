@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../bootstrap.php';
 require_once BASE_PATH . '/modules/exams/_common.php';
-require_role(['admin', 'exam_manager', 'organizer']);
+require_role(['admin', 'organizer']);
 
 $csrf = exams_get_csrf_token();
 $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $subjects = $pdo->query('SELECT id, ten_mon FROM subjects ORDER BY ten_mon')->fetchAll(PDO::FETCH_ASSOC);
-$scoreUsersStmt = $pdo->query("SELECT id, username FROM users WHERE active = 1 AND role IN ('score_entry', 'scorer') ORDER BY username");
+$scoreUsersStmt = $pdo->query("SELECT id, username FROM users WHERE active = 1 AND role = 'scorer' ORDER BY username");
 $scoreUsers = $scoreUsersStmt ? $scoreUsersStmt->fetchAll(PDO::FETCH_ASSOC) : [];
 $rooms = $pdo->prepare('SELECT r.id, r.ten_phong, r.khoi, s.ten_mon, r.subject_id FROM rooms r INNER JOIN subjects s ON s.id = r.subject_id WHERE r.exam_id = :exam_id ORDER BY s.ten_mon, r.ten_phong');
 $rooms->execute([':exam_id' => $examId]);

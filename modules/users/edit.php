@@ -131,7 +131,7 @@ require_once BASE_PATH . '/layout/header.php';
                     </div>
 
                     <button type="submit" class="btn btn-primary">Cập nhật</button>
-                    <a href="index.php" class="btn btn-outline-secondary">Quay lại</a>
+                    <a href="<?= BASE_URL ?>/modules/users/index.php" class="btn btn-outline-secondary">Quay lại</a>
                 </form>
             </div>
         </div>

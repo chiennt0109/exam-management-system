@@ -3,14 +3,6 @@ require_once __DIR__ . '/../bootstrap.php';
 header('Content-Type: text/html; charset=UTF-8');
 require_once BASE_PATH . '/core/auth.php';
 require_login();
-
-$currentExamInfo = null;
-$role = function_exists('current_user_role') ? current_user_role() : strtolower(trim((string) ($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '')));
-if (in_array($role, ['admin', 'organizer', 'exam_manager'], true)) {
-    require_once BASE_PATH . '/core/db.php';
-    require_once BASE_PATH . '/modules/exams/exam_context_helper.php';
-    $currentExamInfo = getCurrentExamInfo();
-}
 ?>
 <!DOCTYPE html>
 <html lang="vi">

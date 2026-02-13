@@ -81,7 +81,7 @@ require_once BASE_PATH . '/layout/header.php';
                     <div class="field"><label>Tên môn *</label><input type="text" name="ten_mon" value="<?= htmlspecialchars($formData['ten_mon'], ENT_QUOTES, 'UTF-8') ?>" required></div>
                     <div class="field"><label>Hệ số *</label><input type="number" step="0.01" min="0.01" name="he_so" value="<?= htmlspecialchars((string)$formData['he_so'], ENT_QUOTES, 'UTF-8') ?>" required></div>
                     <button class="btn btn-primary" type="submit">💾 Cập nhật</button>
-                    <a class="btn btn-secondary" href="index.php">↩ Quay lại</a>
+                    <a class="btn btn-secondary" href="<?= BASE_URL ?>/modules/subjects/index.php">↩ Quay lại</a>
                 </form>
             </div>
         </div>

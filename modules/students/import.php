@@ -167,7 +167,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div style="display:flex; gap:8px;">
                         <button type="submit" id="saveBtn" class="btn btn-success" onclick="return beforeSubmit()" disabled>✅ Lưu vào cơ sở dữ liệu</button>
-                        <a href="index.php" class="btn btn-secondary">↩ Quay lại danh sách</a>
+                        <a href="<?= BASE_URL ?>/modules/students/index.php" class="btn btn-secondary">↩ Quay lại danh sách</a>
                     </div>
                 </form>
             </div>

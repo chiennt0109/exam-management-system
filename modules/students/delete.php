@@ -77,7 +77,7 @@ require_once BASE_PATH . '/layout/header.php';
                 <form method="post" style="display:flex; gap:8px;">
                     <input type="hidden" name="confirm_delete" value="yes">
                     <button type="submit" class="btn btn-danger">🗑️ Xác nhận xóa</button>
-                    <a href="index.php" class="btn btn-secondary">↩ Hủy</a>
+                    <a href="<?= BASE_URL ?>/modules/students/index.php" class="btn btn-secondary">↩ Hủy</a>
                 </form>
             </div>
         </div>

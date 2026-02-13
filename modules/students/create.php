@@ -92,7 +92,7 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="window-title"><strong>Thêm học sinh mới</strong></div>
             <div class="window-content">
                 <div class="toolbar">
-                    <a class="tool" href="index.php"><span class="icon">📋</span><span class="label">Danh sách</span></a>
+                    <a class="tool" href="<?= BASE_URL ?>/modules/students/index.php"><span class="icon">📋</span><span class="label">Danh sách</span></a>
                     <a class="tool" href="import.php"><span class="icon">📥</span><span class="label">Import Excel</span></a>
                 </div>
 

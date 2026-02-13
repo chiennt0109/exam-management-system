@@ -221,7 +221,7 @@ require_once BASE_PATH . '/layout/header.php';
                 <?php endif; ?>
 
                 <div class="tool-grid">
-                    <a class="tool-icon" href="create.php" title="Thêm học sinh">
+                    <a class="tool-icon" href="<?= BASE_URL ?>/modules/students/create.php" title="Thêm học sinh">
                         <span class="icon">➕</span>
                         <span class="label">Thêm học sinh</span>
                     </a>
@@ -246,7 +246,7 @@ require_once BASE_PATH . '/layout/header.php';
                 <form method="get" class="search-row">
                     <input type="text" name="q" value="<?= htmlspecialchars($keyword, ENT_QUOTES, 'UTF-8') ?>" placeholder="Lọc theo SBD hoặc họ tên...">
                     <button type="submit">Tìm</button>
-                    <a href="index.php">Làm mới</a>
+                    <a href="<?= BASE_URL ?>/modules/students/index.php">Làm mới</a>
                 </form>
 
                 <form method="post" id="bulkForm">
@@ -288,8 +288,8 @@ require_once BASE_PATH . '/layout/header.php';
                                         <td><?= htmlspecialchars($student['truong'], ENT_QUOTES, 'UTF-8') ?></td>
                                         <td>
                                             <span class="table-action">
-                                                <a class="btn-icon btn-edit" href="edit.php?id=<?= (int) $student['id'] ?>" title="Sửa">✏️</a>
-                                                <a class="btn-icon btn-delete" href="delete.php?id=<?= (int) $student['id'] ?>" title="Xóa">🗑</a>
+                                                <a class="btn-icon btn-edit" href="<?= BASE_URL ?>/modules/students/edit.php?id=<?= (int) $student['id'] ?>" title="Sửa">✏️</a>
+                                                <a class="btn-icon btn-delete" href="<?= BASE_URL ?>/modules/students/delete.php?id=<?= (int) $student['id'] ?>" title="Xóa">🗑</a>
                                             </span>
                                         </td>
                                     </tr>

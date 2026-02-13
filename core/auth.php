@@ -11,8 +11,8 @@ function normalize_role(?string $role): string {
     $normalized = strtolower(trim((string) $role));
 
     return match ($normalized) {
-        'scorer' => 'score_entry',
-        'quanlythi', 'exam-manager' => 'exam_manager',
+        'score_entry' => 'scorer',
+        'exam_manager', 'quanlythi', 'exam-manager' => 'organizer',
         default => $normalized,
     };
 }

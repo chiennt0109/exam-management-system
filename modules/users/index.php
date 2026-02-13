@@ -105,7 +105,7 @@ require_once BASE_PATH . '/layout/header.php';
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <strong>Quản lý người dùng</strong>
-                <a href="create.php" class="btn btn-light btn-sm">+ Thêm user</a>
+                <a href="<?= BASE_URL ?>/modules/users/create.php" class="btn btn-light btn-sm">+ Thêm user</a>
             </div>
             <div class="card-body">
                 <?= display_flash(); ?>
@@ -124,7 +124,7 @@ require_once BASE_PATH . '/layout/header.php';
                     </div>
                     <div class="col-md-4 d-flex gap-2">
                         <button type="submit" class="btn btn-primary">Lọc</button>
-                        <a href="index.php" class="btn btn-outline-secondary">Làm mới</a>
+                        <a href="<?= BASE_URL ?>/modules/users/index.php" class="btn btn-outline-secondary">Làm mới</a>
                     </div>
                 </form>
 
@@ -160,7 +160,7 @@ require_once BASE_PATH . '/layout/header.php';
                                             <?= $hasCreatedAt ? htmlspecialchars((string) ($user['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') : '<em>N/A</em>' ?>
                                         </td>
                                         <td>
-                                            <a class="btn btn-sm btn-warning" href="edit.php?id=<?= (int) $user['id'] ?>">Edit</a>
+                                            <a class="btn btn-sm btn-warning" href="<?= BASE_URL ?>/modules/users/edit.php?id=<?= (int) $user['id'] ?>">Edit</a>
 
                                             <form method="post" class="d-inline">
                                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
@@ -171,7 +171,7 @@ require_once BASE_PATH . '/layout/header.php';
                                                 </button>
                                             </form>
 
-                                            <a class="btn btn-sm btn-danger" href="delete.php?id=<?= (int) $user['id'] ?>">Delete</a>
+                                            <a class="btn btn-sm btn-danger" href="<?= BASE_URL ?>/modules/users/delete.php?id=<?= (int) $user['id'] ?>">Delete</a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

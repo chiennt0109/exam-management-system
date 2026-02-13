@@ -63,7 +63,7 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-body">
                 <?php if ((int) $_SESSION['user']['id'] === (int) $user['id']): ?>
                     <div class="alert alert-warning">Bạn không thể xóa tài khoản đang đăng nhập.</div>
-                    <a href="index.php" class="btn btn-secondary">Quay lại</a>
+                    <a href="<?= BASE_URL ?>/modules/users/index.php" class="btn btn-secondary">Quay lại</a>
                 <?php else: ?>
                     <p>Bạn có chắc muốn xóa người dùng này?</p>
                     <ul>
@@ -75,7 +75,7 @@ require_once BASE_PATH . '/layout/header.php';
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="confirm_delete" value="yes">
                         <button type="submit" class="btn btn-danger">Xác nhận xóa</button>
-                        <a href="index.php" class="btn btn-outline-secondary">Hủy</a>
+                        <a href="<?= BASE_URL ?>/modules/users/index.php" class="btn btn-outline-secondary">Hủy</a>
                     </form>
                 <?php endif; ?>
             </div>

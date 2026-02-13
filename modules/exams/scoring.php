@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../bootstrap.php';
 require_once BASE_PATH . '/modules/exams/_common.php';
-require_role(['admin', 'exam_manager', 'score_entry', 'scorer']);
+require_role(['admin', 'organizer', 'scorer']);
 
 $csrf = exams_get_csrf_token();
 $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $scopeWhere = '';
 $params = [':exam_id' => $examId];
-if (in_array($role, ['score_entry', 'scorer'], true)) {
+if ($role === 'scorer') {
     $scopeWhere = ' AND EXISTS (SELECT 1 FROM score_assignments sa WHERE sa.exam_id = sc.exam_id AND sa.subject_id = sc.subject_id AND sa.user_id = :user_id)';
     $params[':user_id'] = $userId;
 }
