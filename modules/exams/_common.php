@@ -331,6 +331,14 @@ function exams_is_exam_locked(PDO $pdo, int $examId): bool
     return $state['exam_locked'] === 1;
 }
 
+
+function exams_assert_exam_locked_for_scoring(PDO $pdo, int $examId): void
+{
+    if (!exams_is_exam_locked($pdo, $examId)) {
+        throw new RuntimeException('Kỳ thi phải được khoá trước khi phân công/nhập điểm.');
+    }
+}
+
 function exams_assert_exam_unlocked_for_write(PDO $pdo, int $examId): void
 {
     if (exams_is_exam_locked($pdo, $examId)) {

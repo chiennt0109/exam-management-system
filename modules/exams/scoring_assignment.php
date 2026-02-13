@@ -7,6 +7,8 @@ require_role(['admin', 'organizer']);
 $csrf = exams_get_csrf_token();
 $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
 $errors = [];
+$lockState = exams_get_lock_state($pdo, $examId);
+$isExamLocked = ((int) ($lockState['exam_locked'] ?? 0)) === 1;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
@@ -14,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        exams_assert_exam_unlocked_for_write($pdo, $examId);
+        exams_assert_exam_locked_for_scoring($pdo, $examId);
     } catch (Throwable $e) {
         $errors[] = $e->getMessage();
     }
@@ -52,6 +54,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     if ($roomId <= 0) {
                         throw new RuntimeException('Vui lòng chọn phòng khi phân công theo phòng + môn.');
+                    }
+                    $roomCheck = $pdo->prepare('SELECT 1 FROM rooms WHERE id = :id AND exam_id = :exam_id AND subject_id = :subject_id LIMIT 1');
+                    $roomCheck->execute([':id' => $roomId, ':exam_id' => $examId, ':subject_id' => $subjectId]);
+                    if (!$roomCheck->fetchColumn()) {
+                        throw new RuntimeException('Phòng không thuộc môn đã chọn.');
                     }
                     $exists = $pdo->prepare('SELECT 1 FROM score_assignments WHERE exam_id = :exam_id AND subject_id = :subject_id AND room_id = :room_id LIMIT 1');
                     $exists->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':room_id' => $roomId]);
@@ -95,17 +102,18 @@ require_once BASE_PATH . '/layout/header.php';
 <div class="card shadow-sm mb-3"><div class="card-header bg-primary text-white"><strong>Phân công nhập điểm</strong></div><div class="card-body">
 <?= exams_display_flash(); ?>
 <?php if ($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach ($errors as $e): ?><li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+<?php if (!$isExamLocked): ?><div class="alert alert-warning">Phải khoá kỳ thi trước khi phân công nhập điểm.</div><?php endif; ?>
 <form method="post" class="row g-2">
 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-<div class="col-md-3"><label class="form-label">Môn</label><select name="subject_id" class="form-select" required><?php foreach($subjects as $sub): ?><option value="<?= (int)$sub['id'] ?>"><?= htmlspecialchars((string)$sub['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+<div class="col-md-3"><label class="form-label">Môn</label><select name="subject_id" id="subjectSelect" class="form-select" required><?php foreach($subjects as $sub): ?><option value="<?= (int)$sub['id'] ?>"><?= htmlspecialchars((string)$sub['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
 <div class="col-md-3"><label class="form-label">Người nhập điểm</label><select name="user_id" class="form-select" required><?php foreach($scoreUsers as $u): ?><option value="<?= (int)$u['id'] ?>"><?= htmlspecialchars((string)$u['username'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
 <div class="col-md-3"><label class="form-label">Chế độ</label><div>
 <div class="form-check"><input checked class="form-check-input" type="radio" name="assign_mode" value="subject_grade" id="m1"><label class="form-check-label" for="m1">Theo môn + khối</label></div>
 <div class="form-check"><input class="form-check-input" type="radio" name="assign_mode" value="subject_room" id="m2"><label class="form-check-label" for="m2">Theo phòng + môn</label></div>
 </div></div>
 <div class="col-md-3" id="scopeKhoi"><label class="form-label">Khối</label><input name="khoi" class="form-control" placeholder="VD: 12"></div>
-<div class="col-md-6 d-none" id="scopeRoom"><label class="form-label">Phòng</label><select name="room_id" class="form-select"><option value="">-- Chọn phòng --</option><?php foreach($rooms as $r): ?><option value="<?= (int)$r['id'] ?>"><?= htmlspecialchars((string)$r['ten_mon'].' - '.$r['ten_phong'].' (Khối '.$r['khoi'].')', ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-<div class="col-12"><button class="btn btn-success" type="submit">Lưu phân công</button></div>
+<div class="col-md-6 d-none" id="scopeRoom"><label class="form-label">Phòng (Dual Window)</label><div class="row g-2"><div class="col-md-6"><div class="small text-muted">Danh sách phòng theo môn</div><select id="roomsAvailable" class="form-select" size="6"></select></div><div class="col-md-6"><div class="small text-muted">Phòng được chọn</div><select name="room_id" id="roomSelect" class="form-select" size="6" required><option value="">-- Chọn phòng --</option><?php foreach($rooms as $r): ?><option data-subject-id="<?= (int)$r['subject_id'] ?>" value="<?= (int)$r['id'] ?>"><?= htmlspecialchars((string)$r['ten_phong'].' (Khối '.$r['khoi'].')', ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div></div></div>
+<div class="col-12"><button class="btn btn-success" type="submit" <?= !$isExamLocked ? 'disabled' : '' ?>>Lưu phân công</button></div>
 </form></div></div>
 
 <div class="card shadow-sm"><div class="card-header">Danh sách phân công</div><div class="card-body"><table class="table table-sm table-bordered"><thead><tr><th>Môn</th><th>Phạm vi</th><th>Người nhập điểm</th><th></th></tr></thead><tbody><?php foreach($assignments as $a): ?><tr><td><?= htmlspecialchars((string)$a['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td><td><?= $a['room_id'] ? ('Phòng '.htmlspecialchars((string)$a['ten_phong'], ENT_QUOTES, 'UTF-8')) : ('Khối '.htmlspecialchars((string)$a['khoi'], ENT_QUOTES, 'UTF-8')) ?></td><td><?= htmlspecialchars((string)$a['username'], ENT_QUOTES, 'UTF-8') ?></td><td><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int)$a['id'] ?>"><button class="btn btn-sm btn-outline-danger">Xoá</button></form></td></tr><?php endforeach; ?></tbody></table></div></div>
@@ -114,11 +122,39 @@ require_once BASE_PATH . '/layout/header.php';
 const modeRadios = document.querySelectorAll('input[name="assign_mode"]');
 const khoi = document.getElementById('scopeKhoi');
 const room = document.getElementById('scopeRoom');
+const subjectSelect = document.getElementById('subjectSelect');
+const roomSelect = document.getElementById('roomSelect');
+const roomsAvailable = document.getElementById('roomsAvailable');
 function syncMode(){
   const mode = document.querySelector('input[name="assign_mode"]:checked').value;
   if(mode === 'subject_room'){room.classList.remove('d-none');khoi.classList.add('d-none');}
   else {room.classList.add('d-none');khoi.classList.remove('d-none');}
 }
-modeRadios.forEach(r=>r.addEventListener('change',syncMode)); syncMode();
+function syncRoomsBySubject(){
+  if(!subjectSelect || !roomSelect || !roomsAvailable) return;
+  const sid = subjectSelect.value;
+  roomsAvailable.innerHTML = '';
+  const options = Array.from(roomSelect.querySelectorAll('option[data-subject-id]'));
+  options.forEach((opt)=>{
+    opt.hidden = opt.dataset.subjectId !== sid;
+    if(!opt.hidden){
+      const clone = document.createElement('option');
+      clone.value = opt.value;
+      clone.textContent = opt.textContent;
+      roomsAvailable.appendChild(clone);
+    }
+  });
+  if(roomSelect.selectedOptions.length && roomSelect.selectedOptions[0].hidden){
+    roomSelect.value = '';
+  }
+}
+roomsAvailable?.addEventListener('dblclick', ()=>{
+  const v = roomsAvailable.value;
+  if(v) roomSelect.value = v;
+});
+subjectSelect?.addEventListener('change', syncRoomsBySubject);
+modeRadios.forEach(r=>r.addEventListener('change',syncMode));
+syncMode();
+syncRoomsBySubject();
 </script>
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>
