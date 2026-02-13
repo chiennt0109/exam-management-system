@@ -4,11 +4,11 @@ require_once __DIR__ . '/../../bootstrap.php';
 
 require_once BASE_PATH . '/core/auth.php';
 require_login();
-require_role(['admin', 'organizer']);
+require_role(['admin', 'organizer', 'scorer']);
 require_once BASE_PATH . '/core/db.php';
 require_once BASE_PATH . '/modules/exams/exam_context_helper.php';
 
-const EXAM_ALLOWED_ROLES = ['admin', 'organizer'];
+const EXAM_ALLOWED_ROLES = ['admin', 'organizer', 'scorer'];
 const REMAINDER_KEEP_SMALL = 'keep_small';
 const REMAINDER_REDISTRIBUTE = 'redistribute';
 
