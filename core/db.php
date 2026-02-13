@@ -1,5 +1,7 @@
 <?php
-$dbFile = __DIR__ . '/../data/exam.db';
+require_once __DIR__ . '/../bootstrap.php';
+
+$dbFile = BASE_PATH . '/data/exam.db';
 
 try {
     $pdo = new PDO("sqlite:$dbFile");
