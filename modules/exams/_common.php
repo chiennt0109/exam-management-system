@@ -126,6 +126,17 @@ function exams_init_schema(PDO $pdo): void
     $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_score_assignments_subject_khoi ON score_assignments(exam_id, subject_id, khoi) WHERE room_id IS NULL');
     $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_score_assignments_subject_room ON score_assignments(exam_id, subject_id, room_id) WHERE room_id IS NOT NULL');
 
+    $saCols = array_column($pdo->query('PRAGMA table_info(score_assignments)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('component_name', $saCols, true)) {
+        $pdo->exec('ALTER TABLE score_assignments ADD COLUMN component_name TEXT DEFAULT "total"');
+    }
+
+    // Rebuild unique indexes to include component scope
+    $pdo->exec('DROP INDEX IF EXISTS idx_score_assignments_subject_khoi');
+    $pdo->exec('DROP INDEX IF EXISTS idx_score_assignments_subject_room');
+    $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_score_assignments_subject_khoi ON score_assignments(exam_id, subject_id, khoi, component_name) WHERE room_id IS NULL');
+    $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_score_assignments_subject_room ON score_assignments(exam_id, subject_id, room_id, component_name) WHERE room_id IS NOT NULL');
+
     // Scores table extension for component scoring
     $scoreCols = array_column($pdo->query('PRAGMA table_info(scores)')->fetchAll(PDO::FETCH_ASSOC), 'name');
     if (!in_array('component_1', $scoreCols, true)) {
