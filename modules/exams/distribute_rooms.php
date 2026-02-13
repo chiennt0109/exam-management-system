@@ -398,6 +398,10 @@ if ($examId <= 0) {
     exit;
 }
 $fixedExamContext = getCurrentExamId() > 0;
+<<<<<<< HEAD
+=======
+exams_debug_log_context($pdo, $examId);
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
 $subjectId = max(0, (int) ($_GET['subject_id'] ?? $_POST['subject_id'] ?? 0));
 $khoi = trim((string) ($_GET['khoi'] ?? $_POST['khoi'] ?? ''));
 $activeTab = (string) ($_GET['tab'] ?? 'adjust');
@@ -430,6 +434,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+<<<<<<< HEAD
+=======
+    try {
+        exams_guard_write_access($pdo, $examId);
+    } catch (Throwable $e) {
+        exams_set_flash('error', $e->getMessage());
+        header('Location: ' . BASE_URL . '/modules/exams/distribute_rooms.php');
+        exit;
+    }
+
+>>>>>>> b9846385135cf00fb0d7702d82d1d0e55d2b144b
     $action = (string) ($_POST['action'] ?? 'auto_distribute');
     $redirectParams = ['exam_id' => $examId, 'tab' => $activeTab];
 
