@@ -44,6 +44,13 @@ CREATE TABLE IF NOT EXISTS exams (
 )");
 
 /* ====== SCORES ====== */
+
+
+$examColumns = array_column($pdo->query("PRAGMA table_info(exams)")->fetchAll(PDO::FETCH_ASSOC), 'name');
+if (!in_array('is_default', $examColumns, true)) {
+    $pdo->exec("ALTER TABLE exams ADD COLUMN is_default INTEGER DEFAULT 0");
+}
+
 $pdo->exec("
 CREATE TABLE IF NOT EXISTS scores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
