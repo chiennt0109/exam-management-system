@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
+
 session_start();
 require_once BASE_PATH . '/core/db.php';
 
