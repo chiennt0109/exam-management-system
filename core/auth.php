@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
+
 session_start();
 require_once BASE_PATH . '/core/db.php';
 
@@ -11,7 +12,7 @@ function normalize_role(?string $role): string {
     $normalized = strtolower(trim((string) $role));
 
     return match ($normalized) {
-        'score_entry' => 'scorer',
+        'score_entry', 'score-input', 'score_input', 'nhapdiem', 'nhap_diem' => 'scorer',
         'exam_manager', 'quanlythi', 'exam-manager' => 'organizer',
         default => $normalized,
     };
@@ -146,9 +147,18 @@ function logout() {
 
 /* ========= MIDDLEWARE ========= */
 function require_login() {
+    global $pdo;
+
     if (!isset($_SESSION['user'])) {
         header('Location: ' . BASE_URL . '/login.php');
         exit;
+    }
+
+    if (!isset($_SESSION['current_exam_id']) || (int) $_SESSION['current_exam_id'] <= 0) {
+        $defaultExamId = resolve_default_exam_id($pdo);
+        if ($defaultExamId > 0) {
+            $_SESSION['current_exam_id'] = $defaultExamId;
+        }
     }
 }
 

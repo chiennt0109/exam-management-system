@@ -35,8 +35,11 @@ foreach ($subjectCfgs as $cfg) {
     $componentMap[$sid] = $labels;
 }
 
-$scoreUsersStmt = $pdo->query("SELECT id, username FROM users WHERE active = 1 AND role = 'scorer' ORDER BY username");
-$scoreUsers = $scoreUsersStmt ? $scoreUsersStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+$allUsersStmt = $pdo->query("SELECT id, username, role FROM users WHERE active = 1 ORDER BY username");
+$allUsers = $allUsersStmt ? $allUsersStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+$scoreUsers = array_values(array_filter($allUsers, static function (array $user): bool {
+    return normalize_role((string) ($user['role'] ?? '')) === 'scorer';
+}));
 
 $roomsStmt = $pdo->prepare('SELECT r.id, r.ten_phong, r.khoi, r.subject_id, s.ten_mon
     FROM rooms r
