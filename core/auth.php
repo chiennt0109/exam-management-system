@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../bootstrap.php';
 session_start();
 require_once BASE_PATH . '/core/db.php';
 
@@ -48,35 +49,21 @@ function login($username, $password) {
 
     if (!$user) return false;
 
-    $isValid = false;
-    if (is_string($user['password']) && password_verify($password, $user['password'])) {
-        $isValid = true;
-    } else {
-        $salt = 'exam_system_salt';
-        $hash = hash('sha256', $password . $salt);
-        $isValid = ($hash === $user['password']);
+    // HASH PHP 5.4
+    $salt = 'exam_system_salt';
+    $hash = hash('sha256', $password . $salt);
+
+    if ($hash === $user['password']) {
+        $_SESSION['user'] = [
+            'id' => $user['id'],
+            'username' => $user['username'],
+            'role' => $user['role']
+        ];
+        return true;
     }
-
-    if (!$isValid) {
-        return false;
-    }
-
-    $role = normalize_role((string) ($user['role'] ?? ''));
-    $_SESSION['user'] = [
-        'id' => $user['id'],
-        'username' => $user['username'],
-        'role' => $role,
-    ];
-    // Keep lightweight mirror for legacy code/sidebar compatibility
-    $_SESSION['role'] = $role;
-
-    // Only show maintenance notice to non-admins, but do not block login/dashboard read access.
-    if (is_maintenance_mode() && $role !== 'admin') {
-        $_SESSION['maintenance_notice'] = 'Kỳ thi đang được mở bởi quản trị viên. Vui lòng chờ.';
-    }
-
-    return true;
+    return false;
 }
+
 
 /* ========= LOGOUT ========= */
 function logout() {

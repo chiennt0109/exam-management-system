@@ -163,6 +163,9 @@ function exams_init_schema(PDO $pdo): void
     if (!in_array('exam_locked', $examCols, true)) {
         $pdo->exec('ALTER TABLE exams ADD COLUMN exam_locked INTEGER DEFAULT 0');
     }
+    if (!in_array('is_default', $examCols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN is_default INTEGER DEFAULT 0');
+    }
 
     $classCols = array_column($pdo->query('PRAGMA table_info(exam_subject_classes)')->fetchAll(PDO::FETCH_ASSOC), 'name');
     if (!in_array('exam_config_id', $classCols, true)) {

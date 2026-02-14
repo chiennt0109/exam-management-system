@@ -457,7 +457,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Vui lòng chọn kỳ thi.');
         }
 
-        if ($action === 'lock_distribution' || $action === 'lock_rooms') {
+        if ($action === 'unlock_distribution') {
+            if (exams_is_exam_locked($pdo, $examId)) {
+                throw new RuntimeException('Kỳ thi đã khoá toàn bộ, không thể mở khoá phân phòng.');
+            }
+            $pdo->beginTransaction();
+            $pdo->prepare('UPDATE exams SET distribution_locked = 0, rooms_locked = 0 WHERE id = :id')->execute([':id' => $examId]);
+            $pdo->commit();
+            exams_set_flash('success', 'Đã mở khoá phân phòng.');
+        } elseif ($action === 'lock_distribution' || $action === 'lock_rooms') {
             if ($examLocked) {
                 throw new RuntimeException('Kỳ thi đã khóa phân phòng trước đó.');
             }
@@ -812,6 +820,12 @@ require_once BASE_PATH . '/layout/header.php';
                     <div class="col-md-3 align-self-end"><button class="btn btn-primary w-100" type="submit">Tải dữ liệu</button></div>
                     <?php if ($examLocked): ?><div class="col-md-3 align-self-end"><span class="badge bg-danger">Kỳ thi đã khóa phân phòng</span></div><?php endif; ?>
                 </form>
+                    <form method="post" class="d-inline ms-2">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                        <input type="hidden" name="action" value="unlock_distribution">
+                        <button class="btn btn-outline-warning" type="submit">Mở khoá phân phòng</button>
+                    </form>
 
                 <?php if ($examId > 0): ?>
                     <div class="mb-3"><?php foreach ($wizard as $index => $step): ?><span class="badge <?= $step['done'] ? 'bg-success' : 'bg-secondary' ?> me-1">B<?= $index ?>: <?= htmlspecialchars($step['label'], ENT_QUOTES, 'UTF-8') ?></span><?php endforeach; ?></div>
@@ -836,7 +850,7 @@ require_once BASE_PATH . '/layout/header.php';
                             </div>
                             <div class="col-md-3"><label class="form-label">Tổng số phòng / nhóm</label><input class="form-control" type="number" min="1" name="total_rooms" value="5"></div>
                             <div class="col-md-3"><label class="form-label">Sĩ số tối đa / phòng</label><input class="form-control" type="number" min="1" name="max_students_per_room" value="24"></div>
-                            <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="overwrite_existing" value="1" id="overwrite_existing"><label class="form-check-label" for="overwrite_existing">Cho phép ghi đè toàn bộ phân phòng của kỳ thi này</label></div></div>
+                            <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="overwrite_existing" value="1" id="overwrite_existing" id="overwrite_existing"><label class="form-check-label" for="overwrite_existing">Cho phép ghi đè toàn bộ phân phòng của kỳ thi này</label></div></div>
                             <div class="col-12 d-flex gap-2">
                                 <button class="btn btn-success" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Phân phòng tự động</button>
                             </div>

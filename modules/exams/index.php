@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../bootstrap.php';
 
 require_once BASE_PATH . '/modules/exams/_common.php';
+require_role(['admin', 'organizer']);
 
 $csrf = exams_get_csrf_token();
 $errors = [];
@@ -47,6 +48,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         } catch (Throwable $e) {
             $errors[] = 'Không thể chọn kỳ thi hiện tại.';
+        }
+    }
+
+    if (empty($errors) && $action === 'set_default_exam') {
+        $selectedExamId = max(0, (int) ($_POST['exam_id'] ?? 0));
+        if ($selectedExamId <= 0) {
+            $errors[] = 'Thiếu kỳ thi để đặt mặc định.';
+        } else {
+            try {
+                $pdo->beginTransaction();
+                $pdo->exec('UPDATE exams SET is_default = 0');
+                $pdo->prepare('UPDATE exams SET is_default = 1 WHERE id = :id')->execute([':id' => $selectedExamId]);
+                $pdo->commit();
+                $_SESSION['current_exam_id'] = $selectedExamId;
+                exams_set_flash('success', 'Đã đặt kỳ thi mặc định cho toàn hệ thống.');
+                header('Location: ' . BASE_URL . '/modules/exams/index.php');
+                exit;
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) { $pdo->rollBack(); }
+                $errors[] = 'Không thể đặt kỳ thi mặc định.';
+            }
         }
     }
 
@@ -148,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $selectTrangThai = $hasTrangThai ? ', trang_thai' : '';
-$exams = $pdo->query('SELECT id, ten_ky_thi, nam, ngay_thi, deleted_at' . $selectTrangThai . ' FROM exams ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
+$exams = $pdo->query('SELECT id, ten_ky_thi, nam, ngay_thi, deleted_at, is_default' . $selectTrangThai . ' FROM exams ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
 $currentExamId = getCurrentExamId();
 
 require_once BASE_PATH . '/layout/header.php';
@@ -206,10 +228,10 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-bordered table-sm align-middle">
-                        <thead><tr><th>ID</th><th>Tên kỳ thi</th><th>Năm</th><th>Ngày thi</th><th>Trạng thái</th><th>Workflow</th><th>Xóa</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Tên kỳ thi</th><th>Năm</th><th>Ngày thi</th><th>Trạng thái</th><th>Mặc định</th><th>Workflow</th><th>Xóa</th></tr></thead>
                         <tbody>
                         <?php if (empty($exams)): ?>
-                            <tr><td colspan="7" class="text-center">Chưa có kỳ thi.</td></tr>
+                            <tr><td colspan="8" class="text-center">Chưa có kỳ thi.</td></tr>
                         <?php else: foreach ($exams as $exam): ?>
                             <?php $isDeleted = !empty($exam['deleted_at']); ?>
                             <tr class="<?= $isDeleted ? 'table-warning' : '' ?>">

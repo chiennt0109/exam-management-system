@@ -13,6 +13,10 @@ if ($examId <= 0) {
     exit;
 }
 $fixedExamContext = getCurrentExamId() > 0;
+$searchName = trim((string)($_GET['q_name'] ?? ''));
+$filterClass = trim((string)($_GET['q_class'] ?? ''));
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 30;
 
 function sbdSortNameKey(string $fullName): string
 {
@@ -124,12 +128,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $students = [];
 if ($examId > 0) {
+    $where = ' WHERE es.exam_id = :exam_id AND es.subject_id IS NULL';
+    $params = [':exam_id' => $examId];
+    if ($searchName !== '') { $where .= ' AND s.hoten LIKE :q_name'; $params[':q_name'] = '%' . $searchName . '%'; }
+    if ($filterClass !== '') { $where .= ' AND es.lop LIKE :q_class'; $params[':q_class'] = '%' . $filterClass . '%'; }
+
+    $countStmt = $pdo->prepare('SELECT COUNT(*) FROM exam_students es INNER JOIN students s ON s.id = es.student_id' . $where);
+    $countStmt->execute($params);
+    $totalRows = (int)$countStmt->fetchColumn();
+    $totalPages = max(1, (int)ceil($totalRows / $perPage));
+    if ($page > $totalPages) { $page = $totalPages; }
+    $offset = ($page - 1) * $perPage;
+
     $stmt = $pdo->prepare('SELECT es.id, es.student_id, es.khoi, es.lop, es.sbd, s.hoten
         FROM exam_students es
-        INNER JOIN students s ON s.id = es.student_id
-        WHERE es.exam_id = :exam_id AND es.subject_id IS NULL
-        ORDER BY es.sbd IS NULL, es.sbd, s.hoten');
-    $stmt->execute([':exam_id' => $examId]);
+        INNER JOIN students s ON s.id = es.student_id' . $where . '
+        ORDER BY es.sbd IS NULL, es.sbd, s.hoten
+        LIMIT ' . (int)$perPage . ' OFFSET ' . (int)$offset);
+    $stmt->execute($params);
     $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -180,7 +196,7 @@ require_once BASE_PATH . '/layout/header.php';
                         <button class="btn btn-success" type="submit">Sinh lại SBD cho toàn bộ học sinh kỳ thi</button>
                     </form>
 
-                    <div class="table-responsive">
+                    <form method="get" class="row g-2 mb-3"><input type="hidden" name="exam_id" value="<?= $examId ?>"><div class="col-md-4"><input class="form-control" name="q_name" placeholder="Tìm theo tên" value="<?= htmlspecialchars($searchName, ENT_QUOTES, 'UTF-8') ?>"></div><div class="col-md-3"><input class="form-control" name="q_class" placeholder="Lọc theo lớp" value="<?= htmlspecialchars($filterClass, ENT_QUOTES, 'UTF-8') ?>"></div><div class="col-md-3"><button class="btn btn-outline-primary" type="submit">Lọc</button></div></form><div class="table-responsive">
                         <table class="table table-sm table-bordered">
                             <thead><tr><th>Họ tên</th><th>Lớp</th><th>Khối</th><th>SBD</th></tr></thead>
                             <tbody>
