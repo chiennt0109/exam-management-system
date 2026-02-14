@@ -42,8 +42,11 @@ function is_maintenance_mode(): bool {
 function login($username, $password) {
     global $pdo;
 
-    $username = trim((string) $username);
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE lower(trim(username)) = lower(trim(?)) AND active = 1 LIMIT 1");
+    $stmt = $pdo->prepare("
+        SELECT * FROM users
+        WHERE username = ? AND active = 1
+        LIMIT 1
+    ");
     $stmt->execute([$username]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
