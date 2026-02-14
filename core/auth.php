@@ -1,84 +1,7 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
 session_start();
-require_once BASE_PATH . '/core/db.php';
-
-function isWriteRequest(): bool {
-    return ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
-}
-
-function normalize_role(?string $role): string {
-    $normalized = strtolower(trim((string) $role));
-
-    return match ($normalized) {
-        'score_entry' => 'scorer',
-        'exam_manager', 'quanlythi', 'exam-manager' => 'organizer',
-        default => $normalized,
-    };
-}
-
-function current_user_role(): string {
-    $sessionRole = $_SESSION['role'] ?? null;
-    if (is_string($sessionRole) && trim($sessionRole) !== '') {
-        return normalize_role($sessionRole);
-    }
-
-    $userRole = $_SESSION['user']['role'] ?? null;
-    return normalize_role(is_string($userRole) ? $userRole : '');
-}
-
-
-function resolve_default_exam_id(PDO $pdo): int {
-    try {
-        $examCols = array_column($pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::FETCH_ASSOC), 'name');
-        if (!in_array('is_default', $examCols, true)) {
-            $pdo->exec('ALTER TABLE exams ADD COLUMN is_default INTEGER DEFAULT 0');
-            $examCols[] = 'is_default';
-        }
-
-        $whereActive = in_array('deleted_at', $examCols, true)
-            ? 'WHERE (deleted_at IS NULL OR trim(deleted_at) = "")'
-            : 'WHERE 1=1';
-
-        $defaultStmt = $pdo->query('SELECT id FROM exams ' . $whereActive . ' AND is_default = 1 ORDER BY id DESC LIMIT 1');
-        $defaultExamId = (int) ($defaultStmt->fetchColumn() ?: 0);
-        if ($defaultExamId > 0) {
-            return $defaultExamId;
-        }
-
-        $countStmt = $pdo->query('SELECT COUNT(*) FROM exams ' . $whereActive);
-        $activeCount = (int) ($countStmt->fetchColumn() ?: 0);
-        if ($activeCount === 1) {
-            $onlyStmt = $pdo->query('SELECT id FROM exams ' . $whereActive . ' ORDER BY id DESC LIMIT 1');
-            $onlyId = (int) ($onlyStmt->fetchColumn() ?: 0);
-            if ($onlyId > 0) {
-                $pdo->beginTransaction();
-                $pdo->exec('UPDATE exams SET is_default = 0');
-                $up = $pdo->prepare('UPDATE exams SET is_default = 1 WHERE id = :id');
-                $up->execute([':id' => $onlyId]);
-                $pdo->commit();
-                return $onlyId;
-            }
-        }
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-    }
-
-    return 0;
-}
-
-function is_maintenance_mode(): bool {
-    global $pdo;
-    try {
-        $stmt = $pdo->prepare('SELECT setting_value FROM system_settings WHERE setting_key = :key LIMIT 1');
-        $stmt->execute([':key' => 'maintenance_mode']);
-        return ((string) $stmt->fetchColumn()) === '1';
-    } catch (Throwable $e) {
-        return false;
-    }
-}
+require_once __DIR__ . '/db.php';
 
 /* ========= LOGIN ========= */
 function login($username, $password) {
@@ -91,46 +14,21 @@ function login($username, $password) {
 
     if (!$user) return false;
 
-    $isValid = false;
-    if (is_string($user['password']) && password_verify($password, $user['password'])) {
-        $isValid = true;
-    } else {
-        $salt = 'exam_system_salt';
-        $hash = hash('sha256', $password . $salt);
-        $isValid = ($hash === $user['password']);
-        if (!$isValid) {
-            $isValid = hash('sha256', $password) === (string) $user['password'];
-        }
-        if (!$isValid) {
-            $isValid = (string) $user['password'] === (string) $password;
-        }
+    // HASH PHP 5.4
+    $salt = 'exam_system_salt';
+    $hash = hash('sha256', $password . $salt);
+
+    if ($hash === $user['password']) {
+        $_SESSION['user'] = [
+            'id' => $user['id'],
+            'username' => $user['username'],
+            'role' => $user['role']
+        ];
+        return true;
     }
-
-    if (!$isValid) {
-        return false;
-    }
-
-    $role = normalize_role((string) ($user['role'] ?? ''));
-    $_SESSION['user'] = [
-        'id' => $user['id'],
-        'username' => $user['username'],
-        'role' => $role,
-    ];
-    // Keep lightweight mirror for legacy code/sidebar compatibility
-    $_SESSION['role'] = $role;
-
-    // Only show maintenance notice to non-admins, but do not block login/dashboard read access.
-    if (is_maintenance_mode() && $role !== 'admin') {
-        $_SESSION['maintenance_notice'] = 'Kỳ thi đang được mở bởi quản trị viên. Vui lòng chờ.';
-    }
-
-    $defaultExamId = resolve_default_exam_id($pdo);
-    if ($defaultExamId > 0) {
-        $_SESSION['current_exam_id'] = $defaultExamId;
-    }
-
-    return true;
+    return false;
 }
+
 
 /* ========= LOGOUT ========= */
 function logout() {
