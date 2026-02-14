@@ -850,7 +850,7 @@ require_once BASE_PATH . '/layout/header.php';
                             </div>
                             <div class="col-md-3"><label class="form-label">Tổng số phòng / nhóm</label><input class="form-control" type="number" min="1" name="total_rooms" value="5"></div>
                             <div class="col-md-3"><label class="form-label">Sĩ số tối đa / phòng</label><input class="form-control" type="number" min="1" name="max_students_per_room" value="24"></div>
-                            <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="overwrite_existing" value="1" id="overwrite_existing" id="overwrite_existing"><label class="form-check-label" for="overwrite_existing">Cho phép ghi đè toàn bộ phân phòng của kỳ thi này</label></div></div>
+                            <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="overwrite_existing" value="1" id="overwrite_existing"><label class="form-check-label" for="overwrite_existing">Cho phép ghi đè toàn bộ phân phòng của kỳ thi này</label></div><div id="overwriteWarningText" class="small text-danger mt-1 d-none">Cảnh báo: hệ thống sẽ xóa toàn bộ phòng và dữ liệu gán phòng hiện tại của kỳ thi này trước khi phân phòng lại.</div></div>
                             <div class="col-12 d-flex gap-2">
                                 <button class="btn btn-success" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Phân phòng tự động</button>
                             </div>
@@ -1054,6 +1054,26 @@ function refreshManualKhoiOptions() {
 
 manualSubjectSelect?.addEventListener('change', refreshManualKhoiOptions);
 refreshManualKhoiOptions();
+
+const overwriteCheckbox = document.getElementById('overwrite_existing');
+const overwriteWarningText = document.getElementById('overwriteWarningText');
+const confirmOverwriteMessage = 'Bạn đang chọn ghi đè toàn bộ phân phòng của kỳ thi này. Hệ thống sẽ xóa toàn bộ dữ liệu phòng và gán phòng hiện có trước khi phân phòng lại. Bạn có chắc chắn tiếp tục?';
+overwriteCheckbox?.addEventListener('change', function () {
+    if (overwriteWarningText) {
+        overwriteWarningText.classList.toggle('d-none', !this.checked);
+    }
+});
+
+document.querySelectorAll('form').forEach((f) => {
+    f.addEventListener('submit', (e) => {
+        const cb = f.querySelector('#overwrite_existing');
+        if (cb && cb.checked) {
+            if (!window.confirm(confirmOverwriteMessage)) {
+                e.preventDefault();
+            }
+        }
+    });
+});
 
 </script>
 
