@@ -9,13 +9,6 @@ $csrf = exams_get_csrf_token();
 $errors = [];
 $currentExamId = getCurrentExamId();
 
-if (isset($_GET['change_exam']) && $_GET['change_exam'] === '1') {
-    clearCurrentExam();
-    exams_set_flash('info', 'Đã xoá kỳ thi hiện tại. Vui lòng chọn kỳ thi mới.');
-    header('Location: ' . BASE_URL . '/modules/exams/index.php');
-    exit;
-}
-
 $columns = $pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::FETCH_ASSOC);
 $hasTrangThai = false;
 $hasDeletedAt = false;
@@ -39,45 +32,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = (string) ($_POST['action'] ?? 'create');
 
-    if (empty($errors) && $action === 'set_current_exam') {
-        $selectedExamId = max(0, (int) ($_POST['exam_id'] ?? 0));
-        try {
-            setCurrentExam($selectedExamId);
-            exams_set_flash('success', 'Đã chọn kỳ thi hiện tại.');
-            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php');
-            exit;
-        } catch (Throwable $e) {
-            $errors[] = 'Không thể chọn kỳ thi hiện tại.';
-        }
-    }
-
     if (empty($errors) && $action === 'set_default_exam') {
         $selectedExamId = max(0, (int) ($_POST['exam_id'] ?? 0));
-        if ($selectedExamId <= 0) {
-            $errors[] = 'Thiếu kỳ thi để đặt mặc định.';
-        } else {
-            try {
-                $pdo->beginTransaction();
+        try {
+            $pdo->beginTransaction();
                 $pdo->exec('UPDATE exams SET is_default = 0');
                 $pdo->prepare('UPDATE exams SET is_default = 1 WHERE id = :id')->execute([':id' => $selectedExamId]);
                 $pdo->commit();
-                $_SESSION['current_exam_id'] = $selectedExamId;
                 exams_set_flash('success', 'Đã đặt kỳ thi mặc định cho toàn hệ thống.');
                 header('Location: ' . BASE_URL . '/modules/exams/index.php');
-                exit;
-            } catch (Throwable $e) {
-                if ($pdo->inTransaction()) { $pdo->rollBack(); }
-                $errors[] = 'Không thể đặt kỳ thi mặc định.';
-            }
+            exit;
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            $errors[] = 'Không thể đặt kỳ thi mặc định.';
         }
     }
 
-    if (empty($errors) && $action === 'clear_current_exam') {
-        clearCurrentExam();
-        exams_set_flash('info', 'Đã xoá kỳ thi hiện tại.');
-        header('Location: ' . BASE_URL . '/modules/exams/index.php');
-        exit;
-    }
+
 
     if (empty($errors) && $action === 'create') {
         $tenKyThi = trim((string) ($_POST['ten_ky_thi'] ?? ''));
@@ -190,25 +161,18 @@ require_once BASE_PATH . '/layout/header.php';
 
                 <form method="post" class="row g-2 mb-3">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                    <?php if ($currentExamId > 0): ?>
-                        <input type="hidden" name="action" value="clear_current_exam">
-                        <div class="col-12">
-                            <button class="btn btn-outline-secondary btn-sm" type="submit">Đổi kỳ thi</button>
-                        </div>
-                    <?php else: ?>
-                        <input type="hidden" name="action" value="set_current_exam">
-                        <div class="col-md-8">
-                            <label class="form-label">Chọn kỳ thi hiện tại</label>
-                            <select class="form-select" name="exam_id" required>
-                                <option value="">-- Chọn kỳ thi --</option>
-                                <?php foreach ($exams as $exam): ?>
-                                    <?php if (!empty($exam['deleted_at'])) { continue; } ?>
-                                    <option value="<?= (int) $exam['id'] ?>">#<?= (int) $exam['id'] ?> - <?= htmlspecialchars((string) $exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-4 align-self-end"><button class="btn btn-primary" type="submit">Dùng kỳ thi này</button></div>
-                    <?php endif; ?>
+                    <input type="hidden" name="action" value="set_default_exam">
+                    <div class="col-md-8">
+                        <label class="form-label">Chọn kỳ thi mặc định</label>
+                        <select class="form-select" name="exam_id" required>
+                            <option value="">-- Chọn kỳ thi --</option>
+                            <?php foreach ($exams as $exam): ?>
+                                <?php if (!empty($exam['deleted_at'])) { continue; } ?>
+                                <option value="<?= (int) $exam['id'] ?>" <?= $currentExamId === (int) $exam['id'] ? 'selected' : '' ?>>#<?= (int) $exam['id'] ?> - <?= htmlspecialchars((string) $exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4 align-self-end"><button class="btn btn-primary" type="submit">Lưu kỳ thi mặc định</button></div>
                 </form>
 
                 <form method="post" class="row g-2">
@@ -246,9 +210,9 @@ require_once BASE_PATH . '/layout/header.php';
                                 <td class="d-flex flex-wrap gap-1">
                                     <form method="post" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                                        <input type="hidden" name="action" value="set_current_exam">
+                                        <input type="hidden" name="action" value="set_default_exam">
                                         <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
-                                        <button class="btn btn-sm <?= $currentExamId === (int) $exam['id'] ? 'btn-success' : 'btn-outline-success' ?>" type="submit">Chọn kỳ thi</button>
+                                        <button class="btn btn-sm <?= $currentExamId === (int) $exam['id'] ? 'btn-success' : 'btn-outline-success' ?>" type="submit">Đặt mặc định</button>
                                     </form>
                                     <?php if ($currentExamId === (int) $exam['id']): ?>
                                         <a class="btn btn-sm btn-outline-primary" href="assign_students.php">B2</a>

@@ -25,6 +25,8 @@ function ensure_core_schema(PDO $pdo): void {
         if (!in_array('deleted_at', $examColumns, true)) {
             $pdo->exec('ALTER TABLE exams ADD COLUMN deleted_at TEXT');
         }
+
+        $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exams_single_default ON exams(is_default) WHERE is_default = 1');
     } catch (Throwable $e) {
         // Keep DB bootstrap resilient in mixed-version environments.
     }

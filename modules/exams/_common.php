@@ -251,19 +251,7 @@ function exams_clear_maintenance_mode(PDO $pdo): void
 
 function exams_resolve_current_exam_from_request(): int
 {
-    $current = getCurrentExamId();
-    if ($current > 0) {
-        return $current;
-    }
-
-    $candidate = max(0, (int) ($_GET['exam_id'] ?? $_POST['exam_id'] ?? 0));
-    if ($candidate > 0) {
-        setCurrentExam($candidate);
-        exams_set_flash('success', 'Đã chọn kỳ thi hiện tại.');
-        return $candidate;
-    }
-
-    return 0;
+    return getCurrentExamId();
 }
 
 function exams_require_current_exam_or_redirect(string $redirect = '/modules/exams/index.php'): int
@@ -272,7 +260,7 @@ function exams_require_current_exam_or_redirect(string $redirect = '/modules/exa
     if ($examId > 0) {
         return $examId;
     }
-    exams_set_flash('warning', 'Vui lòng chọn kỳ thi hiện tại trước khi thao tác.');
+    exams_set_flash('warning', 'Chưa có kỳ thi mặc định. Vui lòng chọn kỳ thi mặc định trước khi thao tác.');
     header('Location: ' . BASE_URL . $redirect);
     exit;
 }
@@ -292,7 +280,7 @@ function exams_is_maintenance_mode(PDO $pdo): bool
 function exams_debug_log_context(PDO $pdo, int $examId = 0): void
 {
     $role = (string) ($_SESSION['user']['role'] ?? $_SESSION['role'] ?? 'guest');
-    $currentExamId = (int) ($_SESSION['current_exam_id'] ?? 0);
+    $currentExamId = getCurrentExamId();
     $lock = $examId > 0 ? exams_get_lock_state($pdo, $examId) : ['exam_locked' => 0];
     error_log(sprintf(
         '[exam_debug] role=%s exam_locked=%d current_exam_id=%d method=%s',

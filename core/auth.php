@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
-
 session_start();
 require_once BASE_PATH . '/core/db.php';
 
@@ -128,12 +127,7 @@ function login($username, $password) {
         $_SESSION['maintenance_notice'] = 'Kỳ thi đang được mở bởi quản trị viên. Vui lòng chờ.';
     }
 
-    $defaultExamId = resolve_default_exam_id($pdo);
-    if ($defaultExamId > 0) {
-        $_SESSION['current_exam_id'] = $defaultExamId;
-    } else {
-        unset($_SESSION['current_exam_id']);
-    }
+    // Kỳ thi mặc định là cấu hình toàn cục theo DB, không lưu theo session.
 
     return true;
 }
