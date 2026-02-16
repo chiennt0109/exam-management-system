@@ -88,6 +88,18 @@ function exams_init_schema(PDO $pdo): void
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_exam_student_subjects_exam_student ON exam_student_subjects(exam_id, student_id)');
 
+
+    $pdo->exec('CREATE TABLE IF NOT EXISTS exam_scores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_id INTEGER NOT NULL,
+        student_id INTEGER NOT NULL,
+        subject_id INTEGER NOT NULL,
+        score REAL,
+        updated_at TEXT,
+        UNIQUE(exam_id, student_id, subject_id)
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_exam_scores_exam_subject ON exam_scores(exam_id, subject_id)');
+
     $pdo->exec('DROP INDEX IF EXISTS idx_exam_sbd_unique');
     $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_sbd_unique_base ON exam_students(exam_id, sbd) WHERE subject_id IS NULL AND sbd IS NOT NULL');
 

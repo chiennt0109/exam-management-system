@@ -9,13 +9,28 @@ $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
 $role = (string) ($_SESSION['user']['role'] ?? '');
 $userId = (int) ($_SESSION['user']['id'] ?? 0);
 $errors = [];
+$examModeStmt = $pdo->prepare('SELECT exam_mode FROM exams WHERE id = :id LIMIT 1');
+$examModeStmt->execute([':id' => $examId]);
+$examMode = (int) ($examModeStmt->fetchColumn() ?: 1);
+if (!in_array($examMode, [1, 2], true)) { $examMode = 1; }
+$pdo->exec('CREATE TABLE IF NOT EXISTS exam_scores (id INTEGER PRIMARY KEY AUTOINCREMENT, exam_id INTEGER NOT NULL, student_id INTEGER NOT NULL, subject_id INTEGER NOT NULL, score REAL, updated_at TEXT, UNIQUE(exam_id, student_id, subject_id))');
 
-$seed = $pdo->prepare('INSERT INTO scores(exam_id, student_id, subject_id, diem, scorer_id, updated_at)
-    SELECT es.exam_id, es.student_id, es.subject_id, NULL, NULL, NULL
-    FROM exam_students es
-    WHERE es.exam_id = :exam_id AND es.subject_id IS NOT NULL
-      AND NOT EXISTS (SELECT 1 FROM scores sc WHERE sc.exam_id = es.exam_id AND sc.student_id = es.student_id AND sc.subject_id = es.subject_id)');
-$seed->execute([':exam_id' => $examId]);
+if ($examMode === 2) {
+    $seed = $pdo->prepare('INSERT INTO scores(exam_id, student_id, subject_id, diem, scorer_id, updated_at)
+        SELECT es.exam_id, es.student_id, es.subject_id, NULL, NULL, NULL
+        FROM exam_students es
+        INNER JOIN exam_student_subjects ess ON ess.exam_id = es.exam_id AND ess.student_id = es.student_id AND ess.subject_id = es.subject_id
+        WHERE es.exam_id = :exam_id AND es.subject_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM scores sc WHERE sc.exam_id = es.exam_id AND sc.student_id = es.student_id AND sc.subject_id = es.subject_id)');
+    $seed->execute([':exam_id' => $examId]);
+} else {
+    $seed = $pdo->prepare('INSERT INTO scores(exam_id, student_id, subject_id, diem, scorer_id, updated_at)
+        SELECT es.exam_id, es.student_id, es.subject_id, NULL, NULL, NULL
+        FROM exam_students es
+        WHERE es.exam_id = :exam_id AND es.subject_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM scores sc WHERE sc.exam_id = es.exam_id AND sc.student_id = es.student_id AND sc.subject_id = es.subject_id)');
+    $seed->execute([':exam_id' => $examId]);
+}
 
 $subjectsStmt = $pdo->prepare('SELECT DISTINCT s.id, s.ten_mon
     FROM exam_students es
@@ -127,6 +142,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':exam_id' => $examId,
                     ':subject_id' => $subjectId,
                 ]);
+                $pdo->prepare('INSERT INTO exam_scores (exam_id, student_id, subject_id, score, updated_at)
+                    SELECT exam_id, student_id, subject_id, :score, :updated FROM scores WHERE id = :id
+                    ON CONFLICT(exam_id, student_id, subject_id) DO UPDATE SET score = excluded.score, updated_at = excluded.updated_at')
+                    ->execute([':score' => $sum, ':updated' => date('c'), ':id' => $scoreId]);
             }
             $pdo->commit();
             exams_set_flash('success', 'Đã lưu điểm.');

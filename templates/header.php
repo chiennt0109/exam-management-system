@@ -1,9 +1,26 @@
 <?php
 require_once __DIR__ . '/../bootstrap.php';
-require_once __DIR__ . '/../bootstrap.php';
 header('Content-Type: text/html; charset=UTF-8');
 require_once BASE_PATH . '/core/auth.php';
+require_once BASE_PATH . '/core/auth.php';
 require_login();
+
+$currentExamInfo = null;
+$defaultExamWarning = '';
+$role = function_exists('current_user_role') ? current_user_role() : strtolower(trim((string) ($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '')));
+if (in_array($role, ['admin', 'organizer'], true)) {
+    require_once BASE_PATH . '/core/db.php';
+    require_once BASE_PATH . '/modules/exams/exam_context_helper.php';
+    $currentExamInfo = getCurrentExamInfo();
+    if ($currentExamInfo === null) {
+        $examCount = (int) $pdo->query("SELECT COUNT(*) FROM exams WHERE deleted_at IS NULL OR trim(deleted_at) = ''")->fetchColumn();
+        if ($examCount > 1 && $role === 'admin') {
+            $defaultExamWarning = 'Hệ thống có nhiều kỳ thi nhưng chưa chọn kỳ thi mặc định. Vui lòng vào Quản lý kỳ thi để cấu hình.';
+        }
+    }
+}
+$role = $role ?? (function_exists('current_user_role') ? current_user_role() : '');
+$currentExamInfo = $currentExamInfo ?? null;
 
 $currentExamInfo = null;
 $defaultExamWarning = '';

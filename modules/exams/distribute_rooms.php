@@ -398,6 +398,12 @@ if ($examId <= 0) {
     exit;
 }
 $fixedExamContext = getCurrentExamId() > 0;
+$examModeStmt = $pdo->prepare('SELECT exam_mode FROM exams WHERE id = :id LIMIT 1');
+$examModeStmt->execute([':id' => $examId]);
+$examMode = (int) ($examModeStmt->fetchColumn() ?: 1);
+if (!in_array($examMode, [1, 2], true)) {
+    $examMode = 1;
+}
 exams_debug_log_context($pdo, $examId);
 $subjectId = max(0, (int) ($_GET['subject_id'] ?? $_POST['subject_id'] ?? 0));
 $khoi = trim((string) ($_GET['khoi'] ?? $_POST['khoi'] ?? ''));
@@ -506,9 +512,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Chưa có thí sinh được gán cho kỳ thi.');
                 }
 
-                $groups = getConfiguredScopeGroups($pdo, $examId);
+                $groups = [];
+                if ($examMode === 2) {
+                    $groupStmt = $pdo->prepare('SELECT DISTINCT ess.subject_id, es.khoi
+                        FROM exam_student_subjects ess
+                        INNER JOIN exam_students es ON es.exam_id = ess.exam_id AND es.student_id = ess.student_id AND es.subject_id IS NULL
+                        WHERE ess.exam_id = :exam_id AND es.khoi IS NOT NULL AND trim(es.khoi) <> ""
+                        ORDER BY ess.subject_id, es.khoi');
+                    $groupStmt->execute([':exam_id' => $examId]);
+                    foreach ($groupStmt->fetchAll(PDO::FETCH_ASSOC) as $gRow) {
+                        $groups[] = [
+                            'subject_id' => (int) ($gRow['subject_id'] ?? 0),
+                            'khoi' => (string) ($gRow['khoi'] ?? ''),
+                            'scope_mode' => 'entire_grade',
+                            'scope_identifier' => 'entire_grade',
+                            'classes' => [],
+                        ];
+                    }
+                } else {
+                    $groups = getConfiguredScopeGroups($pdo, $examId);
+                }
                 if (empty($groups)) {
-                    throw new RuntimeException('Không có cấu hình môn/khối để phân phòng.');
+                    throw new RuntimeException($examMode === 2
+                        ? 'Chưa có dữ liệu ma trận môn để phân phòng (mode 2).'
+                        : 'Không có cấu hình môn/khối để phân phòng.');
                 }
 
                 $roomCountStmt = $pdo->prepare('SELECT COUNT(*) FROM rooms WHERE exam_id = :exam_id');
@@ -539,7 +566,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $scopeIdentifier = (string) $g['scope_identifier'];
                     $classes = (array) $g['classes'];
 
-                    $eligibleStudents = getEligibleStudentsByScope($pdo, $examId, $groupKhoi, $scopeMode, $classes);
+                    if ($examMode === 2) {
+                        $eligibleStmt = $pdo->prepare('SELECT DISTINCT es.student_id, es.khoi, es.lop, es.sbd
+                            FROM exam_student_subjects ess
+                            INNER JOIN exam_students es ON es.exam_id = ess.exam_id AND es.student_id = ess.student_id AND es.subject_id IS NULL
+                            WHERE ess.exam_id = :exam_id AND ess.subject_id = :subject_id AND es.khoi = :khoi AND es.sbd IS NOT NULL AND es.sbd <> ""');
+                        $eligibleStmt->execute([':exam_id' => $examId, ':subject_id' => $subId, ':khoi' => $groupKhoi]);
+                        $eligibleStudents = $eligibleStmt->fetchAll(PDO::FETCH_ASSOC);
+                    } else {
+                        $eligibleStudents = getEligibleStudentsByScope($pdo, $examId, $groupKhoi, $scopeMode, $classes);
+                    }
                     if (empty($eligibleStudents)) {
                         continue;
                     }
