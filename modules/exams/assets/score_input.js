@@ -7,7 +7,10 @@
     if (text.includes('.')) return text;
     if (!/^\d+$/.test(text)) return text;
 
-    if (max > 7) return text;
+    const integerValue = Number(text);
+    if (Number.isFinite(integerValue) && integerValue <= max) {
+      return text;
+    }
 
     if (text.length === 1) return text;
     if (text.length === 2) return text[0] + '.' + text[1];
@@ -37,7 +40,6 @@
 
       if (/^\d$/.test(raw) && max <= 7) {
         if (raw === String(Math.trunc(max))) {
-          // Requested UX: with max<=7, typing a single max digit auto-jumps and does not store that digit.
           input.value = '';
         }
         nextInput(input);

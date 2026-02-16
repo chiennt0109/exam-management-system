@@ -15,9 +15,9 @@ function parseSmartScore(string $input, float $maxScore): ?float
     if (strpos($input, '.') !== false) {
         $value = (float) $input;
     } else {
-        if ($maxScore > 7) {
-            // Keep natural numeric input for large max-score subjects (e.g., 10-point scale).
-            $value = (float) $input;
+        $integerValue = (float) $input;
+        if ($integerValue <= $maxScore) {
+            $value = $integerValue;
         } else {
             $len = strlen($input);
             if ($len === 1) {
