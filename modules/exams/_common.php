@@ -98,6 +98,41 @@ function exams_init_schema(PDO $pdo): void
         updated_at TEXT,
         UNIQUE(exam_id, student_id, subject_id)
     )');
+
+    $examScoreInfo = $pdo->query('PRAGMA table_info(exam_scores)')->fetchAll(PDO::FETCH_ASSOC);
+    $examScoreScoreCol = null;
+    foreach ($examScoreInfo as $column) {
+        if (($column['name'] ?? '') === 'score') {
+            $examScoreScoreCol = $column;
+            break;
+        }
+    }
+    if ($examScoreScoreCol !== null && (int) ($examScoreScoreCol['notnull'] ?? 0) === 1) {
+        $pdo->beginTransaction();
+        try {
+            $pdo->exec('ALTER TABLE exam_scores RENAME TO exam_scores_old');
+            $pdo->exec('CREATE TABLE exam_scores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                exam_id INTEGER NOT NULL,
+                student_id INTEGER NOT NULL,
+                subject_id INTEGER NOT NULL,
+                score REAL NULL,
+                updated_at TEXT,
+                UNIQUE(exam_id, student_id, subject_id)
+            )');
+            $pdo->exec('INSERT INTO exam_scores (id, exam_id, student_id, subject_id, score, updated_at)
+                SELECT id, exam_id, student_id, subject_id, score, updated_at
+                FROM exam_scores_old');
+            $pdo->exec('DROP TABLE exam_scores_old');
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_exam_scores_exam_subject ON exam_scores(exam_id, subject_id)');
 
     $pdo->exec('DROP INDEX IF EXISTS idx_exam_sbd_unique');

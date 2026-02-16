@@ -109,16 +109,16 @@ try {
         }
 
         $c1 = in_array('component_1', $allowedComponents, true)
-            ? parseSmartScore($vals['c1'] ?? null, $max1)
+            ? parseSmartScore((string) ($vals['c1'] ?? ''), $max1)
             : (($old['component_1'] === null) ? null : (float) $old['component_1']);
         $c2 = $componentCount >= 2
             ? (in_array('component_2', $allowedComponents, true)
-                ? parseSmartScore($vals['c2'] ?? null, $max2)
+                ? parseSmartScore((string) ($vals['c2'] ?? ''), $max2)
                 : (($old['component_2'] === null) ? null : (float) $old['component_2']))
             : null;
         $c3 = $componentCount >= 3
             ? (in_array('component_3', $allowedComponents, true)
-                ? parseSmartScore($vals['c3'] ?? null, $max3)
+                ? parseSmartScore((string) ($vals['c3'] ?? ''), $max3)
                 : (($old['component_3'] === null) ? null : (float) $old['component_3']))
             : null;
 

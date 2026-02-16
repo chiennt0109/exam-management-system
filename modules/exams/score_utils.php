@@ -1,37 +1,36 @@
 <?php
 declare(strict_types=1);
 
-function parseSmartScore($input, float $maxScore): ?float
+function parseSmartScore(string $input, float $maxScore): ?float
 {
-    $raw = trim((string) $input);
-    if ($raw == '') {
+    $input = trim($input);
+    if ($input === '') {
         return null;
     }
 
-    if (!preg_match('/^[0-9]+(?:\.[0-9]+)?$/', $raw)) {
-        throw new InvalidArgumentException('Điểm không hợp lệ.');
+
+    if (!preg_match('/^[0-9]+(?:\.[0-9]+)?$/', $input)) {
+        return null;
     }
 
-    if (strpos($raw, '.') !== false) {
-        $parsed = (float) $raw;
+    if (strpos($input, '.') !== false) {
+        $value = floatval($input);
     } else {
-        $len = strlen($raw);
+        $len = strlen($input);
         if ($len === 1) {
-            $parsed = (float) $raw;
+            $value = floatval($input);
         } elseif ($len === 2) {
-            $parsed = (float) ($raw[0] . '.' . $raw[1]);
-        } elseif ($len === 3) {
-            $parsed = (float) ($raw[0] . '.' . $raw[1] . $raw[2]);
+            $value = floatval($input[0] . '.' . $input[1]);
         } else {
-            throw new InvalidArgumentException('Điểm không hợp lệ.');
+            $value = floatval($input[0] . '.' . substr($input, 1));
         }
     }
 
-    if ($parsed < 0 || $parsed > $maxScore) {
-        throw new InvalidArgumentException('Điểm vượt quá mức tối đa cho phép.');
+    if ($value > $maxScore) {
+        return null;
     }
 
-    return $parsed;
+    return $value;
 }
 
 function score_value_to_string(?float $score): string
