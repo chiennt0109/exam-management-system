@@ -125,13 +125,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($idx !== null) {
                 $swapIdx = $direction === 'up' ? $idx - 1 : $idx + 1;
                 if (isset($list[$swapIdx])) {
-                    $pdo->beginTransaction();
                     $a = $list[$idx];
                     $b = $list[$swapIdx];
+                    $tmpSort = -1;
+                    $pdo->beginTransaction();
                     $pdo->prepare('UPDATE exam_subjects SET sort_order = :sort WHERE exam_id = :exam_id AND subject_id = :subject_id')
-                        ->execute([':sort' => (int)$b['sort_order'], ':exam_id' => $examId, ':subject_id' => (int)$a['subject_id']]);
+                        ->execute([':sort' => $tmpSort, ':exam_id' => $examId, ':subject_id' => (int) $a['subject_id']]);
                     $pdo->prepare('UPDATE exam_subjects SET sort_order = :sort WHERE exam_id = :exam_id AND subject_id = :subject_id')
-                        ->execute([':sort' => (int)$a['sort_order'], ':exam_id' => $examId, ':subject_id' => (int)$b['subject_id']]);
+                        ->execute([':sort' => (int) $a['sort_order'], ':exam_id' => $examId, ':subject_id' => (int) $b['subject_id']]);
+                    $pdo->prepare('UPDATE exam_subjects SET sort_order = :sort WHERE exam_id = :exam_id AND subject_id = :subject_id')
+                        ->execute([':sort' => (int) $b['sort_order'], ':exam_id' => $examId, ':subject_id' => (int) $a['subject_id']]);
                     $pdo->commit();
                 }
             }
@@ -287,22 +290,43 @@ $matrixSubjects = $matrixSubjectStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $filterClass = trim((string) ($_GET['class'] ?? ''));
 $filterSearch = trim((string) ($_GET['search'] ?? ''));
-$studentSql = 'SELECT st.id, st.hoten, st.lop
-    FROM exam_students es
+$perPageOptions = [26, 50, 100, 200, 500];
+$perPage = (int) ($_GET['per_page'] ?? 26);
+if (!in_array($perPage, $perPageOptions, true)) {
+    $perPage = 26;
+}
+$page = max(1, (int) ($_GET['page'] ?? 1));
+
+$baseStudentSql = ' FROM exam_students es
     INNER JOIN students st ON st.id = es.student_id
     WHERE es.exam_id = :exam_id AND es.subject_id IS NULL';
 $params = [':exam_id' => $examId];
 if ($filterClass !== '') {
-    $studentSql .= ' AND st.lop = :lop';
+    $baseStudentSql .= ' AND st.lop = :lop';
     $params[':lop'] = $filterClass;
 }
 if ($filterSearch !== '') {
-    $studentSql .= ' AND lower(st.hoten) LIKE :kw';
+    $baseStudentSql .= ' AND lower(st.hoten) LIKE :kw';
     $params[':kw'] = '%' . mb_strtolower($filterSearch) . '%';
 }
-$studentSql .= ' ORDER BY st.lop, st.hoten';
+
+$countStmt = $pdo->prepare('SELECT COUNT(*)' . $baseStudentSql);
+$countStmt->execute($params);
+$totalStudents = (int) ($countStmt->fetchColumn() ?: 0);
+$totalPages = max(1, (int) ceil($totalStudents / max(1, $perPage)));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$offset = ($page - 1) * $perPage;
+
+$studentSql = 'SELECT st.id, st.hoten, st.ngaysinh, st.lop' . $baseStudentSql . ' ORDER BY st.lop, st.hoten LIMIT :limit OFFSET :offset';
 $studentStmt = $pdo->prepare($studentSql);
-$studentStmt->execute($params);
+foreach ($params as $k => $v) {
+    $studentStmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+}
+$studentStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$studentStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$studentStmt->execute();
 $studentsInExam = $studentStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $selectedStmt = $pdo->prepare('SELECT student_id, subject_id FROM exam_student_subjects WHERE exam_id = :exam_id');
@@ -375,21 +399,108 @@ require_once BASE_PATH . '/layout/header.php';
                         <form method="post" class="row g-2 mb-2">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                             <input type="hidden" name="action" value="add_matrix_subject">
-                            <div class="col-md-8"><select class="form-select" name="subject_id" required><option value="">-- Chọn môn để thêm --</option><?php foreach ($subjects as $s): ?><option value="<?= (int)$s['id'] ?>"><?= htmlspecialchars((string)$s['ma_mon'].' - '.(string)$s['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                            <div class="col-md-8">
+                                <select class="form-select" name="subject_id" required>
+                                    <option value="">-- Chọn môn để thêm --</option>
+                                    <?php foreach ($subjects as $s): ?>
+                                        <option value="<?= (int) $s['id'] ?>"><?= htmlspecialchars((string) $s['ma_mon'] . ' - ' . (string) $s['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                             <div class="col-md-4"><button class="btn btn-primary" type="submit">Thêm môn</button></div>
                         </form>
-                        <div class="table-responsive"><table class="table table-sm table-bordered"><thead><tr><th>STT</th><th>Môn</th><th width="220">Thao tác</th></tr></thead><tbody><?php if (empty($matrixSubjects)): ?><tr><td colspan="3" class="text-center">Chưa có môn trong ma trận.</td></tr><?php else: foreach ($matrixSubjects as $i => $ms): ?><tr><td><?= $i + 1 ?></td><td><?= htmlspecialchars((string)$ms['ma_mon'].' - '.(string)$ms['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td><td class="d-flex gap-1"><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_matrix_subject"><input type="hidden" name="subject_id" value="<?= (int)$ms['subject_id'] ?>"><input type="hidden" name="direction" value="up"><button class="btn btn-sm btn-outline-secondary">↑</button></form><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_matrix_subject"><input type="hidden" name="subject_id" value="<?= (int)$ms['subject_id'] ?>"><input type="hidden" name="direction" value="down"><button class="btn btn-sm btn-outline-secondary">↓</button></form><form method="post" onsubmit="return confirm('Xóa môn khỏi ma trận?')"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="remove_matrix_subject"><input type="hidden" name="subject_id" value="<?= (int)$ms['subject_id'] ?>"><button class="btn btn-sm btn-outline-danger">Xóa</button></form></td></tr><?php endforeach; endif; ?></tbody></table></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead><tr><th>STT</th><th>Môn</th><th width="220">Thao tác</th></tr></thead>
+                                <tbody>
+                                <?php if (empty($matrixSubjects)): ?>
+                                    <tr><td colspan="3" class="text-center">Chưa có môn trong ma trận.</td></tr>
+                                <?php else: foreach ($matrixSubjects as $i => $ms): ?>
+                                    <tr>
+                                        <td><?= $i + 1 ?></td>
+                                        <td><?= htmlspecialchars((string) $ms['ma_mon'] . ' - ' . (string) $ms['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td class="d-flex gap-1">
+                                            <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_matrix_subject"><input type="hidden" name="subject_id" value="<?= (int) $ms['subject_id'] ?>"><input type="hidden" name="direction" value="up"><button class="btn btn-sm btn-outline-secondary">↑</button></form>
+                                            <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_matrix_subject"><input type="hidden" name="subject_id" value="<?= (int) $ms['subject_id'] ?>"><input type="hidden" name="direction" value="down"><button class="btn btn-sm btn-outline-secondary">↓</button></form>
+                                            <form method="post" onsubmit="return confirm('Xóa môn khỏi ma trận?')"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="remove_matrix_subject"><input type="hidden" name="subject_id" value="<?= (int) $ms['subject_id'] ?>"><button class="btn btn-sm btn-outline-danger">Xóa</button></form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <div class="border rounded p-3">
                         <h6 class="mb-3">Ma trận chọn môn theo học sinh</h6>
                         <form method="get" class="row g-2 mb-3">
-                            <div class="col-md-3"><select class="form-select" name="class"><option value="">-- Lọc theo lớp --</option><?php foreach ($classOptions as $lop): ?><option value="<?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?>" <?= $filterClass === $lop ? 'selected' : '' ?>><?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                            <div class="col-md-5"><input class="form-control" type="text" name="search" value="<?= htmlspecialchars($filterSearch, ENT_QUOTES, 'UTF-8') ?>" placeholder="Tìm theo tên học sinh"></div>
-                            <div class="col-md-4 d-flex gap-2"><button class="btn btn-outline-primary" type="submit">Lọc</button><a class="btn btn-outline-secondary" href="<?= BASE_URL ?>/modules/exams/configure_subjects.php">Bỏ lọc</a></div>
+                            <div class="col-md-3">
+                                <select class="form-select" name="class">
+                                    <option value="">-- Lọc theo lớp --</option>
+                                    <?php foreach ($classOptions as $lop): ?>
+                                        <option value="<?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?>" <?= $filterClass === $lop ? 'selected' : '' ?>><?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4"><input class="form-control" type="text" name="search" value="<?= htmlspecialchars($filterSearch, ENT_QUOTES, 'UTF-8') ?>" placeholder="Tìm theo tên học sinh"></div>
+                            <div class="col-md-2">
+                                <select class="form-select" name="per_page">
+                                    <?php foreach ($perPageOptions as $opt): ?>
+                                        <option value="<?= $opt ?>" <?= $perPage === $opt ? 'selected' : '' ?>><?= $opt ?> / trang</option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-3 d-flex gap-2"><button class="btn btn-outline-primary" type="submit">Lọc</button><a class="btn btn-outline-secondary" href="<?= BASE_URL ?>/modules/exams/configure_subjects.php">Bỏ lọc</a></div>
                         </form>
-                        <div class="table-responsive"><table class="table table-bordered table-sm matrix"><thead><tr><th>Học sinh</th><?php foreach ($matrixSubjects as $sub): ?><th><?= htmlspecialchars((string)$sub['ten_mon'], ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?></tr></thead><tbody><?php if (empty($studentsInExam)): ?><tr><td colspan="<?= max(1, count($matrixSubjects) + 1) ?>" class="text-center">Không có học sinh.</td></tr><?php else: foreach ($studentsInExam as $stu): ?><tr><td><?= htmlspecialchars((string)$stu['hoten'].' ('.(string)$stu['lop'].')', ENT_QUOTES, 'UTF-8') ?></td><?php foreach ($matrixSubjects as $sub): $sid=(int)$stu['id']; $subId=(int)$sub['subject_id']; $checked = !empty($selectedMap[$sid][$subId]); ?><td class="text-center"><input type="checkbox" class="matrix-checkbox" data-student="<?= $sid ?>" data-subject="<?= $subId ?>" <?= $checked ? 'checked' : '' ?>></td><?php endforeach; ?></tr><?php endforeach; endif; ?></tbody></table></div>
-                        <div class="small text-muted mt-2">Mỗi lần tick/bỏ tick sẽ lưu ngay qua AJAX.</div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm matrix">
+                                <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Họ tên</th>
+                                    <th>Ngày sinh</th>
+                                    <th>Lớp</th>
+                                    <?php foreach ($matrixSubjects as $sub): ?>
+                                        <th>
+                                            <div class="small mb-1"><?= htmlspecialchars((string) $sub['ten_mon'], ENT_QUOTES, 'UTF-8') ?></div>
+                                            <input type="checkbox" class="matrix-col-toggle" data-subject="<?= (int) $sub['subject_id'] ?>" title="Chọn/Bỏ chọn cả cột trong trang hiện tại">
+                                        </th>
+                                    <?php endforeach; ?>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <?php if (empty($studentsInExam)): ?>
+                                    <tr><td colspan="<?= max(4, count($matrixSubjects) + 4) ?>" class="text-center">Không có học sinh.</td></tr>
+                                <?php else: foreach ($studentsInExam as $idx => $stu): ?>
+                                    <tr>
+                                        <td><?= $offset + $idx + 1 ?></td>
+                                        <td><?= htmlspecialchars((string) $stu['hoten'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) $stu['ngaysinh'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) $stu['lop'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <?php foreach ($matrixSubjects as $sub): $sid = (int) $stu['id']; $subId = (int) $sub['subject_id']; $isChecked = !empty($selectedMap[$sid][$subId]); ?>
+                                            <td class="text-center"><input type="checkbox" class="matrix-checkbox" data-student="<?= $sid ?>" data-subject="<?= $subId ?>" <?= $isChecked ? 'checked' : '' ?>></td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endforeach; endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <?php if ($totalPages > 1): ?>
+                            <nav>
+                                <ul class="pagination pagination-sm">
+                                    <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+                                        <li class="page-item <?= $p === $page ? 'active' : '' ?>">
+                                            <a class="page-link" href="<?= BASE_URL ?>/modules/exams/configure_subjects.php?<?= http_build_query(['class' => $filterClass, 'search' => $filterSearch, 'per_page' => $perPage, 'page' => $p]) ?>"><?= $p ?></a>
+                                        </li>
+                                    <?php endfor; ?>
+                                </ul>
+                            </nav>
+                        <?php endif; ?>
+
+                        <div class="small text-muted mt-2">Mỗi lần tick/bỏ tick sẽ lưu ngay qua AJAX. Chức năng chọn cả cột áp dụng trên trang hiện tại.</div>
                     </div>
                 <?php endif; ?>
             </div>
@@ -424,6 +535,15 @@ document.getElementById('moveAllLeft')?.addEventListener('click', ()=>moveAll(se
 document.getElementById('cfgForm')?.addEventListener('submit', syncSelectedClassesJson);
 updateComponentFields(); updateScopePanel(); refreshAvailableByGrade();
 
+async function postMatrix(payload) {
+    const res = await fetch('<?= BASE_URL ?>/modules/exams/save_exam_matrix.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
+        body: payload.toString()
+    });
+    return res.json();
+}
+
 document.querySelectorAll('.matrix-checkbox').forEach(cb => {
     cb.addEventListener('change', async function () {
         const payload = new URLSearchParams();
@@ -435,12 +555,7 @@ document.querySelectorAll('.matrix-checkbox').forEach(cb => {
         payload.set('checked', this.checked ? '1' : '0');
 
         try {
-            const res = await fetch('<?= BASE_URL ?>/modules/exams/save_exam_matrix.php', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'},
-                body: payload.toString()
-            });
-            const data = await res.json();
+            const data = await postMatrix(payload);
             if (!data || data.ok !== true) {
                 this.checked = !this.checked;
                 alert((data && data.error) ? data.error : 'Không lưu được dữ liệu.');
@@ -448,6 +563,39 @@ document.querySelectorAll('.matrix-checkbox').forEach(cb => {
         } catch (e) {
             this.checked = !this.checked;
             alert('Lỗi kết nối khi lưu ma trận môn.');
+        }
+    });
+});
+
+document.querySelectorAll('.matrix-col-toggle').forEach(colToggle => {
+    colToggle.addEventListener('change', async function () {
+        const subjectId = this.dataset.subject || '0';
+        const checked = this.checked;
+        const rowInputs = Array.from(document.querySelectorAll('.matrix-checkbox[data-subject="' + subjectId + '"]'));
+        const studentIds = rowInputs.map(i => i.dataset.student || '0').filter(v => v !== '0');
+        if (studentIds.length === 0) {
+            return;
+        }
+
+        const payload = new URLSearchParams();
+        payload.set('csrf_token', <?= json_encode($csrf, JSON_UNESCAPED_UNICODE) ?>);
+        payload.set('action', 'toggle_column');
+        payload.set('exam_id', <?= (string) $examId ?>);
+        payload.set('subject_id', subjectId);
+        payload.set('checked', checked ? '1' : '0');
+        payload.set('student_ids', studentIds.join(','));
+
+        try {
+            const data = await postMatrix(payload);
+            if (!data || data.ok !== true) {
+                this.checked = !this.checked;
+                alert((data && data.error) ? data.error : 'Không lưu được dữ liệu cột.');
+                return;
+            }
+            rowInputs.forEach(i => { i.checked = checked; });
+        } catch (e) {
+            this.checked = !this.checked;
+            alert('Lỗi kết nối khi lưu dữ liệu cột.');
         }
     });
 });
