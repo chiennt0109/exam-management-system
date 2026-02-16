@@ -18,6 +18,17 @@ $subjectCfgStmt = $pdo->prepare('SELECT c.subject_id, MAX(c.component_count) AS 
     ORDER BY s.ten_mon');
 $subjectCfgStmt->execute([':exam_id' => $examId]);
 $subjectCfgs = $subjectCfgStmt->fetchAll(PDO::FETCH_ASSOC);
+
+if (empty($subjectCfgs)) {
+    $fallbackStmt = $pdo->prepare('SELECT es.subject_id, 1 AS component_count, s.ten_mon
+        FROM exam_subjects es
+        INNER JOIN subjects s ON s.id = es.subject_id
+        WHERE es.exam_id = :exam_id
+        ORDER BY es.sort_order ASC, s.ten_mon');
+    $fallbackStmt->execute([':exam_id' => $examId]);
+    $subjectCfgs = $fallbackStmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 $subjects = array_map(static fn(array $r): array => ['id' => (int)$r['subject_id'], 'ten_mon' => (string)$r['ten_mon']], $subjectCfgs);
 
 $componentMap = [];

@@ -94,6 +94,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare('INSERT OR IGNORE INTO exam_subjects(exam_id, subject_id, sort_order) VALUES(:exam_id, :subject_id, :sort_order)');
             $stmt->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':sort_order' => $maxSort + 1]);
             exams_set_flash('success', 'Đã thêm môn vào ma trận.');
+        } elseif ($action === 'save_matrix_subject_config') {
+            $subjectId = (int) ($_POST['subject_id'] ?? 0);
+            $componentCount = (int) ($_POST['component_count'] ?? 1);
+            $tongDiem = (float) ($_POST['tong_diem'] ?? 10);
+            $diemTuLuan = (float) ($_POST['diem_tu_luan'] ?? 10);
+            $diemTracNghiem = (float) ($_POST['diem_trac_nghiem'] ?? 0);
+            $diemNoi = (float) ($_POST['diem_noi'] ?? 0);
+
+            if ($subjectId <= 0 || !in_array($componentCount, [1, 2, 3], true)) {
+                throw new RuntimeException('Cấu hình thành phần điểm không hợp lệ.');
+            }
+            if ($tongDiem <= 0 || $tongDiem > 10) {
+                throw new RuntimeException('Tổng điểm phải > 0 và <= 10.');
+            }
+            if ($diemTuLuan < 0 || $diemTuLuan > 10 || $diemTracNghiem < 0 || $diemTracNghiem > 10 || $diemNoi < 0 || $diemNoi > 10) {
+                throw new RuntimeException('Điểm thành phần phải trong khoảng 0..10.');
+            }
+
+            $sum = $diemTuLuan + ($componentCount >= 2 ? $diemTracNghiem : 0) + ($componentCount >= 3 ? $diemNoi : 0);
+            if ($sum > $tongDiem) {
+                throw new RuntimeException('Tổng điểm thành phần vượt tổng điểm.');
+            }
+
+            $hinhThucThi = match ($componentCount) {
+                1 => 'single_component',
+                2, 3 => 'two_components',
+                default => 'single_component',
+            };
+
+            $existing = $pdo->prepare('SELECT id FROM exam_subject_config WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi LIMIT 1');
+            $existing->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => 'ALL']);
+            $cfgId = (int) ($existing->fetchColumn() ?: 0);
+
+            if ($cfgId > 0) {
+                $pdo->prepare('UPDATE exam_subject_config SET hinh_thuc_thi = :hinh_thuc_thi, component_count = :component_count, scope_mode = :scope_mode, tong_diem = :tong_diem, diem_tu_luan = :diem_tu_luan, diem_trac_nghiem = :diem_trac_nghiem, diem_noi = :diem_noi WHERE id = :id AND exam_id = :exam_id')
+                    ->execute([
+                        ':hinh_thuc_thi' => $hinhThucThi,
+                        ':component_count' => $componentCount,
+                        ':scope_mode' => 'entire_grade',
+                        ':tong_diem' => $tongDiem,
+                        ':diem_tu_luan' => $diemTuLuan,
+                        ':diem_trac_nghiem' => $componentCount >= 2 ? $diemTracNghiem : 0,
+                        ':diem_noi' => $componentCount >= 3 ? $diemNoi : 0,
+                        ':id' => $cfgId,
+                        ':exam_id' => $examId,
+                    ]);
+            } else {
+                $pdo->prepare('INSERT INTO exam_subject_config (exam_id, subject_id, khoi, hinh_thuc_thi, component_count, weight_1, weight_2, scope_mode, tong_diem, diem_tu_luan, diem_trac_nghiem, diem_noi) VALUES (:exam_id, :subject_id, :khoi, :hinh_thuc_thi, :component_count, NULL, NULL, :scope_mode, :tong_diem, :diem_tu_luan, :diem_trac_nghiem, :diem_noi)')
+                    ->execute([
+                        ':exam_id' => $examId,
+                        ':subject_id' => $subjectId,
+                        ':khoi' => 'ALL',
+                        ':hinh_thuc_thi' => $hinhThucThi,
+                        ':component_count' => $componentCount,
+                        ':scope_mode' => 'entire_grade',
+                        ':tong_diem' => $tongDiem,
+                        ':diem_tu_luan' => $diemTuLuan,
+                        ':diem_trac_nghiem' => $componentCount >= 2 ? $diemTracNghiem : 0,
+                        ':diem_noi' => $componentCount >= 3 ? $diemNoi : 0,
+                    ]);
+            }
+            exams_set_flash('success', 'Đã lưu cấu hình thành phần điểm cho môn.');
         } elseif ($action === 'remove_matrix_subject') {
             $subjectId = (int) ($_POST['subject_id'] ?? 0);
             if ($subjectId <= 0) {
@@ -288,6 +350,22 @@ $matrixSubjectStmt = $pdo->prepare('SELECT es.subject_id, es.sort_order, s.ma_mo
 $matrixSubjectStmt->execute([':exam_id' => $examId]);
 $matrixSubjects = $matrixSubjectStmt->fetchAll(PDO::FETCH_ASSOC);
 
+$matrixScoreConfig = [];
+$matrixCfgStmt = $pdo->prepare('SELECT subject_id, component_count, tong_diem, diem_tu_luan, diem_trac_nghiem, diem_noi FROM exam_subject_config WHERE exam_id = :exam_id AND khoi = :khoi');
+$matrixCfgStmt->execute([':exam_id' => $examId, ':khoi' => 'ALL']);
+foreach ($matrixCfgStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+    $sid = (int) ($r['subject_id'] ?? 0);
+    if ($sid > 0) {
+        $matrixScoreConfig[$sid] = [
+            'component_count' => max(1, min(3, (int) ($r['component_count'] ?? 1))),
+            'tong_diem' => (float) ($r['tong_diem'] ?? 10),
+            'diem_tu_luan' => (float) ($r['diem_tu_luan'] ?? 10),
+            'diem_trac_nghiem' => (float) ($r['diem_trac_nghiem'] ?? 0),
+            'diem_noi' => (float) ($r['diem_noi'] ?? 0),
+        ];
+    }
+}
+
 $filterClass = trim((string) ($_GET['class'] ?? ''));
 $filterSearch = trim((string) ($_GET['search'] ?? ''));
 $perPageOptions = [26, 50, 100, 200, 500];
@@ -411,19 +489,37 @@ require_once BASE_PATH . '/layout/header.php';
                         </form>
 
                         <div class="table-responsive">
-                            <table class="table table-sm table-bordered">
-                                <thead><tr><th>STT</th><th>Môn</th><th width="220">Thao tác</th></tr></thead>
+                            <table class="table table-sm table-bordered align-middle">
+                                <thead>
+                                    <tr><th>STT</th><th>Môn</th><th>Cấu hình thành phần điểm</th><th width="220">Thao tác</th></tr>
+                                </thead>
                                 <tbody>
                                 <?php if (empty($matrixSubjects)): ?>
-                                    <tr><td colspan="3" class="text-center">Chưa có môn trong ma trận.</td></tr>
-                                <?php else: foreach ($matrixSubjects as $i => $ms): ?>
+                                    <tr><td colspan="4" class="text-center">Chưa có môn trong ma trận.</td></tr>
+                                <?php else: foreach ($matrixSubjects as $i => $ms):
+                                    $sid = (int) $ms['subject_id'];
+                                    $cfg = $matrixScoreConfig[$sid] ?? ['component_count' => 1, 'tong_diem' => 10, 'diem_tu_luan' => 10, 'diem_trac_nghiem' => 0, 'diem_noi' => 0];
+                                ?>
                                     <tr>
                                         <td><?= $i + 1 ?></td>
                                         <td><?= htmlspecialchars((string) $ms['ma_mon'] . ' - ' . (string) $ms['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td>
+                                            <form method="post" class="row g-1 align-items-end">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                                <input type="hidden" name="action" value="save_matrix_subject_config">
+                                                <input type="hidden" name="subject_id" value="<?= $sid ?>">
+                                                <div class="col-md-2"><label class="form-label mb-0 small">TP</label><select class="form-select form-select-sm" name="component_count"><option value="1" <?= (int)$cfg['component_count']===1?'selected':'' ?>>1</option><option value="2" <?= (int)$cfg['component_count']===2?'selected':'' ?>>2</option><option value="3" <?= (int)$cfg['component_count']===3?'selected':'' ?>>3</option></select></div>
+                                                <div class="col-md-2"><label class="form-label mb-0 small">Tổng</label><input class="form-control form-control-sm" type="number" step="0.01" min="0" max="10" name="tong_diem" value="<?= htmlspecialchars((string)$cfg['tong_diem'], ENT_QUOTES, 'UTF-8') ?>"></div>
+                                                <div class="col-md-2"><label class="form-label mb-0 small">TL</label><input class="form-control form-control-sm" type="number" step="0.01" min="0" max="10" name="diem_tu_luan" value="<?= htmlspecialchars((string)$cfg['diem_tu_luan'], ENT_QUOTES, 'UTF-8') ?>"></div>
+                                                <div class="col-md-3"><label class="form-label mb-0 small">TN</label><input class="form-control form-control-sm" type="number" step="0.01" min="0" max="10" name="diem_trac_nghiem" value="<?= htmlspecialchars((string)$cfg['diem_trac_nghiem'], ENT_QUOTES, 'UTF-8') ?>"></div>
+                                                <div class="col-md-2"><label class="form-label mb-0 small">Nói</label><input class="form-control form-control-sm" type="number" step="0.01" min="0" max="10" name="diem_noi" value="<?= htmlspecialchars((string)$cfg['diem_noi'], ENT_QUOTES, 'UTF-8') ?>"></div>
+                                                <div class="col-md-1"><button class="btn btn-sm btn-success" type="submit">Lưu</button></div>
+                                            </form>
+                                        </td>
                                         <td class="d-flex gap-1">
-                                            <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_matrix_subject"><input type="hidden" name="subject_id" value="<?= (int) $ms['subject_id'] ?>"><input type="hidden" name="direction" value="up"><button class="btn btn-sm btn-outline-secondary">↑</button></form>
-                                            <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_matrix_subject"><input type="hidden" name="subject_id" value="<?= (int) $ms['subject_id'] ?>"><input type="hidden" name="direction" value="down"><button class="btn btn-sm btn-outline-secondary">↓</button></form>
-                                            <form method="post" onsubmit="return confirm('Xóa môn khỏi ma trận?')"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="remove_matrix_subject"><input type="hidden" name="subject_id" value="<?= (int) $ms['subject_id'] ?>"><button class="btn btn-sm btn-outline-danger">Xóa</button></form>
+                                            <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_matrix_subject"><input type="hidden" name="subject_id" value="<?= $sid ?>"><input type="hidden" name="direction" value="up"><button class="btn btn-sm btn-outline-secondary">↑</button></form>
+                                            <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_matrix_subject"><input type="hidden" name="subject_id" value="<?= $sid ?>"><input type="hidden" name="direction" value="down"><button class="btn btn-sm btn-outline-secondary">↓</button></form>
+                                            <form method="post" onsubmit="return confirm('Xóa môn khỏi ma trận?')"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="remove_matrix_subject"><input type="hidden" name="subject_id" value="<?= $sid ?>"><button class="btn btn-sm btn-outline-danger">Xóa</button></form>
                                         </td>
                                     </tr>
                                 <?php endforeach; endif; ?>
