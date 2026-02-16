@@ -168,17 +168,50 @@ $assignments = $assignStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $unassignedBySubject = [];
 foreach ($subjects as $sub) {
-    $sid = (int)$sub['id'];
-    $roomTotalStmt = $pdo->prepare('SELECT COUNT(*) FROM rooms WHERE exam_id = :exam_id AND subject_id = :sid');
-    $roomTotalStmt->execute([':exam_id'=>$examId, ':sid'=>$sid]);
-    $totalRooms = (int)$roomTotalStmt->fetchColumn();
+    $sid = (int) $sub['id'];
 
-    $assignedRoomStmt = $pdo->prepare('SELECT COUNT(DISTINCT room_id) FROM score_assignments WHERE exam_id = :exam_id AND subject_id = :sid AND room_id IS NOT NULL');
-    $assignedRoomStmt->execute([':exam_id'=>$examId, ':sid'=>$sid]);
-    $assignedRooms = (int)$assignedRoomStmt->fetchColumn();
+    $roomListStmt = $pdo->prepare('SELECT id, khoi FROM rooms WHERE exam_id = :exam_id AND subject_id = :sid');
+    $roomListStmt->execute([':exam_id' => $examId, ':sid' => $sid]);
+    $roomsBySubject = $roomListStmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($roomsBySubject)) {
+        continue;
+    }
+
+    $coveredRoomIds = [];
+
+    // 1) Gán trực tiếp theo phòng
+    $assignedRoomStmt = $pdo->prepare('SELECT DISTINCT room_id FROM score_assignments WHERE exam_id = :exam_id AND subject_id = :sid AND room_id IS NOT NULL');
+    $assignedRoomStmt->execute([':exam_id' => $examId, ':sid' => $sid]);
+    foreach ($assignedRoomStmt->fetchAll(PDO::FETCH_COLUMN) as $rid) {
+        $roomId = (int) $rid;
+        if ($roomId > 0) {
+            $coveredRoomIds[$roomId] = true;
+        }
+    }
+
+    // 2) Gán theo khối (room_id IS NULL) => coi như phủ toàn bộ phòng của khối đó
+    $assignedKhoiStmt = $pdo->prepare('SELECT DISTINCT khoi FROM score_assignments WHERE exam_id = :exam_id AND subject_id = :sid AND room_id IS NULL AND khoi IS NOT NULL AND trim(khoi) <> ""');
+    $assignedKhoiStmt->execute([':exam_id' => $examId, ':sid' => $sid]);
+    $coveredKhoi = array_map('strval', $assignedKhoiStmt->fetchAll(PDO::FETCH_COLUMN));
+    if (!empty($coveredKhoi)) {
+        $khoiSet = array_fill_keys($coveredKhoi, true);
+        foreach ($roomsBySubject as $r) {
+            $rid = (int) ($r['id'] ?? 0);
+            $rkhoi = (string) ($r['khoi'] ?? '');
+            if ($rid > 0 && isset($khoiSet[$rkhoi])) {
+                $coveredRoomIds[$rid] = true;
+            }
+        }
+    }
+
+    $totalRooms = count($roomsBySubject);
+    $assignedRooms = count($coveredRoomIds);
 
     if ($totalRooms > $assignedRooms) {
-        $unassignedBySubject[] = ['ten_mon' => $sub['ten_mon'], 'missing_rooms' => $totalRooms - $assignedRooms];
+        $unassignedBySubject[] = [
+            'ten_mon' => $sub['ten_mon'],
+            'missing_rooms' => $totalRooms - $assignedRooms,
+        ];
     }
 }
 
