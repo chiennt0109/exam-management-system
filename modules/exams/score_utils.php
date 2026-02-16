@@ -8,25 +8,29 @@ function parseSmartScore(string $input, float $maxScore): ?float
         return null;
     }
 
-
     if (!preg_match('/^[0-9]+(?:\.[0-9]+)?$/', $input)) {
         return null;
     }
 
     if (strpos($input, '.') !== false) {
-        $value = floatval($input);
+        $value = (float) $input;
     } else {
-        $len = strlen($input);
-        if ($len === 1) {
-            $value = floatval($input);
-        } elseif ($len === 2) {
-            $value = floatval($input[0] . '.' . $input[1]);
+        if ($maxScore > 7) {
+            // Keep natural numeric input for large max-score subjects (e.g., 10-point scale).
+            $value = (float) $input;
         } else {
-            $value = floatval($input[0] . '.' . substr($input, 1));
+            $len = strlen($input);
+            if ($len === 1) {
+                $value = (float) $input;
+            } elseif ($len === 2) {
+                $value = (float) ($input[0] . '.' . $input[1]);
+            } else {
+                $value = (float) ($input[0] . '.' . substr($input, 1));
+            }
         }
     }
 
-    if ($value > $maxScore) {
+    if ($value < 0 || $value > $maxScore) {
         return null;
     }
 

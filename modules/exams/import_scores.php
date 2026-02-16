@@ -48,12 +48,9 @@ $mode = (string) ($_POST['mode'] ?? ($state['mode'] ?? 'room'));
 $mode = in_array($mode, ['room', 'subject'], true) ? $mode : 'room';
 $roomId = max(0, (int) ($_POST['room_id'] ?? ($state['room_id'] ?? 0)));
 $subjectId = max(0, (int) ($_POST['subject_id'] ?? ($state['subject_id'] ?? 0)));
-$selectedSbdColumn = (string) ($_POST['sbd_column'] ?? ($state['sbd_column'] ?? ''));
-$selectedScoreColumn = (string) ($_POST['score_column'] ?? ($state['score_column'] ?? ''));
+$selectedSbdColumn = (string) ($_POST['col_sbd'] ?? ($state['col_sbd'] ?? ''));
+$selectedScoreColumn = (string) ($_POST['col_score'] ?? ($state['col_score'] ?? ''));
 
-/**
- * @return array<int, string>
- */
 function excel_column_letters(string $highestColumn): array
 {
     $maxColIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestColumn);
@@ -65,9 +62,6 @@ function excel_column_letters(string $highestColumn): array
     return $columns;
 }
 
-/**
- * @param array<string, string> $headers
- */
 function column_label(string $column, array $headers): string
 {
     $header = trim((string) ($headers[$column] ?? ''));
@@ -79,18 +73,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'CSRF token không hợp lệ.';
     }
 
-    $action = (string) ($_POST['action'] ?? '');
-
     if (!$canUseSpreadsheet) {
-        $errors[] = 'Không tìm thấy PHPSpreadsheet. Vui lòng cài đặt vendor/autoload.php.';
+        $errors[] = 'Không tìm thấy PHPSpreadsheet. Vui lòng cài đặt thư viện để import Excel.';
     }
 
-    if (empty($errors) && $action === 'upload_file') {
-        if (empty($_FILES['excel_file']['tmp_name']) || !is_uploaded_file($_FILES['excel_file']['tmp_name'])) {
+    if (empty($errors) && isset($_POST['import'])) {
+        if (empty($_FILES['excelfile']['tmp_name']) || !is_uploaded_file($_FILES['excelfile']['tmp_name'])) {
             $errors[] = 'Vui lòng chọn tệp Excel hợp lệ.';
         } else {
             try {
-                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load((string) $_FILES['excel_file']['tmp_name']);
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load((string) $_FILES['excelfile']['tmp_name']);
                 $sheet = $spreadsheet->getActiveSheet();
                 $highestColumn = $sheet->getHighestDataColumn();
                 $highestRow = (int) $sheet->getHighestDataRow();
@@ -112,8 +104,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $rows[] = $row;
                 }
 
-                $selectedSbdColumn = $columns[0] ?? '';
-                $selectedScoreColumn = $columns[1] ?? ($columns[0] ?? '');
+                $selectedSbdColumn = (string) ($_POST['col_sbd'] ?? ($columns[0] ?? ''));
+                $selectedScoreColumn = (string) ($_POST['col_score'] ?? ($columns[1] ?? ($columns[0] ?? '')));
+
+                if (!in_array($selectedSbdColumn, $columns, true)) {
+                    $selectedSbdColumn = $columns[0] ?? '';
+                }
+                if (!in_array($selectedScoreColumn, $columns, true)) {
+                    $selectedScoreColumn = $columns[1] ?? ($columns[0] ?? '');
+                }
 
                 $_SESSION['score_import_state'] = [
                     'mode' => $mode,
@@ -122,23 +121,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'headers' => $headers,
                     'rows' => $rows,
                     'columns' => $columns,
-                    'sbd_column' => $selectedSbdColumn,
-                    'score_column' => $selectedScoreColumn,
+                    'col_sbd' => $selectedSbdColumn,
+                    'col_score' => $selectedScoreColumn,
                 ];
-                $state = $_SESSION['score_import_state'];
+                $state = (array) $_SESSION['score_import_state'];
             } catch (Throwable $e) {
                 $errors[] = 'Không thể đọc tệp Excel: ' . $e->getMessage();
             }
         }
     }
 
-    if (empty($errors) && $action === 'process_import') {
+    if (empty($errors) && isset($_POST['process_import'])) {
         $state = (array) ($_SESSION['score_import_state'] ?? []);
         $columns = (array) ($state['columns'] ?? []);
-        $headers = (array) ($state['headers'] ?? []);
         $rows = (array) ($state['rows'] ?? []);
 
-        if (empty($columns)) {
+        if (empty($columns) || empty($rows)) {
             $errors[] = 'Chưa có dữ liệu file. Hãy tải file Excel trước.';
         }
 
@@ -157,7 +155,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Phòng được chọn không hợp lệ.';
             } else {
                 $targetSubjectId = (int) $roomRow['subject_id'];
-
                 $eligibleStmt = $pdo->prepare('SELECT sbd, student_id
                     FROM exam_students
                     WHERE exam_id = :exam_id AND subject_id = :subject_id AND room_id = :room_id');
@@ -200,8 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (:exam_id, :student_id, :subject_id, :score, :updated_at)
                 ON CONFLICT(exam_id, student_id, subject_id)
                 DO UPDATE SET score = excluded.score, updated_at = excluded.updated_at');
-            $deleteScore = $pdo->prepare('DELETE FROM exam_scores
-                WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id = :subject_id');
+            $deleteScore = $pdo->prepare('DELETE FROM exam_scores WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id = :subject_id');
 
             $updated = 0;
             $deleted = 0;
@@ -216,10 +212,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         continue;
                     }
 
-                    $rawScore = (string) ($row[$selectedScoreColumn] ?? '');
-                    $parsedScore = parseSmartScore($rawScore, $maxScore);
                     $studentId = (int) $eligibleBySbd[$sbd];
-
+                    $parsedScore = parseSmartScore((string) ($row[$selectedScoreColumn] ?? ''), $maxScore);
                     if ($parsedScore === null) {
                         $deleteScore->execute([
                             ':exam_id' => $examId,
@@ -241,7 +235,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $pdo->commit();
-                $success = sprintf('Import hoàn tất. Cập nhật: %d, Xóa do rỗng/không hợp lệ: %d, Bỏ qua: %d.', $updated, $deleted, $skipped);
+                $success = sprintf('Import hoàn tất. Cập nhật: %d, Xóa: %d, Bỏ qua: %d.', $updated, $deleted, $skipped);
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) {
                     $pdo->rollBack();
@@ -253,8 +247,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['score_import_state']['mode'] = $mode;
         $_SESSION['score_import_state']['room_id'] = $roomId;
         $_SESSION['score_import_state']['subject_id'] = $subjectId;
-        $_SESSION['score_import_state']['sbd_column'] = $selectedSbdColumn;
-        $_SESSION['score_import_state']['score_column'] = $selectedScoreColumn;
+        $_SESSION['score_import_state']['col_sbd'] = $selectedSbdColumn;
+        $_SESSION['score_import_state']['col_score'] = $selectedScoreColumn;
         $state = (array) $_SESSION['score_import_state'];
     }
 }
@@ -272,115 +266,75 @@ require_once BASE_PATH . '/layout/header.php';
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white"><strong>Import điểm từ Excel</strong></div>
             <div class="card-body">
-                <?= exams_display_flash(); ?>
                 <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
-                <?php if ($errors): ?>
-                    <div class="alert alert-danger">
-                        <ul class="mb-0">
-                            <?php foreach ($errors as $error): ?>
-                                <li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                <?php endif; ?>
+                <?php if ($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 
-                <form method="post" enctype="multipart/form-data" class="row g-3 mb-4">
+                <form method="POST" enctype="multipart/form-data" class="row g-3 mb-4">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="action" value="upload_file">
 
                     <div class="col-md-3">
-                        <label class="form-label">Mode import</label>
-                        <select name="mode" id="modeSelect" class="form-select" onchange="toggleMode(this.value)">
-                            <option value="room" <?= $mode === 'room' ? 'selected' : '' ?>>Import theo phòng</option>
-                            <option value="subject" <?= $mode === 'subject' ? 'selected' : '' ?>>Import theo môn</option>
+                        <label class="form-label" for="mode">Chế độ</label>
+                        <select id="mode" name="mode" class="form-select" onchange="toggleMode(this.value)">
+                            <option value="room" <?= $mode === 'room' ? 'selected' : '' ?>>Phòng</option>
+                            <option value="subject" <?= $mode === 'subject' ? 'selected' : '' ?>>Môn</option>
                         </select>
                     </div>
 
                     <div class="col-md-5 mode-room">
-                        <label class="form-label">Chọn phòng</label>
-                        <select name="room_id" class="form-select">
+                        <label class="form-label" for="room_id">Phòng</label>
+                        <select id="room_id" name="room_id" class="form-select">
                             <option value="0">-- Chọn phòng --</option>
                             <?php foreach ($rooms as $room): ?>
-                                <option value="<?= (int) $room['id'] ?>" <?= $roomId === (int) $room['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars((string) $room['ten_mon'] . ' | ' . $room['ten_phong'] . ' | Khối ' . $room['khoi'], ENT_QUOTES, 'UTF-8') ?>
-                                </option>
+                                <option value="<?= (int) $room['id'] ?>" <?= $roomId === (int) $room['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $room['ten_mon'] . ' | ' . $room['ten_phong'] . ' | Khối ' . $room['khoi'], ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
 
                     <div class="col-md-5 mode-subject">
-                        <label class="form-label">Chọn môn</label>
-                        <select name="subject_id" class="form-select">
+                        <label class="form-label" for="subject_id">Môn</label>
+                        <select id="subject_id" name="subject_id" class="form-select">
                             <option value="0">-- Chọn môn --</option>
                             <?php foreach ($subjects as $subject): ?>
-                                <option value="<?= (int) $subject['id'] ?>" <?= $subjectId === (int) $subject['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars((string) $subject['ten_mon'], ENT_QUOTES, 'UTF-8') ?>
-                                </option>
+                                <option value="<?= (int) $subject['id'] ?>" <?= $subjectId === (int) $subject['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $subject['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
 
-                    <div class="col-md-8">
-                        <label class="form-label">Tệp Excel</label>
-                        <input type="file" name="excel_file" class="form-control" accept=".xlsx,.xls,.csv">
+                    <div class="col-md-6">
+                        <label class="form-label" for="excelfile">Tệp Excel</label>
+                        <input type="file" name="excelfile" id="excelfile" class="form-control" accept=".xlsx,.xls">
                     </div>
-                    <div class="col-md-4 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100" <?= $canUseSpreadsheet ? '' : 'disabled' ?>>Tải file & đọc cột</button>
+                    <div class="col-md-3">
+                        <label class="form-label" for="col_sbd">Cột SBD</label>
+                        <select name="col_sbd" id="col_sbd" class="form-select">
+                            <?php foreach ($columns as $column): ?>
+                                <option value="<?= htmlspecialchars($column, ENT_QUOTES, 'UTF-8') ?>" <?= $selectedSbdColumn === $column ? 'selected' : '' ?>><?= htmlspecialchars(column_label($column, $headers), ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="col_score">Cột điểm</label>
+                        <select name="col_score" id="col_score" class="form-select">
+                            <?php foreach ($columns as $column): ?>
+                                <option value="<?= htmlspecialchars($column, ENT_QUOTES, 'UTF-8') ?>" <?= $selectedScoreColumn === $column ? 'selected' : '' ?>><?= htmlspecialchars(column_label($column, $headers), ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6 d-grid">
+                        <button type="submit" name="import" id="import-btn" class="btn btn-primary">Import</button>
+                    </div>
+                    <div class="col-md-6 d-grid">
+                        <button type="submit" name="process_import" class="btn btn-success">Process Import</button>
                     </div>
                 </form>
 
                 <?php if (!empty($columns)): ?>
-                    <form method="post" class="row g-3 mb-3">
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="action" value="process_import">
-                        <input type="hidden" name="mode" value="<?= htmlspecialchars($mode, ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="room_id" value="<?= (int) $roomId ?>">
-                        <input type="hidden" name="subject_id" value="<?= (int) $subjectId ?>">
-
-                        <div class="col-md-4">
-                            <label class="form-label">Cột SBD</label>
-                            <select name="sbd_column" class="form-select">
-                                <?php foreach ($columns as $column): ?>
-                                    <option value="<?= htmlspecialchars($column, ENT_QUOTES, 'UTF-8') ?>" <?= $selectedSbdColumn === $column ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars(column_label($column, $headers), ENT_QUOTES, 'UTF-8') ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label">Cột điểm</label>
-                            <select name="score_column" class="form-select">
-                                <?php foreach ($columns as $column): ?>
-                                    <option value="<?= htmlspecialchars($column, ENT_QUOTES, 'UTF-8') ?>" <?= $selectedScoreColumn === $column ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars(column_label($column, $headers), ENT_QUOTES, 'UTF-8') ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <div class="col-md-4 d-flex align-items-end">
-                            <button type="submit" class="btn btn-success w-100">Process Import</button>
-                        </div>
-                    </form>
-
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered align-middle">
-                            <thead>
-                                <tr>
-                                    <?php foreach ($columns as $column): ?>
-                                        <th><?= htmlspecialchars(column_label($column, $headers), ENT_QUOTES, 'UTF-8') ?></th>
-                                    <?php endforeach; ?>
-                                </tr>
-                            </thead>
+                            <thead><tr><?php foreach ($columns as $column): ?><th><?= htmlspecialchars(column_label($column, $headers), ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?></tr></thead>
                             <tbody>
-                                <?php foreach ($previewRows as $previewRow): ?>
-                                    <tr>
-                                        <?php foreach ($columns as $column): ?>
-                                            <td><?= htmlspecialchars((string) ($previewRow[$column] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <?php endforeach; ?>
-                                    </tr>
-                                <?php endforeach; ?>
+                            <?php foreach ($previewRows as $row): ?><tr><?php foreach ($columns as $column): ?><td><?= htmlspecialchars((string) ($row[$column] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><?php endforeach; ?></tr><?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -391,12 +345,8 @@ require_once BASE_PATH . '/layout/header.php';
 </div>
 <script>
 function toggleMode(mode) {
-    document.querySelectorAll('.mode-room').forEach((el) => {
-        el.style.display = mode === 'room' ? '' : 'none';
-    });
-    document.querySelectorAll('.mode-subject').forEach((el) => {
-        el.style.display = mode === 'subject' ? '' : 'none';
-    });
+    document.querySelectorAll('.mode-room').forEach(el => el.style.display = mode === 'room' ? '' : 'none');
+    document.querySelectorAll('.mode-subject').forEach(el => el.style.display = mode === 'subject' ? '' : 'none');
 }
 toggleMode('<?= $mode ?>');
 </script>
