@@ -225,7 +225,7 @@ require_once BASE_PATH . '/layout/header.php';
                         <span class="icon">➕</span>
                         <span class="label">Thêm học sinh</span>
                     </a>
-                    <a class="tool-icon" href="import.php" title="Import Excel">
+                    <a class="tool-icon" href="<?= BASE_URL ?>/modules/students/import.php" title="Import Excel">
                         <span class="icon">📥</span>
                         <span class="label">Import Excel</span>
                     </a>

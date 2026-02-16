@@ -16,6 +16,13 @@ if (($draft['exam_id'] ?? 0) !== $examId || empty($draft['rows']) || empty($draf
 }
 
 $errors = [];
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !exams_verify_csrf($_POST['csrf_token'] ?? null)) {
+    exams_set_flash('error', 'CSRF token không hợp lệ.');
+    header('Location: ' . BASE_URL . '/modules/exams/import_scores.php');
+    exit;
+}
+
 $mode = (string) ($draft['mode'] ?? 'subject_room');
 $subjectId = (int) ($draft['subject_id'] ?? 0);
 $roomId = (int) ($draft['room_id'] ?? 0);
@@ -197,6 +204,7 @@ require_once BASE_PATH . '/layout/header.php';
         <div class="card shadow-sm mb-3"><div class="card-header bg-primary text-white"><strong>Import điểm thi - Bước 2/3: Mapping + Preview</strong></div><div class="card-body">
             <?php if ($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach ($errors as $e): ?><li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div><?php endif; ?>
             <form method="post" class="row g-3 mb-3">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                 <div class="col-md-4"><label class="form-label">Cột SBD</label><select name="col_sbd" class="form-select"><?php foreach ($columns as $col): ?><option value="<?= htmlspecialchars($col, ENT_QUOTES, 'UTF-8') ?>" <?= $selectedSbd === $col ? 'selected' : '' ?>><?= htmlspecialchars(colLabel($col, $headers), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
                 <div class="col-md-4"><label class="form-label">Cột Điểm</label><select name="col_score" class="form-select"><?php foreach ($columns as $col): ?><option value="<?= htmlspecialchars($col, ENT_QUOTES, 'UTF-8') ?>" <?= $selectedScore === $col ? 'selected' : '' ?>><?= htmlspecialchars(colLabel($col, $headers), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
                 <div class="col-md-4 d-grid align-items-end"><button class="btn btn-outline-primary mt-4" type="submit">Cập nhật preview</button></div>
