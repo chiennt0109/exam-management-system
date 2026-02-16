@@ -70,6 +70,24 @@ function exams_init_schema(PDO $pdo): void
         UNIQUE(exam_config_id, lop)
     )');
 
+    $pdo->exec('CREATE TABLE IF NOT EXISTS exam_subjects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_id INTEGER NOT NULL,
+        subject_id INTEGER NOT NULL,
+        sort_order INTEGER NOT NULL,
+        UNIQUE(exam_id, subject_id)
+    )');
+    $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_subjects_order ON exam_subjects(exam_id, sort_order)');
+
+    $pdo->exec('CREATE TABLE IF NOT EXISTS exam_student_subjects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_id INTEGER NOT NULL,
+        student_id INTEGER NOT NULL,
+        subject_id INTEGER NOT NULL,
+        UNIQUE(exam_id, student_id, subject_id)
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_exam_student_subjects_exam_student ON exam_student_subjects(exam_id, student_id)');
+
     $pdo->exec('DROP INDEX IF EXISTS idx_exam_sbd_unique');
     $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_sbd_unique_base ON exam_students(exam_id, sbd) WHERE subject_id IS NULL AND sbd IS NOT NULL');
 
@@ -165,6 +183,9 @@ function exams_init_schema(PDO $pdo): void
     }
     if (!in_array('is_default', $examCols, true)) {
         $pdo->exec('ALTER TABLE exams ADD COLUMN is_default INTEGER DEFAULT 0');
+    }
+    if (!in_array('exam_mode', $examCols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN exam_mode INTEGER DEFAULT 1');
     }
 
     $classCols = array_column($pdo->query('PRAGMA table_info(exam_subject_classes)')->fetchAll(PDO::FETCH_ASSOC), 'name');
