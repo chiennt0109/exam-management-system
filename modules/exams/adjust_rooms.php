@@ -6,6 +6,25 @@ require_once BASE_PATH . '/modules/exams/_common.php';
 $csrf = exams_get_csrf_token();
 $exams = exams_get_all_exams($pdo);
 $subjects = $pdo->query('SELECT id, ma_mon, ten_mon FROM subjects ORDER BY ten_mon')->fetchAll(PDO::FETCH_ASSOC);
+$subjectLabels = [];
+foreach ($subjects as $subjectRow) {
+    $subjectLabels[(int) ($subjectRow['id'] ?? 0)] = (string) (($subjectRow['ma_mon'] ?? '') . ' - ' . ($subjectRow['ten_mon'] ?? ''));
+}
+
+function exams_format_date_vn(?string $date): string
+{
+    $date = trim((string) $date);
+    if ($date === '') {
+        return '';
+    }
+
+    $ts = strtotime($date);
+    if ($ts === false) {
+        return $date;
+    }
+
+    return date('d/m/Y', $ts);
+}
 
 $examId = exams_resolve_current_exam_from_request();
 if ($examId <= 0) {
@@ -39,6 +58,8 @@ if ($examId > 0 && is_array($ctx) && (int) ($ctx['exam_id'] ?? 0) === $examId) {
         $khoi = (string) ($ctx['khoi'] ?? '');
     }
 }
+
+$selectedSubjectLabel = $subjectLabels[$subjectId] ?? '';
 
 $examLocked = false;
 if ($examId > 0) {
@@ -251,36 +272,62 @@ require_once BASE_PATH . '/layout/header.php';
                 <?php if (empty($rooms)): ?>
                     <div class="alert alert-info">Chưa có phòng cho tổ hợp kỳ thi/môn/khối này.</div>
                 <?php else: ?>
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <h6>Chuyển / Bỏ thí sinh khỏi phòng</h6>
-                            <form method="post" class="row g-2 mb-2">
-                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_student">
-                                <div class="col-12"><select class="form-select" name="exam_student_id" required><?php foreach ($assignedStudents as $st): ?><option value="<?= (int) $st['id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['name'] ?? 'N/A') . ' - ' . ($st['lop'] ?? '')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                <div class="col-12"><select class="form-select" name="target_room_id" required><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['room_id'] ?>"><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                <div class="col-12"><button class="btn btn-primary btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Chuyển phòng</button></div>
-                            </form>
-                            <form method="post" class="row g-2">
-                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="remove_student">
-                                <div class="col-12"><select class="form-select" name="exam_student_id" required><?php foreach ($assignedStudents as $st): ?><option value="<?= (int) $st['id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['name'] ?? 'N/A') . ' - ' . ($st['lop'] ?? '')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                <div class="col-12"><button class="btn btn-outline-danger btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Bỏ khỏi phòng</button></div>
-                            </form>
-                        </div>
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-student-ops" type="button" role="tab">Chuyển / Bỏ thí sinh</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-room-ops" type="button" role="tab">Gộp / Đổi tên phòng</button>
+                        </li>
+                    </ul>
 
-                        <div class="col-md-6">
-                            <h6>Gộp / Đổi tên phòng</h6>
-                            <form method="post" class="row g-2 mb-2">
-                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="merge_rooms">
-                                <div class="col-6"><select class="form-select" name="old_room_id" required><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['room_id'] ?>"><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                <div class="col-6"><select class="form-select" name="target_room_id" required><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['room_id'] ?>"><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                <div class="col-12"><button class="btn btn-warning btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Gộp phòng</button></div>
-                            </form>
-                            <form method="post" class="row g-2">
-                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="rename_room">
-                                <div class="col-6"><select class="form-select" name="room_id" required><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['room_id'] ?>"><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                <div class="col-6"><input class="form-control" name="new_room_name" placeholder="Tên phòng mới" required></div>
-                                <div class="col-12"><button class="btn btn-secondary btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Đổi tên phòng</button></div>
-                            </form>
+                    <div class="tab-content border border-top-0 p-3 mb-3">
+                        <div class="tab-pane fade show active" id="tab-student-ops" role="tabpanel">
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-6"><input type="text" id="searchStudentSelectMove" class="form-control form-control-sm" placeholder="Tìm thí sinh để chuyển phòng..."></div>
+                                <div class="col-md-6"><input type="text" id="searchStudentSelectRemove" class="form-control form-control-sm" placeholder="Tìm thí sinh để bỏ khỏi phòng..."></div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <form method="post" class="row g-2">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_student">
+                                        <div class="col-12"><select class="form-select" id="studentSelectMove" name="exam_student_id" required><?php foreach ($assignedStudents as $st): ?><option value="<?= (int) $st['id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['name'] ?? 'N/A') . ' - ' . ($st['lop'] ?? '') . ' - ' . ($roomMap[(int) ($st['room_id'] ?? 0)] ?? 'Chưa phòng')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                        <div class="col-12"><select class="form-select" name="target_room_id" required><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['room_id'] ?>"><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                        <div class="col-12"><button class="btn btn-primary btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Chuyển phòng</button></div>
+                                    </form>
+                                </div>
+                                <div class="col-md-6">
+                                    <form method="post" class="row g-2">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="remove_student">
+                                        <div class="col-12"><select class="form-select" id="studentSelectRemove" name="exam_student_id" required><?php foreach ($assignedStudents as $st): ?><option value="<?= (int) $st['id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['name'] ?? 'N/A') . ' - ' . ($st['lop'] ?? '') . ' - ' . ($roomMap[(int) ($st['room_id'] ?? 0)] ?? 'Chưa phòng')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                        <div class="col-12"><button class="btn btn-outline-danger btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Bỏ khỏi phòng</button></div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="tab-room-ops" role="tabpanel">
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-6"><input type="text" id="searchOldRoomSelect" class="form-control form-control-sm" placeholder="Tìm phòng cần gộp..."></div>
+                                <div class="col-md-6"><input type="text" id="searchRenameRoomSelect" class="form-control form-control-sm" placeholder="Tìm phòng cần đổi tên..."></div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <form method="post" class="row g-2">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="merge_rooms">
+                                        <div class="col-6"><select class="form-select" id="oldRoomSelect" name="old_room_id" required><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['room_id'] ?>"><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                        <div class="col-6"><select class="form-select" name="target_room_id" required><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['room_id'] ?>"><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                        <div class="col-12"><button class="btn btn-warning btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Gộp phòng</button></div>
+                                    </form>
+                                </div>
+                                <div class="col-md-6">
+                                    <form method="post" class="row g-2">
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="rename_room">
+                                        <div class="col-6"><select class="form-select" id="renameRoomSelect" name="room_id" required><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['room_id'] ?>"><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                        <div class="col-6"><input class="form-control" name="new_room_name" placeholder="Tên phòng mới" required></div>
+                                        <div class="col-12"><button class="btn btn-secondary btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Đổi tên phòng</button></div>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -324,17 +371,21 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered table-sm">
-                            <thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th></tr></thead>
+                            <thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><?php if ($viewMode === 'class'): ?><th>Môn</th><th>Phòng</th><?php endif; ?></tr></thead>
                             <tbody>
                             <?php if (empty($pagedStudents)): ?>
-                                <tr><td colspan="5" class="text-center">Không có dữ liệu phù hợp.</td></tr>
+                                <tr><td colspan="<?= $viewMode === 'class' ? 7 : 5 ?>" class="text-center">Không có dữ liệu phù hợp.</td></tr>
                             <?php else: foreach ($pagedStudents as $idx => $st): ?>
                                 <tr>
                                     <td><?= $offset + $idx + 1 ?></td>
                                     <td><?= htmlspecialchars((string) ($st['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= htmlspecialchars((string) ($st['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td><?= htmlspecialchars((string) ($st['ngaysinh'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars(exams_format_date_vn((string) ($st['ngaysinh'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <?php if ($viewMode === 'class'): ?>
+                                        <td><?= htmlspecialchars($selectedSubjectLabel, ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($roomMap[(int) ($st['room_id'] ?? 0)] ?? 'Chưa phân phòng'), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <?php endif; ?>
                                 </tr>
                             <?php endforeach; endif; ?>
                             </tbody>
@@ -359,10 +410,21 @@ require_once BASE_PATH . '/layout/header.php';
         </div>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const viewModeEl = document.getElementById('viewMode');
 const filterRoomWrap = document.getElementById('filterRoomWrap');
 const filterClassWrap = document.getElementById('filterClassWrap');
+
+function filterSelectOptions(inputId, selectId) {
+  const input = document.getElementById(inputId);
+  const select = document.getElementById(selectId);
+  if (!input || !select) return;
+  const kw = input.value.trim().toLowerCase();
+  Array.from(select.options).forEach((opt) => {
+    opt.hidden = !(kw === '' || opt.text.toLowerCase().includes(kw));
+  });
+}
 function refreshAdjustFilterMode(){
   if(!viewModeEl) return;
   const isRoom=viewModeEl.value==='room';
@@ -371,5 +433,18 @@ function refreshAdjustFilterMode(){
 }
 viewModeEl?.addEventListener('change', refreshAdjustFilterMode);
 refreshAdjustFilterMode();
+
+
+const selectFilterMap = {
+  searchStudentSelectMove: 'studentSelectMove',
+  searchStudentSelectRemove: 'studentSelectRemove',
+  searchOldRoomSelect: 'oldRoomSelect',
+  searchRenameRoomSelect: 'renameRoomSelect',
+};
+Object.entries(selectFilterMap).forEach(([inputId, selectId]) => {
+  const input = document.getElementById(inputId);
+  input?.addEventListener('input', () => filterSelectOptions(inputId, selectId));
+});
+
 </script>
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>

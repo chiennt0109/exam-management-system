@@ -923,14 +923,12 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="mb-3 p-2 border rounded bg-light d-flex flex-wrap align-items-center gap-2">
                         <span class="small text-muted me-1">Thanh chức năng</span>
-                        <?php if ($canAdjust): ?>
-                            <form method="get" action="<?= BASE_URL ?>/modules/exams/adjust_rooms.php" class="d-inline">
-                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                                <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
-                                <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
-                                <button class="btn btn-primary btn-sm" type="submit"><span class="me-1">🪟</span>Tinh chỉnh phòng thi</button>
-                            </form>
-                        <?php endif; ?>
+                        <form method="get" action="<?= BASE_URL ?>/modules/exams/adjust_rooms.php" class="d-inline">
+                            <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                            <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
+                            <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
+                            <button class="btn btn-primary btn-sm" type="submit" <?= $subjectId <= 0 || $khoi === '' ? 'disabled' : '' ?>><span class="me-1">🪟</span>Tinh chỉnh phòng thi</button>
+                        </form>
 
                         <?php if ($examLocked): ?>
                             <form method="post" class="d-inline">
