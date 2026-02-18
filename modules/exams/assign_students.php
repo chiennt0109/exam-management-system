@@ -96,6 +96,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+
+    if ($action === 'remove_selected') {
+        $studentIdsToRemove = array_values(array_unique(array_map('intval', (array) ($_POST['student_ids_remove'] ?? []))));
+        $studentIdsToRemove = array_values(array_filter($studentIdsToRemove, static fn(int $id): bool => $id > 0));
+        if (empty($studentIdsToRemove)) {
+            exams_set_flash('warning', 'Vui lòng chọn ít nhất một học sinh để loại khỏi kỳ thi.');
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected', 'q_assigned' => $searchAssigned, 'page' => $page]));
+            exit;
+        }
+
+        try {
+            $pdo->beginTransaction();
+            $placeholders = implode(',', array_fill(0, count($studentIdsToRemove), '?'));
+            $sql = "DELETE FROM exam_students WHERE exam_id = ? AND student_id IN ($placeholders)";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute(array_merge([$examId], $studentIdsToRemove));
+            $pdo->commit();
+            exams_set_flash('success', 'Đã loại các học sinh đã chọn khỏi kỳ thi.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            exams_set_flash('error', 'Không thể loại các học sinh đã chọn khỏi kỳ thi.');
+        }
+
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected', 'q_assigned' => $searchAssigned, 'page' => $page]));
+        exit;
+    }
+
     /** @var array<int> $studentIds */
     $studentIds = [];
 
@@ -354,41 +383,55 @@ require_once BASE_PATH . '/layout/header.php';
                                 <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Lọc</button></div>
                             </form>
 
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered align-middle">
-                                    <thead><tr><th>Họ tên</th><th>Lớp</th><th>Khối</th><th>SBD</th><th></th></tr></thead>
-                                    <tbody>
-                                    <?php if (empty($selectedRows)): ?>
-                                        <tr><td colspan="5" class="text-center">Chưa có học sinh được gắn.</td></tr>
-                                    <?php else: foreach ($selectedRows as $r): ?>
-                                        <tr>
-                                            <td><?= htmlspecialchars((string) ($r['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                            <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                            <td><?= htmlspecialchars((string) ($r['khoi'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                            <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                            <td>
-                                                <form method="post" onsubmit="return confirm('Loại học sinh này khỏi kỳ thi?')">
-                                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                                                    <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                                                    <input type="hidden" name="action" value="remove_student">
-                                                    <input type="hidden" name="student_id" value="<?= (int) $r['student_id'] ?>">
-                                                    <button class="btn btn-sm btn-outline-danger">Loại khỏi kỳ thi</button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; endif; ?>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <form method="post" onsubmit="return confirm('Loại các học sinh đã chọn khỏi kỳ thi?')">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="tab" value="selected">
+                                <input type="hidden" name="q_assigned" value="<?= htmlspecialchars($searchAssigned, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="page" value="<?= $page ?>">
+                                <input type="hidden" name="action" value="remove_selected">
+
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered align-middle">
+                                        <thead><tr><th style="width:40px;"><input type="checkbox" id="checkAllSelected"></th><th>Họ tên</th><th>Lớp</th><th>Khối</th><th>SBD</th></tr></thead>
+                                        <tbody>
+                                        <?php if (empty($selectedRows)): ?>
+                                            <tr><td colspan="5" class="text-center">Chưa có học sinh được gắn.</td></tr>
+                                        <?php else: foreach ($selectedRows as $r): ?>
+                                            <tr>
+                                                <td><input type="checkbox" class="selected-student-checkbox" name="student_ids_remove[]" value="<?= (int) $r['student_id'] ?>"></td>
+                                                <td><?= htmlspecialchars((string) ($r['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) ($r['khoi'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                            </tr>
+                                        <?php endforeach; endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <button class="btn btn-sm btn-outline-danger mb-2" type="submit" <?= empty($selectedRows) ? 'disabled' : '' ?>>Loại học sinh đã chọn</button>
+                            </form>
 
                             <?php if ($totalPages > 1): ?>
+                                <?php
+                                    $windowStart = max(1, $page - 10);
+                                    $windowEnd = min($totalPages, $page + 10);
+                                    $pageLink = static fn(int $target): string => '?' . http_build_query(['exam_id' => $examId, 'page' => $target, 'q_assigned' => $searchAssigned, 'tab' => 'selected']);
+                                ?>
                                 <nav>
-                                    <ul class="pagination pagination-sm">
-                                        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                                    <ul class="pagination pagination-sm flex-wrap">
+                                        <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>"><a class="page-link" href="<?= $page <= 1 ? '#' : $pageLink(1) ?>">Trang đầu</a></li>
+                                        <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>"><a class="page-link" href="<?= $page <= 1 ? '#' : $pageLink($page - 1) ?>">Trang trước</a></li>
+
+                                        <?php for ($i = $windowStart; $i <= $windowEnd; $i++): ?>
                                             <li class="page-item <?= $i === $page ? 'active' : '' ?>">
-                                                <a class="page-link" href="?<?= http_build_query(['exam_id' => $examId, 'page' => $i, 'q_assigned' => $searchAssigned, 'tab' => 'selected']) ?>"><?= $i ?></a>
+                                                <a class="page-link" href="<?= $pageLink($i) ?>"><?= $i ?></a>
                                             </li>
                                         <?php endfor; ?>
+
+                                        <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>"><a class="page-link" href="<?= $page >= $totalPages ? '#' : $pageLink($page + 1) ?>">Trang sau</a></li>
+                                        <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>"><a class="page-link" href="<?= $page >= $totalPages ? '#' : $pageLink($totalPages) ?>">Trang cuối</a></li>
                                     </ul>
                                 </nav>
                             <?php endif; ?>
@@ -399,6 +442,18 @@ require_once BASE_PATH . '/layout/header.php';
         </div>
     </div>
 </div>
+
+
+<script>
+const checkAllSelected = document.getElementById('checkAllSelected');
+if (checkAllSelected) {
+    checkAllSelected.addEventListener('change', () => {
+        document.querySelectorAll('.selected-student-checkbox').forEach((cb) => {
+            cb.checked = checkAllSelected.checked;
+        });
+    });
+}
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>
