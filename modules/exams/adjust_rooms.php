@@ -17,6 +17,19 @@ $fixedExamContext = getCurrentExamId() > 0;
 $subjectId = max(0, (int) ($_GET['subject_id'] ?? $_POST['subject_id'] ?? 0));
 $khoi = trim((string) ($_GET['khoi'] ?? $_POST['khoi'] ?? ''));
 
+$viewMode = (string) ($_GET['view_mode'] ?? 'room');
+if (!in_array($viewMode, ['room', 'class'], true)) {
+    $viewMode = 'room';
+}
+$filterRoomId = max(0, (int) ($_GET['room_id'] ?? 0));
+$filterClass = trim((string) ($_GET['class'] ?? ''));
+$perPageOptions = [20, 50, 100];
+$perPage = (int) ($_GET['per_page'] ?? 20);
+if (!in_array($perPage, $perPageOptions, true)) {
+    $perPage = 20;
+}
+$page = max(1, (int) ($_GET['page'] ?? 1));
+
 $ctx = $_SESSION['distribution_context'] ?? null;
 if ($examId > 0 && is_array($ctx) && (int) ($ctx['exam_id'] ?? 0) === $examId) {
     if ($subjectId <= 0) {
@@ -129,27 +142,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+
 $rooms = [];
-$studentsByRoom = [];
+$roomMap = [];
+$classOptions = [];
 $assignedStudents = [];
+$filteredStudents = [];
+$pagedStudents = [];
+$totalRows = 0;
+$totalPages = 1;
+$offset = 0;
+
 if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
     $roomStmt = $pdo->prepare('SELECT id AS room_id, ten_phong AS room_name FROM rooms WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi ORDER BY ten_phong');
     $roomStmt->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
     $rooms = $roomStmt->fetchAll(PDO::FETCH_ASSOC);
-
-    foreach ($rooms as $r) {
-        $stu = $pdo->prepare('SELECT es.id, s.hoten AS name, es.sbd
-            FROM exam_students es
-            JOIN students s ON s.id = es.student_id
-            WHERE es.room_id = :room_id
-            ORDER BY es.sbd, s.hoten');
-        $stu->execute([':room_id' => (int) $r['room_id']]);
-        $studentsByRoom[(int) $r['room_id']] = $stu->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rooms as $room) {
+        $roomMap[(int) ($room['room_id'] ?? 0)] = (string) ($room['room_name'] ?? '');
+    }
+    if ($filterRoomId > 0 && !isset($roomMap[$filterRoomId])) {
+        $filterRoomId = 0;
     }
 
-    $all = $pdo->prepare('SELECT es.id, s.hoten AS name, es.sbd, es.room_id FROM exam_students es JOIN students s ON s.id = es.student_id WHERE es.exam_id = :exam_id AND es.subject_id = :subject_id AND es.khoi = :khoi ORDER BY s.hoten');
+    $all = $pdo->prepare('SELECT es.id, s.hoten AS name, s.ngaysinh, es.lop, es.sbd, es.room_id
+        FROM exam_students es
+        JOIN students s ON s.id = es.student_id
+        WHERE es.exam_id = :exam_id AND es.subject_id = :subject_id AND es.khoi = :khoi
+        ORDER BY es.lop, es.sbd, s.hoten');
     $all->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
     $assignedStudents = $all->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($assignedStudents as $st) {
+        $lop = trim((string) ($st['lop'] ?? ''));
+        if ($lop !== '') {
+            $classOptions[$lop] = true;
+        }
+    }
+    ksort($classOptions);
+    $classOptions = array_keys($classOptions);
+
+    $filteredStudents = $assignedStudents;
+    if ($viewMode === 'room' && $filterRoomId > 0) {
+        $filteredStudents = array_values(array_filter($filteredStudents, static fn(array $st): bool => (int) ($st['room_id'] ?? 0) === $filterRoomId));
+    }
+    if ($viewMode === 'class' && $filterClass !== '') {
+        $filteredStudents = array_values(array_filter($filteredStudents, static fn(array $st): bool => (string) ($st['lop'] ?? '') === $filterClass));
+    }
+
+    $totalRows = count($filteredStudents);
+    $totalPages = max(1, (int) ceil($totalRows / max(1, $perPage)));
+    if ($page > $totalPages) {
+        $page = $totalPages;
+    }
+    $offset = ($page - 1) * $perPage;
+    $pagedStudents = array_slice($filteredStudents, $offset, $perPage);
 }
 
 require_once BASE_PATH . '/layout/header.php';
@@ -169,12 +215,12 @@ require_once BASE_PATH . '/layout/header.php';
                             <input type="hidden" name="exam_id" value="<?= $examId ?>">
                             <div class="form-control bg-light">#<?= $examId ?> - Kỳ thi hiện tại</div>
                         <?php else: ?>
-                            <?php if ($fixedExamContext): ?><input type="hidden" name="exam_id" value="<?= $examId ?>"><div class="form-control bg-light">#<?= $examId ?> - Kỳ thi hiện tại</div><?php else: ?><select name="exam_id" class="form-select" required>
+                            <select name="exam_id" class="form-select" required>
                                 <option value="">-- Chọn kỳ thi --</option>
                                 <?php foreach ($exams as $exam): ?>
                                     <option value="<?= (int) $exam['id'] ?>" <?= $examId === (int) $exam['id'] ? 'selected' : '' ?>>#<?= (int) $exam['id'] ?> - <?= htmlspecialchars((string) $exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></option>
                                 <?php endforeach; ?>
-                            </select><?php endif; ?>
+                            </select>
                         <?php endif; ?>
                     </div>
                     <div class="col-md-4">
@@ -205,36 +251,18 @@ require_once BASE_PATH . '/layout/header.php';
                 <?php if (empty($rooms)): ?>
                     <div class="alert alert-info">Chưa có phòng cho tổ hợp kỳ thi/môn/khối này.</div>
                 <?php else: ?>
-                    <div class="row g-3 mb-4">
-                        <?php foreach ($rooms as $r): ?>
-                            <div class="col-md-4">
-                                <div class="card">
-                                    <div class="card-header"><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></div>
-                                    <ul class="list-group list-group-flush">
-                                        <?php foreach (($studentsByRoom[(int) $r['room_id']] ?? []) as $st): ?>
-                                            <li class="list-group-item"><?= htmlspecialchars((string) ($st['sbd'] . ' - ' . $st['name']), ENT_QUOTES, 'UTF-8') ?></li>
-                                        <?php endforeach; ?>
-                                        <?php if (empty($studentsByRoom[(int) $r['room_id']] ?? [])): ?>
-                                            <li class="list-group-item text-muted">(Trống)</li>
-                                        <?php endif; ?>
-                                    </ul>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-
-                    <div class="row g-3">
+                    <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <h6>Chuyển / Bỏ thí sinh khỏi phòng</h6>
                             <form method="post" class="row g-2 mb-2">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="move_student">
-                                <div class="col-12"><select class="form-select" name="exam_student_id" required><?php foreach ($assignedStudents as $st): ?><option value="<?= (int) $st['id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['name'] ?? 'N/A')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                <div class="col-12"><select class="form-select" name="exam_student_id" required><?php foreach ($assignedStudents as $st): ?><option value="<?= (int) $st['id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['name'] ?? 'N/A') . ' - ' . ($st['lop'] ?? '')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
                                 <div class="col-12"><select class="form-select" name="target_room_id" required><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['room_id'] ?>"><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
                                 <div class="col-12"><button class="btn btn-primary btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Chuyển phòng</button></div>
                             </form>
                             <form method="post" class="row g-2">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="remove_student">
-                                <div class="col-12"><select class="form-select" name="exam_student_id" required><?php foreach ($assignedStudents as $st): ?><option value="<?= (int) $st['id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['name'] ?? 'N/A')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                                <div class="col-12"><select class="form-select" name="exam_student_id" required><?php foreach ($assignedStudents as $st): ?><option value="<?= (int) $st['id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['name'] ?? 'N/A') . ' - ' . ($st['lop'] ?? '')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
                                 <div class="col-12"><button class="btn btn-outline-danger btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Bỏ khỏi phòng</button></div>
                             </form>
                         </div>
@@ -255,9 +283,93 @@ require_once BASE_PATH . '/layout/header.php';
                             </form>
                         </div>
                     </div>
+
+                    <div class="border rounded p-3 mb-3 bg-light">
+                        <form method="get" class="row g-2 align-items-end">
+                            <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                            <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
+                            <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
+                            <div class="col-md-3">
+                                <label class="form-label">Chế độ xem</label>
+                                <select class="form-select" id="viewMode" name="view_mode">
+                                    <option value="room" <?= $viewMode === 'room' ? 'selected' : '' ?>>Theo phòng thi</option>
+                                    <option value="class" <?= $viewMode === 'class' ? 'selected' : '' ?>>Theo lớp</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3" id="filterRoomWrap">
+                                <label class="form-label">Phòng thi</label>
+                                <select class="form-select" name="room_id">
+                                    <option value="0">-- Tất cả phòng --</option>
+                                    <?php foreach ($rooms as $r): ?>
+                                        <option value="<?= (int) $r['room_id'] ?>" <?= $filterRoomId === (int) $r['room_id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $r['room_name'], ENT_QUOTES, 'UTF-8') ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-3" id="filterClassWrap">
+                                <label class="form-label">Lớp</label>
+                                <select class="form-select" name="class">
+                                    <option value="">-- Tất cả lớp --</option>
+                                    <?php foreach ($classOptions as $lop): ?>
+                                        <option value="<?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?>" <?= $filterClass === $lop ? 'selected' : '' ?>><?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Số dòng/trang</label>
+                                <select class="form-select" name="per_page"><?php foreach ($perPageOptions as $opt): ?><option value="<?= $opt ?>" <?= $perPage === $opt ? 'selected' : '' ?>><?= $opt ?></option><?php endforeach; ?></select>
+                            </div>
+                            <div class="col-md-1 d-grid"><button class="btn btn-primary" type="submit">Lọc</button></div>
+                        </form>
+                    </div>
+
+                    <div class="table-responsive mb-3">
+                        <table class="table table-bordered table-sm">
+                            <thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th></tr></thead>
+                            <tbody>
+                            <?php if (empty($pagedStudents)): ?>
+                                <tr><td colspan="5" class="text-center">Không có dữ liệu phù hợp.</td></tr>
+                            <?php else: foreach ($pagedStudents as $idx => $st): ?>
+                                <tr>
+                                    <td><?= $offset + $idx + 1 ?></td>
+                                    <td><?= htmlspecialchars((string) ($st['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars((string) ($st['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars((string) ($st['ngaysinh'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                </tr>
+                            <?php endforeach; endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <?php if ($totalPages > 1): ?>
+                        <?php $mk = static fn(int $targetPage): string => BASE_URL . '/modules/exams/adjust_rooms.php?' . http_build_query(['exam_id'=>$examId,'subject_id'=>$subjectId,'khoi'=>$khoi,'view_mode'=>$viewMode,'room_id'=>$filterRoomId,'class'=>$filterClass,'per_page'=>$perPage,'page'=>$targetPage]); ?>
+                        <nav>
+                            <ul class="pagination pagination-sm flex-wrap">
+                                <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>"><?= $page <= 1 ? '<span class="page-link">Trang trước</span>' : '<a class="page-link" href="'.htmlspecialchars($mk($page-1), ENT_QUOTES, 'UTF-8').'">Trang trước</a>' ?></li>
+                                <?php for ($p = max(1, $page - 5); $p <= min($totalPages, $page + 5); $p++): ?>
+                                    <li class="page-item <?= $p === $page ? 'active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars($mk($p), ENT_QUOTES, 'UTF-8') ?>"><?= $p ?></a></li>
+                                <?php endfor; ?>
+                                <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>"><?= $page >= $totalPages ? '<span class="page-link">Trang sau</span>' : '<a class="page-link" href="'.htmlspecialchars($mk($page+1), ENT_QUOTES, 'UTF-8').'">Trang sau</a>' ?></li>
+                            </ul>
+                        </nav>
+                    <?php endif; ?>
                 <?php endif; ?>
+
             </div>
         </div>
     </div>
 </div>
+<script>
+const viewModeEl = document.getElementById('viewMode');
+const filterRoomWrap = document.getElementById('filterRoomWrap');
+const filterClassWrap = document.getElementById('filterClassWrap');
+function refreshAdjustFilterMode(){
+  if(!viewModeEl) return;
+  const isRoom=viewModeEl.value==='room';
+  if(filterRoomWrap) filterRoomWrap.style.display=isRoom?'':'none';
+  if(filterClassWrap) filterClassWrap.style.display=isRoom?'none':'';
+}
+viewModeEl?.addEventListener('change', refreshAdjustFilterMode);
+refreshAdjustFilterMode();
+</script>
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>
