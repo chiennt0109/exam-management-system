@@ -963,7 +963,15 @@ require_once BASE_PATH . '/layout/header.php';
                             $canAdjust = ((int) $checkRoomsStmt->fetchColumn()) > 0;
                         }
                     ?>
-                    <?php if (!$canAdjust): ?>
+                    <?php if ($canAdjust): ?>
+                        <form method="get" class="mb-3 d-flex justify-content-end gap-2">
+                            <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                            <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
+                            <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="tab" value="adjust">
+                            <button class="btn btn-primary" type="submit">Tinh chỉnh phòng thi</button>
+                        </form>
+                    <?php else: ?>
                         <div class="alert alert-secondary py-2 mb-3">Phân phòng xong sẽ mở đầy đủ công cụ tinh chỉnh theo môn/khối.</div>
                     <?php endif; ?>
                 <?php endif; ?>
