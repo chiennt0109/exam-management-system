@@ -911,16 +911,48 @@ require_once BASE_PATH . '/layout/header.php';
                     </div>
                 </form>
 
-                <?php if ($examId > 0 && $examLocked): ?>
-                    <form method="post" class="mb-3 d-flex justify-content-end">
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                        <input type="hidden" name="action" value="unlock_distribution">
-                        <button class="btn btn-outline-warning btn-sm" type="submit">Mở khoá phân phòng</button>
-                    </form>
-                <?php endif; ?>
-
                 <?php if ($examId > 0): ?>
+                    <?php
+                        $canAdjust = false;
+                        if ($subjectId > 0 && $khoi !== '') {
+                            $checkRoomsStmt = $pdo->prepare('SELECT COUNT(*) FROM rooms WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
+                            $checkRoomsStmt->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
+                            $canAdjust = ((int) $checkRoomsStmt->fetchColumn()) > 0;
+                        }
+                    ?>
+
+                    <div class="mb-3 p-2 border rounded bg-light d-flex flex-wrap align-items-center gap-2">
+                        <span class="small text-muted me-1">Thanh chức năng</span>
+                        <?php if ($canAdjust): ?>
+                            <form method="get" action="<?= BASE_URL ?>/modules/exams/adjust_rooms.php" class="d-inline">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
+                                <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
+                                <button class="btn btn-primary btn-sm" type="submit"><span class="me-1">🪟</span>Tinh chỉnh phòng thi</button>
+                            </form>
+                        <?php endif; ?>
+
+                        <?php if ($examLocked): ?>
+                            <form method="post" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="action" value="unlock_distribution">
+                                <button class="btn btn-outline-warning btn-sm" type="submit"><span class="me-1">🪟</span>Mở khoá phân phòng</button>
+                            </form>
+                        <?php else: ?>
+                            <form method="post" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="action" value="lock_rooms">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <button class="btn btn-outline-danger btn-sm" type="submit"><span class="me-1">🪟</span>Khoá phân phòng</button>
+                            </form>
+                        <?php endif; ?>
+
+                        <?php if (!$canAdjust): ?>
+                            <span class="small text-secondary">Phân phòng xong sẽ mở đầy đủ công cụ tinh chỉnh theo môn/khối.</span>
+                        <?php endif; ?>
+                    </div>
+
                     <form method="post" class="border rounded p-3 mb-3">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="auto_distribute">
@@ -946,34 +978,6 @@ require_once BASE_PATH . '/layout/header.php';
                         </div>
                     </form>
 
-                    <?php if (!$examLocked): ?>
-                        <form method="post" class="mb-3 d-flex justify-content-end">
-                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                            <input type="hidden" name="action" value="lock_rooms">
-                            <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                            <button class="btn btn-outline-danger" type="submit">Khoá phân phòng</button>
-                        </form>
-                    <?php endif; ?>
-
-                    <?php
-                        $canAdjust = false;
-                        if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
-                            $checkRoomsStmt = $pdo->prepare('SELECT COUNT(*) FROM rooms WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
-                            $checkRoomsStmt->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
-                            $canAdjust = ((int) $checkRoomsStmt->fetchColumn()) > 0;
-                        }
-                    ?>
-                    <?php if ($canAdjust): ?>
-                        <form method="get" class="mb-3 d-flex justify-content-end gap-2">
-                            <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                            <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
-                            <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
-                            <input type="hidden" name="tab" value="adjust">
-                            <button class="btn btn-primary" type="submit">Tinh chỉnh phòng thi</button>
-                        </form>
-                    <?php else: ?>
-                        <div class="alert alert-secondary py-2 mb-3">Phân phòng xong sẽ mở đầy đủ công cụ tinh chỉnh theo môn/khối.</div>
-                    <?php endif; ?>
                 <?php endif; ?>
 
                 <?php if ($examId > 0): ?>
