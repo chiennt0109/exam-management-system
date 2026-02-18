@@ -396,6 +396,7 @@ if ($page > $totalPages) {
     $page = $totalPages;
 }
 $offset = ($page - 1) * $perPage;
+$configureUrl = BASE_URL . '/modules/exams/configure_subjects.php';
 
 $studentSql = 'SELECT st.id, st.hoten, st.ngaysinh, st.lop' . $baseStudentSql . ' ORDER BY st.lop, st.hoten LIMIT :limit OFFSET :offset';
 $studentStmt = $pdo->prepare($studentSql);
@@ -419,7 +420,6 @@ $classOptionsStmt = $pdo->prepare('SELECT DISTINCT lop FROM students WHERE id IN
 $classOptionsStmt->execute([':exam_id' => $examId]);
 $classOptions = array_map(static fn($r): string => (string)$r['lop'], $classOptionsStmt->fetchAll(PDO::FETCH_ASSOC));
 
-$wizard = exams_wizard_steps($pdo, $examId);
 require_once BASE_PATH . '/layout/header.php';
 ?>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -430,8 +430,6 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-header bg-primary text-white"><strong>Bước 4: Cấu hình môn theo khối</strong></div>
             <div class="card-body">
                 <?= exams_display_flash(); ?>
-
-                <div class="mb-3"><?php foreach ($wizard as $index => $step): ?><span class="badge <?= $step['done'] ? 'bg-success' : 'bg-secondary' ?> me-1">B<?= $index ?>: <?= htmlspecialchars($step['label'], ENT_QUOTES, 'UTF-8') ?></span><?php endforeach; ?></div>
 
                 <form method="post" class="row g-2 mb-3">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
@@ -530,7 +528,8 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="border rounded p-3">
                         <h6 class="mb-3">Ma trận chọn môn theo học sinh</h6>
-                        <form method="get" class="row g-2 mb-3">
+                        <form method="get" action="<?= $configureUrl ?>" class="row g-2 mb-3">
+                            <input type="hidden" name="exam_id" value="<?= (int) $examId ?>">
                             <div class="col-md-3">
                                 <select class="form-select" name="class">
                                     <option value="">-- Lọc theo lớp --</option>
@@ -547,7 +546,7 @@ require_once BASE_PATH . '/layout/header.php';
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="col-md-3 d-flex gap-2"><button class="btn btn-outline-primary" type="submit">Lọc</button><a class="btn btn-outline-secondary" href="<?= BASE_URL ?>/modules/exams/configure_subjects.php">Bỏ lọc</a></div>
+                            <div class="col-md-3 d-flex gap-2"><button class="btn btn-outline-primary" type="submit">Lọc</button><a class="btn btn-outline-secondary" href="<?= $configureUrl . "?" . http_build_query(['exam_id' => $examId]) ?>">Bỏ lọc</a></div>
                         </form>
 
                         <div class="table-responsive">
@@ -585,13 +584,54 @@ require_once BASE_PATH . '/layout/header.php';
                         </div>
 
                         <?php if ($totalPages > 1): ?>
+                            <?php
+                                $windowStart = max(1, $page - 10);
+                                $windowEnd = min($totalPages, $page + 10);
+                                $pageLink = static fn(int $target): string => $configureUrl . '?' . http_build_query([
+                                    'exam_id' => $examId,
+                                    'class' => $filterClass,
+                                    'search' => $filterSearch,
+                                    'per_page' => $perPage,
+                                    'page' => $target,
+                                ]);
+                            ?>
                             <nav>
-                                <ul class="pagination pagination-sm">
-                                    <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+                                <ul class="pagination pagination-sm flex-wrap">
+                                    <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                                        <?php if ($page <= 1): ?>
+                                            <span class="page-link">Trang đầu</span>
+                                        <?php else: ?>
+                                            <a class="page-link" href="<?= $pageLink(1) ?>">Trang đầu</a>
+                                        <?php endif; ?>
+                                    </li>
+                                    <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                                        <?php if ($page <= 1): ?>
+                                            <span class="page-link">Trang trước</span>
+                                        <?php else: ?>
+                                            <a class="page-link" href="<?= $pageLink($page - 1) ?>">Trang trước</a>
+                                        <?php endif; ?>
+                                    </li>
+
+                                    <?php for ($p = $windowStart; $p <= $windowEnd; $p++): ?>
                                         <li class="page-item <?= $p === $page ? 'active' : '' ?>">
-                                            <a class="page-link" href="<?= BASE_URL ?>/modules/exams/configure_subjects.php?<?= http_build_query(['class' => $filterClass, 'search' => $filterSearch, 'per_page' => $perPage, 'page' => $p]) ?>"><?= $p ?></a>
+                                            <a class="page-link" href="<?= $pageLink($p) ?>"><?= $p ?></a>
                                         </li>
                                     <?php endfor; ?>
+
+                                    <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
+                                        <?php if ($page >= $totalPages): ?>
+                                            <span class="page-link">Trang sau</span>
+                                        <?php else: ?>
+                                            <a class="page-link" href="<?= $pageLink($page + 1) ?>">Trang sau</a>
+                                        <?php endif; ?>
+                                    </li>
+                                    <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
+                                        <?php if ($page >= $totalPages): ?>
+                                            <span class="page-link">Trang cuối</span>
+                                        <?php else: ?>
+                                            <a class="page-link" href="<?= $pageLink($totalPages) ?>">Trang cuối</a>
+                                        <?php endif; ?>
+                                    </li>
                                 </ul>
                             </nav>
                         <?php endif; ?>
