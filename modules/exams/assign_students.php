@@ -17,6 +17,7 @@ exams_debug_log_context($pdo, $examId);
 $mode = (string) ($_POST['mode'] ?? 'manual');
 $activeTab = (string) ($_GET['tab'] ?? $_POST['tab'] ?? 'manual');
 $searchAssigned = trim((string) ($_GET['q_assigned'] ?? ''));
+$qManual = trim((string) ($_GET['q_manual'] ?? ''));
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 20;
 
@@ -240,7 +241,17 @@ $classes = array_map(static fn(array $row): string => (string) $row['lop'], $cla
 $students = [];
 if ($examId > 0) {
     backfillExamKhoi($pdo, $examId);
-    $stmt = $pdo->query('SELECT id, sbd, hoten, lop, truong FROM students ORDER BY lop, hoten LIMIT 500');
+    $manualWhere = '';
+    $manualParams = [];
+    if ($qManual !== '') {
+        $manualWhere = ' WHERE (hoten LIKE :q OR lop LIKE :q OR sbd LIKE :q OR truong LIKE :q)';
+        $manualParams[':q'] = '%' . $qManual . '%';
+    }
+    $stmt = $pdo->prepare('SELECT id, sbd, hoten, lop, truong FROM students' . $manualWhere . ' ORDER BY lop, hoten LIMIT 500');
+    foreach ($manualParams as $k => $v) {
+        $stmt->bindValue($k, $v);
+    }
+    $stmt->execute();
     $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -278,6 +289,7 @@ if ($examId > 0) {
 
 $totalPages = max(1, (int) ceil($totalSelected / $perPage));
 $wizard = $examId > 0 ? exams_wizard_steps($pdo, $examId) : [];
+$assignStudentsUrl = BASE_URL . '/modules/exams/assign_students.php';
 
 require_once BASE_PATH . '/layout/header.php';
 ?>
@@ -291,7 +303,7 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-body">
                 <?= exams_display_flash(); ?>
 
-                <form method="get" class="row g-2 mb-3">
+                <form method="get" action="<?= $assignStudentsUrl ?>" class="row g-2 mb-3">
                     <div class="col-md-6">
                         <label class="form-label">Kỳ thi</label>
                         <?php if ($fixedExamContext): ?><input type="hidden" name="exam_id" value="<?= $examId ?>"><div class="form-control bg-light">#<?= $examId ?> - Kỳ thi hiện tại</div><?php else: ?><select name="exam_id" class="form-select" required>
@@ -315,11 +327,20 @@ require_once BASE_PATH . '/layout/header.php';
                     </ul>
                     <div class="tab-content border border-top-0 p-3 mb-3">
                         <div class="tab-pane fade <?= $activeTab === 'manual' ? 'show active' : '' ?>" id="tab-manual">
-                            <form method="post">
+                            <form method="get" action="<?= $assignStudentsUrl ?>" class="row g-2 mb-2">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="tab" value="manual">
+                                <input type="hidden" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>">
+                                <div class="col-md-5"><input class="form-control" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>" placeholder="Tìm theo tên / lớp / SBD / trường"></div>
+                                <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Lọc</button></div>
+                                <?php if ($qManual !== ''): ?><div class="col-md-2"><a class="btn btn-outline-secondary" href="<?= $assignStudentsUrl . '?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']) ?>">Xóa lọc</a></div><?php endif; ?>
+                            </form>
+                            <form method="post" action="<?= $assignStudentsUrl ?>">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="exam_id" value="<?= $examId ?>">
                                 <input type="hidden" name="mode" value="manual">
                                 <input type="hidden" name="tab" value="manual">
+                                <input type="hidden" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>">
                                 <div class="table-responsive" style="max-height:320px;overflow:auto;">
                                     <table class="table table-sm table-bordered">
                                         <thead><tr><th></th><th>Họ tên</th><th>Lớp</th><th>SBD cũ</th><th>Trường</th><th>Khối detect</th></tr></thead>
@@ -376,18 +397,20 @@ require_once BASE_PATH . '/layout/header.php';
                     <div class="card border">
                         <div class="card-header bg-light"><strong>Danh sách đã chọn vào kỳ thi</strong></div>
                         <div class="card-body">
-                            <form method="get" class="row g-2 mb-3">
+                            <form method="get" action="<?= $assignStudentsUrl ?>" class="row g-2 mb-3">
                                 <input type="hidden" name="exam_id" value="<?= $examId ?>">
                                 <input type="hidden" name="tab" value="selected">
+                                <input type="hidden" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>">
                                 <div class="col-md-4"><input class="form-control" name="q_assigned" value="<?= htmlspecialchars($searchAssigned, ENT_QUOTES, 'UTF-8') ?>" placeholder="Lọc theo tên / lớp / SBD"></div>
                                 <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Lọc</button></div>
                             </form>
 
-                            <form method="post" onsubmit="return confirm('Loại các học sinh đã chọn khỏi kỳ thi?')">
+                            <form method="post" action="<?= $assignStudentsUrl ?>" onsubmit="return confirm('Loại các học sinh đã chọn khỏi kỳ thi?')">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="exam_id" value="<?= $examId ?>">
                                 <input type="hidden" name="tab" value="selected">
                                 <input type="hidden" name="q_assigned" value="<?= htmlspecialchars($searchAssigned, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>">
                                 <input type="hidden" name="page" value="<?= $page ?>">
                                 <input type="hidden" name="action" value="remove_selected">
 
@@ -417,7 +440,7 @@ require_once BASE_PATH . '/layout/header.php';
                                 <?php
                                     $windowStart = max(1, $page - 10);
                                     $windowEnd = min($totalPages, $page + 10);
-                                    $pageLink = static fn(int $target): string => '?' . http_build_query(['exam_id' => $examId, 'page' => $target, 'q_assigned' => $searchAssigned, 'tab' => 'selected']);
+                                    $pageLink = static fn(int $target): string => $assignStudentsUrl . '?' . http_build_query(['exam_id' => $examId, 'page' => $target, 'q_assigned' => $searchAssigned, 'q_manual' => $qManual, 'tab' => 'selected']);
                                 ?>
                                 <nav>
                                     <ul class="pagination pagination-sm flex-wrap">
