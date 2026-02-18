@@ -411,6 +411,18 @@ $activeTab = (string) ($_GET['tab'] ?? 'adjust');
 if (!in_array($activeTab, ['adjust', 'unassigned'], true)) {
     $activeTab = 'adjust';
 }
+$adjustView = (string) ($_GET['adjust_view'] ?? 'room');
+if (!in_array($adjustView, ['room', 'class'], true)) {
+    $adjustView = 'room';
+}
+$adjustRoomId = max(0, (int) ($_GET['adjust_room_id'] ?? 0));
+$adjustClass = trim((string) ($_GET['adjust_class'] ?? ''));
+$adjustPerPageOptions = [20, 50, 100];
+$adjustPerPage = (int) ($_GET['adjust_per_page'] ?? 20);
+if (!in_array($adjustPerPage, $adjustPerPageOptions, true)) {
+    $adjustPerPage = 20;
+}
+$adjustPage = max(1, (int) ($_GET['adjust_page'] ?? 1));
 
 $ctx = $_SESSION['distribution_context'] ?? null;
 if ($examId > 0 && is_array($ctx) && (int) ($ctx['exam_id'] ?? 0) === $examId) {
@@ -799,7 +811,7 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
     $sumStmt->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
     $roomSummary = $sumStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $stuStmt = $pdo->prepare('SELECT es.id, es.student_id, es.lop, es.sbd, es.room_id, s.hoten, r.ten_phong
+    $stuStmt = $pdo->prepare('SELECT es.id, es.student_id, es.lop, es.sbd, es.room_id, s.hoten, s.ngaysinh, r.ten_phong
         FROM exam_students es
         LEFT JOIN students s ON s.id = es.student_id
         LEFT JOIN rooms r ON r.id = es.room_id
@@ -824,7 +836,43 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
     $availableStudents = $availStmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-$wizard = $examId > 0 ? exams_wizard_steps($pdo, $examId) : [];
+$roomOptionsMap = [];
+foreach ($rooms as $room) {
+    $roomOptionsMap[(int) ($room['id'] ?? 0)] = (string) ($room['ten_phong'] ?? '');
+}
+if ($adjustView === 'room' && $adjustRoomId > 0 && !isset($roomOptionsMap[$adjustRoomId])) {
+    $adjustRoomId = 0;
+}
+
+$classOptions = [];
+foreach ($assignedStudents as $st) {
+    $lop = trim((string) ($st['lop'] ?? ''));
+    if ($lop !== '') {
+        $classOptions[$lop] = true;
+    }
+}
+ksort($classOptions);
+$classOptions = array_keys($classOptions);
+
+$filteredAssignedStudents = $assignedStudents;
+if ($adjustView === 'room') {
+    if ($adjustRoomId > 0) {
+        $filteredAssignedStudents = array_values(array_filter($filteredAssignedStudents, static fn(array $st): bool => (int) ($st['room_id'] ?? 0) === $adjustRoomId));
+    }
+} else {
+    if ($adjustClass !== '') {
+        $filteredAssignedStudents = array_values(array_filter($filteredAssignedStudents, static fn(array $st): bool => (string) ($st['lop'] ?? '') === $adjustClass));
+    }
+}
+
+$adjustTotalRows = count($filteredAssignedStudents);
+$adjustTotalPages = max(1, (int) ceil($adjustTotalRows / max(1, $adjustPerPage)));
+if ($adjustPage > $adjustTotalPages) {
+    $adjustPage = $adjustTotalPages;
+}
+$adjustOffset = ($adjustPage - 1) * $adjustPerPage;
+$adjustPageRows = array_slice($filteredAssignedStudents, $adjustOffset, $adjustPerPage);
+
 
 require_once BASE_PATH . '/layout/header.php';
 ?>
@@ -838,7 +886,7 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-body">
                 <?= exams_display_flash(); ?>
 
-                <form method="get" class="row g-2 mb-3">
+                <form method="get" class="row g-2 mb-3 align-items-end">
                     <div class="col-md-6">
                         <label class="form-label">Kỳ thi</label>
                         <?php if ($fixedExamContext): ?>
@@ -853,18 +901,23 @@ require_once BASE_PATH . '/layout/header.php';
                             </select>
                         <?php endif; ?>
                     </div>
-                    <div class="col-md-3 align-self-end"><button class="btn btn-primary w-100" type="submit">Tải dữ liệu</button></div>
-                    <?php if ($examLocked): ?><div class="col-md-3 align-self-end"><span class="badge bg-danger">Kỳ thi đã khóa phân phòng</span></div><?php endif; ?>
+                    <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Tải dữ liệu</button></div>
+                    <div class="col-md-4 d-flex flex-wrap gap-2 justify-content-md-end">
+                        <?php if ($examId > 0 && $examLocked): ?>
+                            <span class="badge bg-danger align-self-center">Kỳ thi đã khóa phân phòng</span>
+                        <?php elseif ($examId > 0): ?>
+                            <span class="badge bg-success align-self-center">Đang mở chỉnh sửa phân phòng</span>
+                        <?php endif; ?>
+                    </div>
                 </form>
-                    <form method="post" class="d-inline ms-2">
+
+                <?php if ($examId > 0 && $examLocked): ?>
+                    <form method="post" class="mb-3 d-flex justify-content-end">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="exam_id" value="<?= $examId ?>">
                         <input type="hidden" name="action" value="unlock_distribution">
-                        <button class="btn btn-outline-warning" type="submit">Mở khoá phân phòng</button>
+                        <button class="btn btn-outline-warning btn-sm" type="submit">Mở khoá phân phòng</button>
                     </form>
-
-                <?php if ($examId > 0): ?>
-                    <div class="mb-3"><?php foreach ($wizard as $index => $step): ?><span class="badge <?= $step['done'] ? 'bg-success' : 'bg-secondary' ?> me-1">B<?= $index ?>: <?= htmlspecialchars($step['label'], ENT_QUOTES, 'UTF-8') ?></span><?php endforeach; ?></div>
                 <?php endif; ?>
 
                 <?php if ($examId > 0): ?>
@@ -893,12 +946,14 @@ require_once BASE_PATH . '/layout/header.php';
                         </div>
                     </form>
 
-                    <form method="post" class="mb-3">
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="action" value="lock_rooms">
-                        <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                        <button class="btn btn-outline-danger" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Khoá phân phòng</button>
-                    </form>
+                    <?php if (!$examLocked): ?>
+                        <form method="post" class="mb-3 d-flex justify-content-end">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="action" value="lock_rooms">
+                            <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                            <button class="btn btn-outline-danger" type="submit">Khoá phân phòng</button>
+                        </form>
+                    <?php endif; ?>
 
                     <?php
                         $canAdjust = false;
@@ -908,15 +963,8 @@ require_once BASE_PATH . '/layout/header.php';
                             $canAdjust = ((int) $checkRoomsStmt->fetchColumn()) > 0;
                         }
                     ?>
-                    <?php if ($canAdjust): ?>
-                        <form method="get" action="<?= BASE_URL ?>/modules/exams/adjust_rooms.php" class="mb-3">
-                            <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                            <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
-                            <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
-                            <button class="btn btn-primary" type="submit">Tinh chỉnh phòng thi</button>
-                        </form>
-                    <?php else: ?>
-                        <div class="alert alert-secondary py-2 mb-3">Phân phòng xong sẽ hiển thị nút <strong>Tinh chỉnh phòng thi</strong> cho môn/khối đã chọn.</div>
+                    <?php if (!$canAdjust): ?>
+                        <div class="alert alert-secondary py-2 mb-3">Phân phòng xong sẽ mở đầy đủ công cụ tinh chỉnh theo môn/khối.</div>
                     <?php endif; ?>
                 <?php endif; ?>
 
@@ -957,6 +1005,96 @@ require_once BASE_PATH . '/layout/header.php';
 
                             <?php if ($subjectId > 0 && $khoi !== ''): ?>
                                 <div class="alert alert-success py-2">Đã vào chế độ tinh chỉnh cho môn và khối đã chọn. Dùng các nút chức năng bên dưới để thực hiện tinh chỉnh phân phòng.</div>
+
+                                <?php if ($hasDistribution): ?>
+                                    <div class="card border-0 bg-light mb-3">
+                                        <div class="card-body">
+                                            <form method="get" class="row g-2 align-items-end">
+                                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                                <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
+                                                <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
+                                                <input type="hidden" name="tab" value="adjust">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Chế độ xem</label>
+                                                    <select class="form-select" name="adjust_view" id="adjustViewSelect">
+                                                        <option value="room" <?= $adjustView === 'room' ? 'selected' : '' ?>>Theo phòng thi</option>
+                                                        <option value="class" <?= $adjustView === 'class' ? 'selected' : '' ?>>Theo lớp</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3" id="adjustRoomFilterWrap" <?= $adjustView === 'room' ? '' : 'style="display:none;"' ?>>
+                                                    <label class="form-label">Phòng thi</label>
+                                                    <select class="form-select" name="adjust_room_id">
+                                                        <option value="0">-- Tất cả phòng --</option>
+                                                        <?php foreach ($rooms as $room): ?>
+                                                            <option value="<?= (int) $room['id'] ?>" <?= $adjustRoomId === (int) $room['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $room['ten_phong'], ENT_QUOTES, 'UTF-8') ?></option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-3" id="adjustClassFilterWrap" <?= $adjustView === 'class' ? '' : 'style="display:none;"' ?>>
+                                                    <label class="form-label">Lớp</label>
+                                                    <select class="form-select" name="adjust_class">
+                                                        <option value="">-- Tất cả lớp --</option>
+                                                        <?php foreach ($classOptions as $lop): ?>
+                                                            <option value="<?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?>" <?= $adjustClass === $lop ? 'selected' : '' ?>><?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?></option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <label class="form-label">Số dòng/trang</label>
+                                                    <select class="form-select" name="adjust_per_page">
+                                                        <?php foreach ($adjustPerPageOptions as $opt): ?>
+                                                            <option value="<?= $opt ?>" <?= $adjustPerPage === $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-4 d-flex gap-2">
+                                                    <button class="btn btn-primary" type="submit">Lọc danh sách</button>
+                                                    <a class="btn btn-outline-secondary" href="<?= BASE_URL ?>/modules/exams/distribute_rooms.php?<?= http_build_query(['exam_id' => $examId, 'subject_id' => $subjectId, 'khoi' => $khoi, 'tab' => 'adjust']) ?>">Bỏ lọc</a>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+
+                                    <div class="table-responsive mb-2"><table class="table table-bordered table-sm"><thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th></tr></thead><tbody>
+                                        <?php if (empty($adjustPageRows)): ?>
+                                            <tr><td colspan="5" class="text-center">Không có thí sinh phù hợp bộ lọc.</td></tr>
+                                        <?php else: foreach ($adjustPageRows as $idx => $st): ?>
+                                            <tr>
+                                                <td><?= $adjustOffset + $idx + 1 ?></td>
+                                                <td><?= htmlspecialchars((string) ($st['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) ($st['hoten'] ?? 'N/A'), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) ($st['ngaysinh'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                            </tr>
+                                        <?php endforeach; endif; ?>
+                                    </tbody></table></div>
+
+                                    <?php if ($adjustTotalPages > 1): ?>
+                                        <?php
+                                            $adjustLink = static fn(int $targetPage): string => BASE_URL . '/modules/exams/distribute_rooms.php?' . http_build_query([
+                                                'exam_id' => $examId,
+                                                'subject_id' => $subjectId,
+                                                'khoi' => $khoi,
+                                                'tab' => 'adjust',
+                                                'adjust_view' => $adjustView,
+                                                'adjust_room_id' => $adjustRoomId,
+                                                'adjust_class' => $adjustClass,
+                                                'adjust_per_page' => $adjustPerPage,
+                                                'adjust_page' => $targetPage,
+                                            ]);
+                                        ?>
+                                        <nav class="mb-3">
+                                            <ul class="pagination pagination-sm flex-wrap">
+                                                <li class="page-item <?= $adjustPage <= 1 ? 'disabled' : '' ?>"><?= $adjustPage <= 1 ? '<span class="page-link">Trang trước</span>' : '<a class="page-link" href="' . htmlspecialchars($adjustLink($adjustPage - 1), ENT_QUOTES, 'UTF-8') . '">Trang trước</a>' ?></li>
+                                                <?php for ($p = max(1, $adjustPage - 5); $p <= min($adjustTotalPages, $adjustPage + 5); $p++): ?>
+                                                    <li class="page-item <?= $p === $adjustPage ? 'active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars($adjustLink($p), ENT_QUOTES, 'UTF-8') ?>"><?= $p ?></a></li>
+                                                <?php endfor; ?>
+                                                <li class="page-item <?= $adjustPage >= $adjustTotalPages ? 'disabled' : '' ?>"><?= $adjustPage >= $adjustTotalPages ? '<span class="page-link">Trang sau</span>' : '<a class="page-link" href="' . htmlspecialchars($adjustLink($adjustPage + 1), ENT_QUOTES, 'UTF-8') . '">Trang sau</a>' ?></li>
+                                            </ul>
+                                        </nav>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+
                                 <div class="card border-info mb-3">
                                     <div class="card-header bg-info-subtle"><strong>Mô tả các chức năng tinh chỉnh phòng thi</strong></div>
                                     <div class="card-body py-2">
@@ -969,12 +1107,6 @@ require_once BASE_PATH . '/layout/header.php';
                                     </div>
                                 </div>
                                 <?php if ($hasDistribution): ?>
-                                    <div class="table-responsive mb-3"><table class="table table-bordered table-sm"><thead><tr><th>Scope</th><th>Phòng</th><th>Số thí sinh</th></tr></thead><tbody>
-                                        <?php foreach ($roomSummary as $row): ?>
-                                            <tr><td><?= htmlspecialchars((string) $row['scope_identifier'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) $row['ten_phong'], ENT_QUOTES, 'UTF-8') ?></td><td><?= (int) $row['total'] ?></td></tr>
-                                        <?php endforeach; ?>
-                                    </tbody></table></div>
-
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <h6>Chuyển / Bỏ phòng thí sinh</h6>
@@ -1090,6 +1222,25 @@ function refreshManualKhoiOptions() {
 
 manualSubjectSelect?.addEventListener('change', refreshManualKhoiOptions);
 refreshManualKhoiOptions();
+
+
+const adjustViewSelect = document.getElementById('adjustViewSelect');
+const adjustRoomFilterWrap = document.getElementById('adjustRoomFilterWrap');
+const adjustClassFilterWrap = document.getElementById('adjustClassFilterWrap');
+
+function refreshAdjustViewFilters() {
+    if (!adjustViewSelect) return;
+    const isRoomView = adjustViewSelect.value === 'room';
+    if (adjustRoomFilterWrap) {
+        adjustRoomFilterWrap.style.display = isRoomView ? '' : 'none';
+    }
+    if (adjustClassFilterWrap) {
+        adjustClassFilterWrap.style.display = isRoomView ? 'none' : '';
+    }
+}
+
+adjustViewSelect?.addEventListener('change', refreshAdjustViewFilters);
+refreshAdjustViewFilters();
 
 const overwriteCheckbox = document.getElementById('overwrite_existing');
 const overwriteWarningText = document.getElementById('overwriteWarningText');
