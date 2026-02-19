@@ -238,7 +238,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
         header('Content-Disposition: attachment; filename="' . $filename . '"');
     }
     $year = '2026';
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>Export phòng thi</title><style>@page{size:A4 portrait;margin:20mm 15mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.print-toolbar{display:none}.export-page{page-break-after:always;min-height:calc(297mm - 40mm);display:flex;flex-direction:column}.header-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:12px;align-items:start}.header-left,.header-right{text-align:center;line-height:1.25}.title-main{font-size:16px;font-weight:700}.title-sub{font-size:14px;font-weight:700}.room-subject{margin-top:6px;font-size:13px}.table-wrap{margin-top:8px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{text-align:center;font-weight:700}.right{text-align:right}.center{text-align:center}.footer-right{margin-top:8px;text-align:right;font-size:13px;line-height:1.6}.footer-signature{display:inline-block;text-align:center}.summary{font-size:12px;line-height:1.5;margin-top:8px}.signature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:14px;text-align:center;font-weight:700}.small-note{font-size:11px;font-style:italic;margin-top:4px}.sig-space{height:54px}.nowrap{white-space:nowrap}@media screen{body{padding:24px}.print-toolbar{display:flex;position:sticky;top:0;background:#fff;padding:8px 0 12px;gap:8px;z-index:5}.export-page{min-height:auto;padding:0;margin-bottom:20px}}@media print{.print-toolbar{display:none}}</style></head><body>';
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>Export phòng thi</title><style>@page{size:A4 portrait;margin:20mm 15mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.print-toolbar{display:none}.export-page{page-break-after:always;min-height:calc(297mm - 40mm);display:flex;flex-direction:column}.header-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:12px;align-items:start}.header-left,.header-right{text-align:center;line-height:1.25}.title-main{font-size:16px;font-weight:700}.title-sub{font-size:14px;font-weight:700}.room-subject{margin-top:6px;font-size:13px}.table-wrap{margin-top:8px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{text-align:center;font-weight:700}.right{text-align:right}.center{text-align:center}.footer-right{margin-top:8px;text-align:right;font-size:13px;line-height:1.6}.footer-signature{display:inline-block;text-align:center}.summary{font-size:12px;line-height:1.5;margin-top:8px}.signature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:14px;text-align:center;font-weight:700}.small-note{font-size:11px;font-style:italic;margin-top:4px}.sig-space{height:54px}.nowrap{white-space:nowrap}.col-tight{width:1%;white-space:nowrap}.name-cell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;line-height:1.2}.class-cell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;line-height:1.2}@media screen{body{padding:24px}.print-toolbar{display:flex;position:sticky;top:0;background:#fff;padding:8px 0 12px;gap:8px;z-index:5}.export-page{min-height:auto;padding:0;margin-bottom:20px}}@media print{.print-toolbar{display:none}}</style></head><body>';
     if ($isPdfExport) {
         echo '<div class="print-toolbar"><button type="button" onclick="window.print()">In / Lưu PDF</button><a href="' . htmlspecialchars((string) ($_SERVER['HTTP_REFERER'] ?? (BASE_URL . '/modules/exams/print_rooms.php')), ENT_QUOTES, 'UTF-8') . '">Quay lại</a></div>';
     }
@@ -255,9 +255,9 @@ if (in_array($export, ['format1', 'format2'], true)) {
             echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">' . htmlspecialchars($examName) . '</div></div>';
             echo '<div class="header-right"><div class="title-main">DANH SÁCH NIÊM YẾT</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
             echo '</div>';
-            echo '<div class="table-wrap"><table><thead><tr><th style="width:7%">STT</th><th style="width:12%">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:13%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
+            echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th class="col-tight">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:13%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
             foreach ($displayStudents as $i => $st) {
-                echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center nowrap">' . htmlspecialchars($st['sbd']) . '</td><td>' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center">' . htmlspecialchars($st['lop']) . '</td><td></td></tr>';
+                echo '<tr><td class="center col-tight">' . ($i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell">' . htmlspecialchars($st['lop']) . '</td><td></td></tr>';
             }
             echo '</tbody></table></div>';
             if ($truncated) {
@@ -271,7 +271,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             echo '</div>';
             echo '<div class="table-wrap"><table><thead><tr><th style="width:6%">STT</th><th style="width:12%">SBD</th><th style="width:25%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:9%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:18%">Ghi chú / Ký tên</th></tr></thead><tbody>';
             foreach ($displayStudents as $i => $st) {
-                echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center nowrap">' . htmlspecialchars($st['sbd']) . '</td><td>' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center">' . htmlspecialchars($st['lop']) . '</td><td></td><td></td><td></td></tr>';
+                echo '<tr><td class="center col-tight">' . ($i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell">' . htmlspecialchars($st['lop']) . '</td><td></td><td></td><td></td></tr>';
             }
             echo '</tbody></table></div>';
             if ($truncated) {
@@ -282,6 +282,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
         }
         echo '</section>';
     }
+    echo '<script>(function(){function fitText(sel,min){document.querySelectorAll(sel).forEach(function(el){var fs=parseFloat(window.getComputedStyle(el).fontSize)||11;while(el.scrollWidth>el.clientWidth&&fs>min){fs-=0.5;el.style.fontSize=fs+"px";}});}fitText(".name-cell",8);fitText(".class-cell",8);})();</script>';
     if ($isPdfExport) {
         echo '<script>window.print();</script>';
     }
