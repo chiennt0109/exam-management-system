@@ -169,6 +169,7 @@ $exportFile = (string) ($_GET['file'] ?? 'excel');
 if (!in_array($exportFile, ['excel', 'pdf'], true)) {
     $exportFile = 'excel';
 }
+$isPdfExport = $exportFile === 'pdf';
 if (in_array($export, ['format1', 'format2'], true)) {
     if (!$isExamLocked) {
         exams_set_flash('warning', 'Phải khoá kỳ thi trước khi export danh sách phòng.');
@@ -223,14 +224,18 @@ if (in_array($export, ['format1', 'format2'], true)) {
         }
     }
 
-    $filename = 'danh_sach_phong_' . $export . '_exam_' . $examId . ($exportFile === 'excel' ? '.xls' : '.html');
-    if ($exportFile === 'excel') {
-        header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
-    } else {
+    $filename = 'danh_sach_phong_' . $export . '_exam_' . $examId . ($isPdfExport ? '.html' : '.xls');
+    if ($isPdfExport) {
         header('Content-Type: text/html; charset=UTF-8');
+        header('Content-Disposition: inline; filename="' . $filename . '"');
+    } else {
+        header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
     }
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>Export phòng thi</title><style>body{font-family:"Times New Roman",serif;margin:24px}h3,h4,p{text-align:center;margin:2px 0}table{width:100%;border-collapse:collapse;margin-top:8px;margin-bottom:24px}th,td{border:1px solid #333;padding:4px;font-size:14px}th{text-align:center} .right{text-align:right}.center{text-align:center}</style></head><body>';
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>Export phòng thi</title><style>body{font-family:"Times New Roman",serif;margin:24px}h3,h4,p{text-align:center;margin:2px 0}table{width:100%;border-collapse:collapse;margin-top:8px;margin-bottom:24px}th,td{border:1px solid #333;padding:4px;font-size:14px}th{text-align:center} .right{text-align:right}.center{text-align:center}@media print{.print-toolbar{display:none}body{margin:0}}</style></head><body>';
+    if ($isPdfExport) {
+        echo '<div class="print-toolbar" style="position:sticky;top:0;background:#fff;padding:8px 0 12px 0;display:flex;gap:8px"><button type="button" onclick="window.print()">In / Lưu PDF</button><a href="' . htmlspecialchars((string) ($_SERVER['HTTP_REFERER'] ?? (BASE_URL . '/modules/exams/print_rooms.php')), ENT_QUOTES, 'UTF-8') . '">Quay lại</a></div>';
+    }
 
     foreach ($allGroups as $group) {
         if ($export === 'format1') {
@@ -259,6 +264,9 @@ if (in_array($export, ['format1', 'format2'], true)) {
         }
         echo '<hr style="border:0;border-top:1px dashed #999;margin:24px 0">';
     }
+    if ($isPdfExport) {
+        echo '<script>window.print();</script>';
+    }
     echo '</body></html>';
     exit;
 }
@@ -281,9 +289,9 @@ require_once BASE_PATH . '/layout/header.php';
 <?php if ($isExamLocked): ?>
 <div class="d-flex flex-wrap gap-2">
     <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format1', 'file' => 'excel'])) ?>">Mẫu niêm yết (Excel)</a>
-    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format1', 'file' => 'pdf'])) ?>">Mẫu niêm yết (PDF)</a>
+    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format1', 'file' => 'pdf'])) ?>" target="_blank" rel="noopener">Mẫu niêm yết (PDF)</a>
     <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format2', 'file' => 'excel'])) ?>">Mẫu phiếu thu bài (Excel)</a>
-    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format2', 'file' => 'pdf'])) ?>">Mẫu phiếu thu bài (PDF)</a>
+    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format2', 'file' => 'pdf'])) ?>" target="_blank" rel="noopener">Mẫu phiếu thu bài (PDF)</a>
     <?php if ($examMode === 2): ?><a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/print_subject_list.php">DS theo môn</a><?php endif; ?>
 </div>
 <?php else: ?>
