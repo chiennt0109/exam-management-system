@@ -246,10 +246,10 @@ if (in_array($export, ['format1', 'format2'], true)) {
         echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">';
         echo '<Styles>';
         echo '<Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Times New Roman" ss:Size="12"/></Style>';
-        echo '<Style ss:ID="HeaderLeft"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="14"/></Style>';
-        echo '<Style ss:ID="HeaderRightTitle"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="16"/></Style>';
-        echo '<Style ss:ID="HeaderRightSub"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="12"/></Style>';
-        echo '<Style ss:ID="TableHead"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:Bold="1"/></Style>';
+        echo '<Style ss:ID="HeaderLeft"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Times New Roman" ss:Bold="1" ss:Size="14"/></Style>';
+        echo '<Style ss:ID="HeaderRightTitle"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Times New Roman" ss:Bold="1" ss:Size="14"/></Style>';
+        echo '<Style ss:ID="HeaderRightSub"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Times New Roman" ss:Bold="1" ss:Size="12"/></Style>';
+        echo '<Style ss:ID="TableHead"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font  ss:Bold="1"/></Style>';
         echo '<Style ss:ID="CellCenter"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="0"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>';
         echo '<Style ss:ID="CellLeft"><Alignment ss:Horizontal="Left" ss:Vertical="Center" ss:WrapText="0"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>';
         echo '<Style ss:ID="FooterRight"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><Font ss:Italic="1"/></Style>';
@@ -266,12 +266,14 @@ if (in_array($export, ['format1', 'format2'], true)) {
             }
 
             echo '<Row ss:Height="24">';
-            echo '<Cell ss:MergeAcross="3" ss:MergeDown="1" ss:StyleID="HeaderLeft"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
-" . $examName) . '</Data></Cell>';
-            echo '<Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightTitle"><Data ss:Type="String">' . $xmlEscape($export === 'format1' ? 'DANH SÁCH NIÊM YẾT' : 'PHIẾU THU BÀI') . '</Data></Cell>';
+            echo '<Cell ss:MergeAcross="2" ss:StyleID="HeaderLeft"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
+") . '</Data></Cell>';
+            echo '<Cell ss:Index="4" ss:MergeAcross="2" ss:StyleID="HeaderRightTitle"><Data ss:Type="String">' . $xmlEscape($export === 'format1' ? 'DANH SÁCH NIÊM YẾT' : 'PHIẾU THU BÀI') . '</Data></Cell>';
             echo '</Row>';
-            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('PHÒNG: ' . (string) $group['ten_phong']) . '</Data></Cell></Row>';
-            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('Môn: ' . (string) $group['ten_mon']) . '</Data></Cell></Row>';
+            echo '<Row ss:Height="20">';
+            echo '<Cell ss:MergeAcross="2" ss:StyleID="HeaderLeft"><Data ss:Type="String">' . $xmlEscape(" " . $examName) . '</Data></Cell>';
+            echo '<Cell ss:Index="4" ss:MergeAcross="2" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('PHÒNG: ' . (string) $group['ten_phong']) . '</Data></Cell></Row>';
+            echo '<Row ss:Height="20"><Cell ss:Index="4" ss:MergeAcross="2" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('Môn: ' . (string) $group['ten_mon']) . '</Data></Cell></Row>';
             echo '<Row ss:Height="10"></Row>';
 
             if ($export === 'format1') {
@@ -284,8 +286,8 @@ if (in_array($export, ['format1', 'format2'], true)) {
                     echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                 }
                 echo '<Row ss:Height="18"></Row>';
-                echo '<Row><Cell ss:Index="5" ss:MergeAcross="1" ss:StyleID="FooterRight"><Data ss:Type="String">' . $xmlEscape('Hải Phòng, ngày ... tháng ... năm ' . $year) . '</Data></Cell></Row>';
-                echo '<Row><Cell ss:Index="5" ss:MergeAcross="1" ss:StyleID="Sign"><Data ss:Type="String">CHỦ TỊCH HỘI ĐỒNG</Data></Cell></Row>';
+                echo '<Row><Cell ss:Index="4" ss:MergeAcross="2" ss:StyleID="FooterRight"><Data ss:Type="String">' . $xmlEscape('Hải Phòng, ngày ... tháng ... năm ' . $year) . '</Data></Cell></Row>';
+                echo '<Row><Cell ss:Index="4" ss:MergeAcross="2" ss:StyleID="Sign"><Data ss:Type="String">CHỦ TỊCH HỘI ĐỒNG</Data></Cell></Row>';
             } else {
                 echo '<Row>';
                 foreach (['STT','SBD','Họ và tên','Ngày sinh','Lớp','Số tờ','Mã đề','Ghi chú / Ký tên'] as $h) {
@@ -293,7 +295,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
                 }
                 echo '</Row>';
                 foreach ($students as $i => $st) {
-                    echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
+                    echo '<Row ss:Height="18"><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                 }
                 echo '<Row ss:Height="18"></Row>';
                 echo '<Row><Cell ss:MergeAcross="7" ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape('Trong đó: - Số học sinh tham dự: ...... - Số học sinh vắng: ...... - SBD vắng: ...................................') . '</Data></Cell></Row>';
