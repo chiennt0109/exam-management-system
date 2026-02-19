@@ -388,25 +388,48 @@ if ($filterSearch !== '') {
     $params[':kw'] = '%' . mb_strtolower($filterSearch) . '%';
 }
 
-$countStmt = $pdo->prepare('SELECT COUNT(*)' . $baseStudentSql);
-$countStmt->execute($params);
-$totalStudents = (int) ($countStmt->fetchColumn() ?: 0);
+$allStudentSql = 'SELECT st.id, st.hoten, st.ngaysinh, st.lop' . $baseStudentSql;
+$allStudentStmt = $pdo->prepare($allStudentSql);
+foreach ($params as $k => $v) {
+    $allStudentStmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
+}
+$allStudentStmt->execute();
+$allStudentsInExam = $allStudentStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$extractSortTokens = static function (string $fullName): array {
+    $normalized = trim(mb_strtolower($fullName));
+    if ($normalized === '') {
+        return ['', ''];
+    }
+
+    $parts = preg_split('/\s+/u', $normalized) ?: [];
+    $firstFromRight = (string) ($parts[count($parts) - 1] ?? '');
+
+    return [$firstFromRight, $normalized];
+};
+
+usort($allStudentsInExam, static function (array $a, array $b) use ($extractSortTokens): int {
+    [$firstA, $fullA] = $extractSortTokens((string) ($a['hoten'] ?? ''));
+    [$firstB, $fullB] = $extractSortTokens((string) ($b['hoten'] ?? ''));
+
+    if ($firstA !== $firstB) {
+        return $firstA <=> $firstB;
+    }
+    if ($fullA !== $fullB) {
+        return $fullA <=> $fullB;
+    }
+
+    return (int) ($a['id'] ?? 0) <=> (int) ($b['id'] ?? 0);
+});
+
+$totalStudents = count($allStudentsInExam);
 $totalPages = max(1, (int) ceil($totalStudents / max(1, $perPage)));
 if ($page > $totalPages) {
     $page = $totalPages;
 }
 $offset = ($page - 1) * $perPage;
 $configureUrl = BASE_URL . '/modules/exams/configure_subjects.php';
-
-$studentSql = 'SELECT st.id, st.hoten, st.ngaysinh, st.lop' . $baseStudentSql . ' ORDER BY lower(st.hoten), st.ngaysinh, st.id LIMIT :limit OFFSET :offset';
-$studentStmt = $pdo->prepare($studentSql);
-foreach ($params as $k => $v) {
-    $studentStmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
-}
-$studentStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$studentStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-$studentStmt->execute();
-$studentsInExam = $studentStmt->fetchAll(PDO::FETCH_ASSOC);
+$studentsInExam = array_slice($allStudentsInExam, $offset, $perPage);
 
 $selectedStmt = $pdo->prepare('SELECT student_id, subject_id FROM exam_student_subjects WHERE exam_id = :exam_id');
 $selectedStmt->execute([':exam_id' => $examId]);
