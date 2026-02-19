@@ -398,7 +398,7 @@ if ($page > $totalPages) {
 $offset = ($page - 1) * $perPage;
 $configureUrl = BASE_URL . '/modules/exams/configure_subjects.php';
 
-$studentSql = 'SELECT st.id, st.hoten, st.ngaysinh, st.lop' . $baseStudentSql . ' ORDER BY st.lop, st.hoten LIMIT :limit OFFSET :offset';
+$studentSql = 'SELECT st.id, st.hoten, st.ngaysinh, st.lop' . $baseStudentSql . ' ORDER BY lower(st.hoten), st.ngaysinh, st.id LIMIT :limit OFFSET :offset';
 $studentStmt = $pdo->prepare($studentSql);
 foreach ($params as $k => $v) {
     $studentStmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
@@ -572,7 +572,7 @@ require_once BASE_PATH . '/layout/header.php';
                                     <tr>
                                         <td><?= $offset + $idx + 1 ?></td>
                                         <td><?= htmlspecialchars((string) $stu['hoten'], ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars((string) $stu['ngaysinh'], ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?php $dob = (string) ($stu['ngaysinh'] ?? ''); $tsDob = strtotime($dob); echo htmlspecialchars($tsDob ? date('d/m/Y', $tsDob) : $dob, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?= htmlspecialchars((string) $stu['lop'], ENT_QUOTES, 'UTF-8') ?></td>
                                         <?php foreach ($matrixSubjects as $sub): $sid = (int) $stu['id']; $subId = (int) $sub['subject_id']; $isChecked = !empty($selectedMap[$sid][$subId]); ?>
                                             <td class="text-center"><input type="checkbox" class="matrix-checkbox" data-student="<?= $sid ?>" data-subject="<?= $subId ?>" <?= $isChecked ? 'checked' : '' ?>></td>

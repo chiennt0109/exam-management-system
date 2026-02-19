@@ -169,11 +169,9 @@ if ($export === '1') {
             echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table ss:ExpandedColumnCount="' . (4 + count($subjects)) . '">';
             foreach ([5,10,32,13] as $w) echo '<Column ss:Width="' . ($w * 6.5) . '"/>';
             foreach ($subjects as $_) echo '<Column ss:Width="120"/>';
-            echo '<Row ss:Height="24"><Cell ss:MergeAcross="3" ss:StyleID="HeadL"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
-") . '</Data></Cell><Cell ss:Index="5" ss:MergeAcross="' . max(0, count($subjects) - 1) . '" ss:StyleID="HeadR"><Data ss:Type="String">DANH SÁCH NIÊM YẾT</Data></Cell></Row>';
-            echo '<Row ss:Height="20">';
-            echo '<Cell ss:MergeAcross="3" ss:StyleID="HeadL"><Data ss:Type="String">' . $xmlEscape(" " . $examName) . '</Data></Cell>';
-            echo '<Cell ss:Index="5" ss:MergeAcross="' . max(0, count($subjects) - 1) . '" ss:StyleID="HeadS"><Data ss:Type="String">Lớp: ' . $xmlEscape($lop) . '</Data></Cell></Row>';
+            echo '<Row ss:Height="24"><Cell ss:MergeAcross="3" ss:MergeDown="1" ss:StyleID="HeadL"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
+" . $examName) . '</Data></Cell><Cell ss:Index="5" ss:MergeAcross="' . max(0, count($subjects) - 1) . '" ss:StyleID="HeadR"><Data ss:Type="String">DANH SÁCH NIÊM YẾT</Data></Cell></Row>';
+            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="' . max(0, count($subjects) - 1) . '" ss:StyleID="HeadS"><Data ss:Type="String">Lớp: ' . $xmlEscape($lop) . '</Data></Cell></Row>';
             echo '<Row ss:Height="10"></Row>';
             echo '<Row><Cell ss:StyleID="TH"><Data ss:Type="String">STT</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">SBD</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Họ tên</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Ngày sinh</Data></Cell>';
             foreach ($subjects as $sub) echo '<Cell ss:StyleID="TH"><Data ss:Type="String">' . $xmlEscape((string) ($sub['ten_mon'] ?? '')) . '</Data></Cell>';
