@@ -66,6 +66,46 @@ $roomsStmt = $pdo->prepare('SELECT r.id, r.ten_phong, r.khoi, r.subject_id, s.te
 $roomsStmt->execute([':exam_id' => $examId]);
 $rooms = $roomsStmt->fetchAll(PDO::FETCH_ASSOC);
 
+/**
+ * Kiểm tra đã có dữ liệu điểm nhập cho đúng phạm vi + thành phần chưa.
+ */
+function scoringAssignmentHasEnteredScores(
+    PDO $pdo,
+    int $examId,
+    int $subjectId,
+    string $componentName,
+    ?string $khoi,
+    ?int $roomId
+): bool {
+    $componentExpr = match ($componentName) {
+        'component_1' => 'sc.component_1 IS NOT NULL',
+        'component_2' => 'sc.component_2 IS NOT NULL',
+        'component_3' => 'sc.component_3 IS NOT NULL',
+        default => '(sc.total_score IS NOT NULL OR sc.component_1 IS NOT NULL OR sc.component_2 IS NOT NULL OR sc.component_3 IS NOT NULL)',
+    };
+
+    $scopeSql = '';
+    $params = [':exam_id' => $examId, ':subject_id' => $subjectId];
+    if ($roomId !== null && $roomId > 0) {
+        $scopeSql = ' AND es.room_id = :room_id';
+        $params[':room_id'] = $roomId;
+    } else {
+        $scopeSql = ' AND es.khoi = :khoi';
+        $params[':khoi'] = (string) $khoi;
+    }
+
+    $sql = 'SELECT 1
+        FROM scores sc
+        INNER JOIN exam_students es ON es.exam_id = sc.exam_id AND es.student_id = sc.student_id AND es.subject_id = sc.subject_id
+        WHERE sc.exam_id = :exam_id AND sc.subject_id = :subject_id' . $scopeSql . '
+          AND ' . $componentExpr . '
+        LIMIT 1';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return (bool) $stmt->fetchColumn();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         $errors[] = 'CSRF token không hợp lệ.';
@@ -79,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         $action = (string) ($_POST['action'] ?? 'create');
+        $warnings = [];
         try {
             $pdo->beginTransaction();
             if ($action === 'delete') {
@@ -116,10 +157,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $find->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi, ':component_name' => $componentName]);
                         $id = (int) ($find->fetchColumn() ?: 0);
                         if ($id > 0) {
+                            $oldUserStmt = $pdo->prepare('SELECT user_id FROM score_assignments WHERE id = :id LIMIT 1');
+                            $oldUserStmt->execute([':id' => $id]);
+                            $oldUserId = (int) ($oldUserStmt->fetchColumn() ?: 0);
+
+                            if ($oldUserId === $userId) {
+                                continue;
+                            }
+
+                            if (scoringAssignmentHasEnteredScores($pdo, $examId, $subjectId, $componentName, $khoi, null)) {
+                                $warnings[] = 'Môn đã có người nhập điểm (môn + khối + thành phần), hệ thống đã đổi người phân công.';
+                            }
+
                             $pdo->prepare('UPDATE score_assignments SET user_id = :user_id WHERE id = :id')->execute([':user_id' => $userId, ':id' => $id]);
                         } else {
                             $pdo->prepare('INSERT INTO score_assignments(exam_id, subject_id, khoi, room_id, user_id, component_name) VALUES(:exam_id,:subject_id,:khoi,NULL,:user_id,:component_name)')
                                 ->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi, ':user_id' => $userId, ':component_name' => $componentName]);
+
+                            if (scoringAssignmentHasEnteredScores($pdo, $examId, $subjectId, $componentName, $khoi, null)) {
+                                $warnings[] = 'Môn đã có người nhập điểm ở phạm vi khối vừa phân công.';
+                            }
                         }
                     }
                 } else {
@@ -140,10 +197,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $find->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':room_id' => $roomId, ':component_name' => $componentName]);
                         $id = (int) ($find->fetchColumn() ?: 0);
                         if ($id > 0) {
+                            $oldUserStmt = $pdo->prepare('SELECT user_id FROM score_assignments WHERE id = :id LIMIT 1');
+                            $oldUserStmt->execute([':id' => $id]);
+                            $oldUserId = (int) ($oldUserStmt->fetchColumn() ?: 0);
+
+                            if ($oldUserId === $userId) {
+                                continue;
+                            }
+
+                            if (scoringAssignmentHasEnteredScores($pdo, $examId, $subjectId, $componentName, null, $roomId)) {
+                                $warnings[] = 'Môn/phòng đã có người nhập điểm, hệ thống đã đổi người phân công.';
+                            }
+
                             $pdo->prepare('UPDATE score_assignments SET user_id = :user_id WHERE id = :id')->execute([':user_id' => $userId, ':id' => $id]);
                         } else {
                             $pdo->prepare('INSERT INTO score_assignments(exam_id, subject_id, khoi, room_id, user_id, component_name) VALUES(:exam_id,:subject_id,NULL,:room_id,:user_id,:component_name)')
                                 ->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':room_id' => $roomId, ':user_id' => $userId, ':component_name' => $componentName]);
+
+                            if (scoringAssignmentHasEnteredScores($pdo, $examId, $subjectId, $componentName, null, $roomId)) {
+                                $warnings[] = 'Môn/phòng vừa phân công đã có dữ liệu nhập điểm trước đó.';
+                            }
                         }
                     }
                 }
@@ -151,6 +224,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $pdo->commit();
             exams_set_flash('success', 'Cập nhật phân công thành công.');
+            if (!empty($warnings)) {
+                exams_set_flash('warning', implode(' ', array_values(array_unique($warnings))));
+            }
             header('Location: ' . BASE_URL . '/modules/exams/scoring_assignment.php');
             exit;
         } catch (Throwable $e) {
