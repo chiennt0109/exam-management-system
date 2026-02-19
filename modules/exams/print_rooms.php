@@ -269,7 +269,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">' . htmlspecialchars($examName) . '</div></div>';
             echo '<div class="header-right"><div class="title-main">PHIẾU THU BÀI</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
             echo '</div>';
-            echo '<div class="table-wrap"><table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th>Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:10%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:23%">Ghi chú / Ký tên</th></tr></thead><tbody>';
+            echo '<div class="table-wrap"><table><thead><tr><th style="width:6%">STT</th><th style="width:12%">SBD</th><th style="width:25%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:9%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:18%">Ghi chú / Ký tên</th></tr></thead><tbody>';
             foreach ($displayStudents as $i => $st) {
                 echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center nowrap">' . htmlspecialchars($st['sbd']) . '</td><td>' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center">' . htmlspecialchars($st['lop']) . '</td><td></td><td></td><td></td></tr>';
             }
@@ -277,7 +277,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             if ($truncated) {
                 echo '<div class="small-note">Danh sách vượt quá ' . $maxRows . ' học sinh, chỉ hiển thị ' . $maxRows . ' học sinh đầu tiên trên trang in.</div>';
             }
-            echo '<div class="summary">Trong đó:<br>- Số học sinh tham dự: ......<br>- Số học sinh vắng: ......<br>- SBD vắng: ...................................<br><br>Tổng số bài: ..........<br>Tổng mã đề: ..........</div>';
+            echo '<div class="summary"><div><strong>Trong đó:</strong> - Số học sinh tham dự: ...... &nbsp;&nbsp; - Số học sinh vắng: ...... &nbsp;&nbsp; - SBD vắng: ...................................</div><div style="margin-top:6px">Tổng số bài: .......... &nbsp;&nbsp;&nbsp; Tổng mã đề: ..........</div></div>';
             echo '<div class="signature-grid"><div>GIÁM THỊ 1<div class="sig-space"></div></div><div>GIÁM THỊ 2<div class="sig-space"></div></div><div>CHỦ TỊCH HỘI ĐỒNG<div class="sig-space"></div></div></div>';
         }
         echo '</section>';
