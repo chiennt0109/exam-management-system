@@ -141,9 +141,18 @@ function logout() {
 
 /* ========= MIDDLEWARE ========= */
 function require_login() {
+    global $pdo;
+
     if (!isset($_SESSION['user'])) {
         header('Location: ' . BASE_URL . '/login.php');
         exit;
+    }
+
+    if (!isset($_SESSION['current_exam_id']) || (int) $_SESSION['current_exam_id'] <= 0) {
+        $defaultExamId = resolve_default_exam_id($pdo);
+        if ($defaultExamId > 0) {
+            $_SESSION['current_exam_id'] = $defaultExamId;
+        }
     }
 }
 
