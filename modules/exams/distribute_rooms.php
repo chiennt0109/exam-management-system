@@ -407,23 +407,11 @@ if (!in_array($examMode, [1, 2], true)) {
 exams_debug_log_context($pdo, $examId);
 $subjectId = max(0, (int) ($_GET['subject_id'] ?? $_POST['subject_id'] ?? 0));
 $khoi = trim((string) ($_GET['khoi'] ?? $_POST['khoi'] ?? ''));
-$activeTab = (string) ($_GET['tab'] ?? 'adjust');
-if (!in_array($activeTab, ['adjust', 'unassigned'], true)) {
-    $activeTab = 'adjust';
+$activeTab = (string) ($_GET['tab'] ?? 'unassigned');
+if ($activeTab !== 'unassigned') {
+    $activeTab = 'unassigned';
 }
 $onlyIncomplete = ((string) ($_GET['only_incomplete'] ?? '1')) !== '0';
-$adjustView = (string) ($_GET['adjust_view'] ?? 'room');
-if (!in_array($adjustView, ['room', 'class'], true)) {
-    $adjustView = 'room';
-}
-$adjustRoomId = max(0, (int) ($_GET['adjust_room_id'] ?? 0));
-$adjustClass = trim((string) ($_GET['adjust_class'] ?? ''));
-$adjustPerPageOptions = [20, 50, 100];
-$adjustPerPage = (int) ($_GET['adjust_per_page'] ?? 20);
-if (!in_array($adjustPerPage, $adjustPerPageOptions, true)) {
-    $adjustPerPage = 20;
-}
-$adjustPage = max(1, (int) ($_GET['adjust_page'] ?? 1));
 
 $ctx = $_SESSION['distribution_context'] ?? null;
 if ($examId > 0 && is_array($ctx) && (int) ($ctx['exam_id'] ?? 0) === $examId) {
@@ -825,27 +813,50 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
 
     $unassignedStudents = getUnassignedStudents($pdo, $examId, $subjectId, $khoi);
 
+    $availStmt = $pdo->prepare('SELECT es.student_id, s.hoten, es.lop, es.sbd
+        FROM exam_students es
+        INNER JOIN students s ON s.id = es.student_id
+        WHERE es.exam_id = :exam_id
+          AND es.subject_id IS NULL
+          AND es.khoi = :khoi
+          AND es.student_id NOT IN (
+              SELECT student_id FROM exam_students WHERE exam_id = :exam_id AND subject_id = :subject_id
+          )
+        ORDER BY es.lop, es.sbd');
+    $availStmt->execute([':exam_id' => $examId, ':khoi' => $khoi, ':subject_id' => $subjectId]);
+    $availableStudents = $availStmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+
+if ($examId > 0) {
+    $matrixKhoiSql = '';
+    $matrixParams = [':exam_id' => $examId];
+    if ($khoi !== '') {
+        $matrixKhoiSql = ' AND es.khoi = :khoi';
+        $matrixParams[':khoi'] = $khoi;
+    }
+
     $subjectColsStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
         FROM exam_students es
         INNER JOIN subjects sub ON sub.id = es.subject_id
-        WHERE es.exam_id = :exam_id AND es.khoi = :khoi AND es.subject_id IS NOT NULL
+        WHERE es.exam_id = :exam_id AND es.subject_id IS NOT NULL' . $matrixKhoiSql . '
         ORDER BY sub.ten_mon');
-    $subjectColsStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+    $subjectColsStmt->execute($matrixParams);
     $unassignedMatrixSubjects = $subjectColsStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $baseRowsStmt = $pdo->prepare('SELECT es.student_id, es.sbd, es.lop, st.hoten
         FROM exam_students es
         INNER JOIN students st ON st.id = es.student_id
-        WHERE es.exam_id = :exam_id AND es.subject_id IS NULL AND es.khoi = :khoi
+        WHERE es.exam_id = :exam_id AND es.subject_id IS NULL' . $matrixKhoiSql . '
         ORDER BY es.lop, es.sbd, st.hoten');
-    $baseRowsStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+    $baseRowsStmt->execute($matrixParams);
     $unassignedMatrixRows = $baseRowsStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $assignMapStmt = $pdo->prepare('SELECT es.student_id, es.subject_id, r.ten_phong
         FROM exam_students es
         LEFT JOIN rooms r ON r.id = es.room_id
-        WHERE es.exam_id = :exam_id AND es.khoi = :khoi AND es.subject_id IS NOT NULL');
-    $assignMapStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+        WHERE es.exam_id = :exam_id AND es.subject_id IS NOT NULL' . $matrixKhoiSql);
+    $assignMapStmt->execute($matrixParams);
     $matrixAssignMap = [];
     foreach ($assignMapStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $sid = (int) ($row['student_id'] ?? 0);
@@ -856,9 +867,7 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
         $matrixAssignMap[$sid][$subId] = (string) ($row['ten_phong'] ?? '');
     }
 
-    $subjectIds = array_map(static fn(array $r): int => (int) ($r['subject_id'] ?? 0), $unassignedMatrixSubjects);
-    $subjectIds = array_values(array_filter($subjectIds, static fn(int $v): bool => $v > 0));
-
+    $subjectIds = array_values(array_filter(array_map(static fn(array $r): int => (int) ($r['subject_id'] ?? 0), $unassignedMatrixSubjects), static fn(int $v): bool => $v > 0));
     $preparedRows = [];
     foreach ($unassignedMatrixRows as $row) {
         $sid = (int) ($row['student_id'] ?? 0);
@@ -882,58 +891,7 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
         $preparedRows[] = $row;
     }
     $unassignedMatrixRows = $preparedRows;
-
-    $availStmt = $pdo->prepare('SELECT es.student_id, s.hoten, es.lop, es.sbd
-        FROM exam_students es
-        INNER JOIN students s ON s.id = es.student_id
-        WHERE es.exam_id = :exam_id
-          AND es.subject_id IS NULL
-          AND es.khoi = :khoi
-          AND es.student_id NOT IN (
-              SELECT student_id FROM exam_students WHERE exam_id = :exam_id AND subject_id = :subject_id
-          )
-        ORDER BY es.lop, es.sbd');
-    $availStmt->execute([':exam_id' => $examId, ':khoi' => $khoi, ':subject_id' => $subjectId]);
-    $availableStudents = $availStmt->fetchAll(PDO::FETCH_ASSOC);
 }
-
-$roomOptionsMap = [];
-foreach ($rooms as $room) {
-    $roomOptionsMap[(int) ($room['id'] ?? 0)] = (string) ($room['ten_phong'] ?? '');
-}
-if ($adjustView === 'room' && $adjustRoomId > 0 && !isset($roomOptionsMap[$adjustRoomId])) {
-    $adjustRoomId = 0;
-}
-
-$classOptions = [];
-foreach ($assignedStudents as $st) {
-    $lop = trim((string) ($st['lop'] ?? ''));
-    if ($lop !== '') {
-        $classOptions[$lop] = true;
-    }
-}
-ksort($classOptions);
-$classOptions = array_keys($classOptions);
-
-$filteredAssignedStudents = $assignedStudents;
-if ($adjustView === 'room') {
-    if ($adjustRoomId > 0) {
-        $filteredAssignedStudents = array_values(array_filter($filteredAssignedStudents, static fn(array $st): bool => (int) ($st['room_id'] ?? 0) === $adjustRoomId));
-    }
-} else {
-    if ($adjustClass !== '') {
-        $filteredAssignedStudents = array_values(array_filter($filteredAssignedStudents, static fn(array $st): bool => (string) ($st['lop'] ?? '') === $adjustClass));
-    }
-}
-
-$adjustTotalRows = count($filteredAssignedStudents);
-$adjustTotalPages = max(1, (int) ceil($adjustTotalRows / max(1, $adjustPerPage)));
-if ($adjustPage > $adjustTotalPages) {
-    $adjustPage = $adjustTotalPages;
-}
-$adjustOffset = ($adjustPage - 1) * $adjustPerPage;
-$adjustPageRows = array_slice($filteredAssignedStudents, $adjustOffset, $adjustPerPage);
-
 
 require_once BASE_PATH . '/layout/header.php';
 ?>
@@ -975,10 +933,22 @@ require_once BASE_PATH . '/layout/header.php';
                 <?php if ($examId > 0): ?>
                     <?php
                         $canAdjust = false;
+                        $adjustTargetSubjectId = $subjectId;
+                        $adjustTargetKhoi = $khoi;
                         if ($subjectId > 0 && $khoi !== '') {
                             $checkRoomsStmt = $pdo->prepare('SELECT COUNT(*) FROM rooms WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
                             $checkRoomsStmt->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
                             $canAdjust = ((int) $checkRoomsStmt->fetchColumn()) > 0;
+                        }
+                        if (!$canAdjust) {
+                            $firstAdjustStmt = $pdo->prepare('SELECT subject_id, khoi FROM rooms WHERE exam_id = :exam_id ORDER BY id LIMIT 1');
+                            $firstAdjustStmt->execute([':exam_id' => $examId]);
+                            $firstAdjust = $firstAdjustStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+                            if (!empty($firstAdjust['subject_id']) && !empty($firstAdjust['khoi'])) {
+                                $canAdjust = true;
+                                $adjustTargetSubjectId = (int) $firstAdjust['subject_id'];
+                                $adjustTargetKhoi = (string) $firstAdjust['khoi'];
+                            }
                         }
                     ?>
 
@@ -986,9 +956,9 @@ require_once BASE_PATH . '/layout/header.php';
                         <span class="small text-muted me-1">Thanh chức năng</span>
                         <form method="get" action="<?= BASE_URL ?>/modules/exams/adjust_rooms.php" class="d-inline">
                             <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                            <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
-                            <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
-                            <button class="btn btn-primary btn-sm" type="submit" <?= $subjectId <= 0 || $khoi === '' ? 'disabled' : '' ?>><span class="me-1">🪟</span>Tinh chỉnh phòng thi</button>
+                            <input type="hidden" name="subject_id" value="<?= (int) $adjustTargetSubjectId ?>">
+                            <input type="hidden" name="khoi" value="<?= htmlspecialchars((string) $adjustTargetKhoi, ENT_QUOTES, 'UTF-8') ?>">
+                            <button class="btn btn-primary btn-sm" type="submit" <?= $canAdjust ? '' : 'disabled' ?>><span class="me-1">🪟</span>Tinh chỉnh phòng thi</button>
                         </form>
 
                         <?php if ($examLocked): ?>
@@ -1040,259 +1010,58 @@ require_once BASE_PATH . '/layout/header.php';
                 <?php endif; ?>
 
                 <?php if ($examId > 0): ?>
-                    <ul class="nav nav-tabs" role="tablist">
-                        <li class="nav-item"><button class="nav-link <?= $activeTab === 'adjust' ? 'active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tab-adjust" type="button">Tinh chỉnh theo môn</button></li>
-                        <li class="nav-item"><button class="nav-link <?= $activeTab === 'unassigned' ? 'active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tab-unassigned" type="button">Chưa phân phòng</button></li>
-                    </ul>
+                    <div class="border rounded p-3">
+                        <h6 class="mb-3">Chưa phân phòng</h6>
+                        <form method="get" class="row g-2 mb-3">
+                            <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                            <input type="hidden" name="tab" value="unassigned">
+                            <div class="col-md-4">
+                                <label class="form-label">Khối</label>
+                                <input class="form-control" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>" placeholder="Nhập khối để lọc (để trống = tất cả)">
+                            </div>
+                            <div class="col-md-5 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="onlyIncomplete" name="only_incomplete" value="1" <?= $onlyIncomplete ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="onlyIncomplete">Chỉ hiển thị học sinh chưa được phân ít nhất 1 môn</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3 d-flex gap-2 align-items-end">
+                                <button class="btn btn-outline-primary" type="submit">Lọc</button>
+                                <a class="btn btn-outline-secondary" href="<?= BASE_URL ?>/modules/exams/distribute_rooms.php?<?= http_build_query(['exam_id'=>$examId,'tab'=>'unassigned','only_incomplete'=>0]) ?>">Hiện tất cả</a>
+                            </div>
+                        </form>
 
-                    <div class="tab-content border border-top-0 p-3">
-                        <div class="tab-pane fade <?= $activeTab === 'adjust' ? 'show active' : '' ?>" id="tab-adjust">
-                            <form method="get" class="row g-2 mb-3">
-                                <div class="col-12"><small class="text-muted">Chọn môn, nhập khối và bấm <strong>Tinh chỉnh</strong> để mở các chức năng tinh chỉnh phòng thi.</small></div>
-                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                                <div class="col-md-7">
-                                    <label class="form-label">Môn (tinh chỉnh)</label>
-                                    <select name="subject_id" id="manualSubjectSelect" class="form-select" required>
-                                        <option value="">-- Chọn môn --</option>
-                                        <?php foreach ($subjects as $s): ?>
-                                            <?php if (!isset($manualSubjects[(int) $s['id']])) { continue; } ?>
-                                            <option value="<?= (int) $s['id'] ?>" <?= $subjectId === (int) $s['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $s['ma_mon'] . ' - ' . (string) $s['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm">
+                                <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>SBD</th>
+                                    <th>Họ tên</th>
+                                    <th>Lớp</th>
+                                    <?php foreach ($unassignedMatrixSubjects as $sub): ?>
+                                        <th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th>
+                                    <?php endforeach; ?>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <?php if (empty($unassignedMatrixRows)): ?>
+                                    <tr><td colspan="<?= 4 + max(1, count($unassignedMatrixSubjects)) ?>" class="text-center">Không còn thí sinh nào chưa được phân phòng.</td></tr>
+                                <?php else: foreach ($unassignedMatrixRows as $idx => $st): ?>
+                                    <tr>
+                                        <td><?= $idx + 1 ?></td>
+                                        <td><?= htmlspecialchars((string) ($st['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($st['hoten'] ?? 'N/A'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <?php foreach ($unassignedMatrixSubjects as $sub): $subId = (int) ($sub['subject_id'] ?? 0); ?>
+                                            <td><?= htmlspecialchars((string) (($st['rooms_by_subject'][$subId] ?? '') ?: ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="col-md-5">
-                                    <label class="form-label">Khối (tinh chỉnh)</label>
-                                    <input name="khoi" id="manualKhoiSelect" class="form-control" list="manualKhoiOptions" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>" placeholder="Nhập khối, ví dụ: 10" required>
-                                    <datalist id="manualKhoiOptions">
-                                        <?php foreach (array_keys($manualGrades) as $g): ?>
-                                            <option value="<?= htmlspecialchars($g, ENT_QUOTES, 'UTF-8') ?>"></option>
-                                        <?php endforeach; ?>
-                                    </datalist>
-                                </div>
-                                <div class="col-12 d-grid d-md-flex justify-content-md-end">
-                                    <button class="btn btn-primary px-4" type="submit">Tinh chỉnh phòng thi</button>
-                                </div>
-                            </form>
-
-                            <?php if ($subjectId > 0 && $khoi !== ''): ?>
-                                <div class="alert alert-success py-2">Đã vào chế độ tinh chỉnh cho môn và khối đã chọn. Dùng các nút chức năng bên dưới để thực hiện tinh chỉnh phân phòng.</div>
-
-                                <?php if ($hasDistribution): ?>
-                                    <div class="card border-0 bg-light mb-3">
-                                        <div class="card-body">
-                                            <form method="get" class="row g-2 align-items-end">
-                                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                                                <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
-                                                <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
-                                                <input type="hidden" name="tab" value="adjust">
-                                                <div class="col-md-3">
-                                                    <label class="form-label">Chế độ xem</label>
-                                                    <select class="form-select" name="adjust_view" id="adjustViewSelect">
-                                                        <option value="room" <?= $adjustView === 'room' ? 'selected' : '' ?>>Theo phòng thi</option>
-                                                        <option value="class" <?= $adjustView === 'class' ? 'selected' : '' ?>>Theo lớp</option>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-3" id="adjustRoomFilterWrap" <?= $adjustView === 'room' ? '' : 'style="display:none;"' ?>>
-                                                    <label class="form-label">Phòng thi</label>
-                                                    <select class="form-select" name="adjust_room_id">
-                                                        <option value="0">-- Tất cả phòng --</option>
-                                                        <?php foreach ($rooms as $room): ?>
-                                                            <option value="<?= (int) $room['id'] ?>" <?= $adjustRoomId === (int) $room['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $room['ten_phong'], ENT_QUOTES, 'UTF-8') ?></option>
-                                                        <?php endforeach; ?>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-3" id="adjustClassFilterWrap" <?= $adjustView === 'class' ? '' : 'style="display:none;"' ?>>
-                                                    <label class="form-label">Lớp</label>
-                                                    <select class="form-select" name="adjust_class">
-                                                        <option value="">-- Tất cả lớp --</option>
-                                                        <?php foreach ($classOptions as $lop): ?>
-                                                            <option value="<?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?>" <?= $adjustClass === $lop ? 'selected' : '' ?>><?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?></option>
-                                                        <?php endforeach; ?>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-2">
-                                                    <label class="form-label">Số dòng/trang</label>
-                                                    <select class="form-select" name="adjust_per_page">
-                                                        <?php foreach ($adjustPerPageOptions as $opt): ?>
-                                                            <option value="<?= $opt ?>" <?= $adjustPerPage === $opt ? 'selected' : '' ?>><?= $opt ?></option>
-                                                        <?php endforeach; ?>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-4 d-flex gap-2">
-                                                    <button class="btn btn-primary" type="submit">Lọc danh sách</button>
-                                                    <a class="btn btn-outline-secondary" href="<?= BASE_URL ?>/modules/exams/distribute_rooms.php?<?= http_build_query(['exam_id' => $examId, 'subject_id' => $subjectId, 'khoi' => $khoi, 'tab' => 'adjust']) ?>">Bỏ lọc</a>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-
-                                    <div class="table-responsive mb-2"><table class="table table-bordered table-sm"><thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th></tr></thead><tbody>
-                                        <?php if (empty($adjustPageRows)): ?>
-                                            <tr><td colspan="5" class="text-center">Không có thí sinh phù hợp bộ lọc.</td></tr>
-                                        <?php else: foreach ($adjustPageRows as $idx => $st): ?>
-                                            <tr>
-                                                <td><?= $adjustOffset + $idx + 1 ?></td>
-                                                <td><?= htmlspecialchars((string) ($st['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                                <td><?= htmlspecialchars((string) ($st['hoten'] ?? 'N/A'), ENT_QUOTES, 'UTF-8') ?></td>
-                                                <td><?= htmlspecialchars((string) ($st['ngaysinh'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                                <td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                            </tr>
-                                        <?php endforeach; endif; ?>
-                                    </tbody></table></div>
-
-                                    <?php if ($adjustTotalPages > 1): ?>
-                                        <?php
-                                            $adjustLink = static fn(int $targetPage): string => BASE_URL . '/modules/exams/distribute_rooms.php?' . http_build_query([
-                                                'exam_id' => $examId,
-                                                'subject_id' => $subjectId,
-                                                'khoi' => $khoi,
-                                                'tab' => 'adjust',
-                                                'adjust_view' => $adjustView,
-                                                'adjust_room_id' => $adjustRoomId,
-                                                'adjust_class' => $adjustClass,
-                                                'adjust_per_page' => $adjustPerPage,
-                                                'adjust_page' => $targetPage,
-                                            ]);
-                                        ?>
-                                        <nav class="mb-3">
-                                            <ul class="pagination pagination-sm flex-wrap">
-                                                <li class="page-item <?= $adjustPage <= 1 ? 'disabled' : '' ?>"><?= $adjustPage <= 1 ? '<span class="page-link">Trang trước</span>' : '<a class="page-link" href="' . htmlspecialchars($adjustLink($adjustPage - 1), ENT_QUOTES, 'UTF-8') . '">Trang trước</a>' ?></li>
-                                                <?php for ($p = max(1, $adjustPage - 5); $p <= min($adjustTotalPages, $adjustPage + 5); $p++): ?>
-                                                    <li class="page-item <?= $p === $adjustPage ? 'active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars($adjustLink($p), ENT_QUOTES, 'UTF-8') ?>"><?= $p ?></a></li>
-                                                <?php endfor; ?>
-                                                <li class="page-item <?= $adjustPage >= $adjustTotalPages ? 'disabled' : '' ?>"><?= $adjustPage >= $adjustTotalPages ? '<span class="page-link">Trang sau</span>' : '<a class="page-link" href="' . htmlspecialchars($adjustLink($adjustPage + 1), ENT_QUOTES, 'UTF-8') . '">Trang sau</a>' ?></li>
-                                            </ul>
-                                        </nav>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-
-                                <div class="card border-info mb-3">
-                                    <div class="card-header bg-info-subtle"><strong>Mô tả các chức năng tinh chỉnh phòng thi</strong></div>
-                                    <div class="card-body py-2">
-                                        <ul class="mb-0 ps-3">
-                                            <li><strong>Chuyển phòng:</strong> chuyển thí sinh từ phòng hiện tại sang phòng đích.</li>
-                                            <li><strong>Bỏ khỏi phòng:</strong> đưa thí sinh về trạng thái chưa phân phòng.</li>
-                                            <li><strong>Gộp / Đổi tên / Reset tên phòng:</strong> quản lý cấu trúc và tên phòng thi.</li>
-                                            <li><strong>Thêm thí sinh vào phòng:</strong> thêm thí sinh cùng khối vào phòng phù hợp.</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <?php if ($hasDistribution): ?>
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <h6>Chuyển / Bỏ phòng thí sinh</h6>
-                                            <form method="post" class="row g-2 mb-2">
-                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="tab" value="adjust"><input type="hidden" name="action" value="move_student">
-                                                <div class="col-12"><select class="form-select" name="exam_student_id" required><?php foreach ($assignedStudents as $st): ?><option value="<?= (int) $st['id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['hoten'] ?? 'N/A') . ' - ' . ($st['lop'] ?? '') . ' - ' . ($st['ten_phong'] ?? 'Chưa phòng')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                                <div class="col-12"><select class="form-select" name="target_room_id" required><?php foreach ($rooms as $room): ?><option value="<?= (int) $room['id'] ?>"><?= htmlspecialchars((string) ($room['ten_phong'] . ' [' . $room['scope_identifier'] . ']'), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                                <div class="col-12"><button class="btn btn-primary btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Chuyển phòng</button></div>
-                                            </form>
-
-                                            <form method="post" class="row g-2">
-                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="tab" value="adjust"><input type="hidden" name="action" value="remove_student">
-                                                <div class="col-12"><select class="form-select" name="exam_student_id" required><?php foreach ($assignedStudents as $st): ?><option value="<?= (int) $st['id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['hoten'] ?? 'N/A') . ' - ' . ($st['lop'] ?? '') . ' - ' . ($st['ten_phong'] ?? 'Chưa phòng')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                                <div class="col-12"><button class="btn btn-outline-danger btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Bỏ khỏi phòng</button></div>
-                                            </form>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <h6>Gộp / Đổi tên phòng</h6>
-                                            <form method="post" class="row g-2 mb-2">
-                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="tab" value="adjust"><input type="hidden" name="action" value="merge_rooms">
-                                                <div class="col-6"><select class="form-select" name="room_a_id" required><?php foreach ($rooms as $room): ?><option value="<?= (int) $room['id'] ?>"><?= htmlspecialchars((string) $room['ten_phong'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                                <div class="col-6"><select class="form-select" name="room_b_id" required><?php foreach ($rooms as $room): ?><option value="<?= (int) $room['id'] ?>"><?= htmlspecialchars((string) $room['ten_phong'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                                <div class="col-12"><button class="btn btn-warning btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Gộp B vào A</button></div>
-                                            </form>
-
-                                            <form method="post" class="row g-2 mb-2">
-                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="tab" value="adjust"><input type="hidden" name="action" value="rename_room">
-                                                <div class="col-6"><select class="form-select" name="room_id" required><?php foreach ($rooms as $room): ?><option value="<?= (int) $room['id'] ?>"><?= htmlspecialchars((string) $room['ten_phong'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                                <div class="col-6"><input class="form-control" type="text" name="new_room_name" placeholder="Tên phòng mới" required></div>
-                                                <div class="col-12"><button class="btn btn-secondary btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Đổi tên phòng</button></div>
-                                            </form>
-
-                                            <form method="post">
-                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="tab" value="adjust"><input type="hidden" name="action" value="reset_room_names">
-                                                <button class="btn btn-outline-primary btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Reset tên phòng</button>
-                                            </form>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <h6>Thêm thí sinh vào phòng</h6>
-                                            <form method="post" class="row g-2">
-                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="tab" value="adjust"><input type="hidden" name="action" value="add_student_to_room">
-                                                <div class="col-md-7"><select class="form-select" name="student_id" required><?php foreach ($availableStudents as $st): ?><option value="<?= (int) $st['student_id'] ?>"><?= htmlspecialchars((string) (($st['sbd'] ?? '') . ' - ' . ($st['hoten'] ?? 'N/A') . ' - ' . ($st['lop'] ?? '')), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                                <div class="col-md-3"><select class="form-select" name="target_room_id" required><?php foreach ($rooms as $room): ?><option value="<?= (int) $room['id'] ?>"><?= htmlspecialchars((string) $room['ten_phong'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                                                <div class="col-md-2"><button class="btn btn-success btn-sm w-100" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Thêm</button></div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                <?php else: ?>
-                                    <?php $suggestGrades = $manualGradesBySubject[$subjectId] ?? []; ?>
-                                    <div class="alert alert-warning mb-2">Chưa có phòng cho môn/khối đang chọn. Hãy chạy “Phân phòng tự động”.</div>
-                                    <?php if (!empty($suggestGrades)): ?>
-                                        <div class="alert alert-secondary py-2 mb-0">Khối khả dụng cho môn này: <strong><?= htmlspecialchars(implode(', ', $suggestGrades), ENT_QUOTES, 'UTF-8') ?></strong>. Vui lòng chọn đúng khối để xem/điều chỉnh.</div>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                            <?php else: ?>
-                                <div class="alert alert-info">Chọn môn + khối để vào chế độ tinh chỉnh.</div>
-                            <?php endif; ?>
+                                    </tr>
+                                <?php endforeach; endif; ?>
+                                </tbody>
+                            </table>
                         </div>
-
-                        <div class="tab-pane fade <?= $activeTab === 'unassigned' ? 'show active' : '' ?>" id="tab-unassigned">
-                            <?php if ($subjectId > 0 && $khoi !== ''): ?>
-                                <form method="get" class="row g-2 mb-3">
-                                    <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                                    <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
-                                    <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
-                                    <input type="hidden" name="tab" value="unassigned">
-                                    <div class="col-md-6 d-flex align-items-center">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="onlyIncomplete" name="only_incomplete" value="1" <?= $onlyIncomplete ? 'checked' : '' ?>>
-                                            <label class="form-check-label" for="onlyIncomplete">Chỉ hiển thị học sinh chưa được phân ít nhất 1 môn</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3 d-flex gap-2">
-                                        <button class="btn btn-outline-primary" type="submit">Lọc</button>
-                                        <a class="btn btn-outline-secondary" href="<?= BASE_URL ?>/modules/exams/distribute_rooms.php?<?= http_build_query(['exam_id'=>$examId,'subject_id'=>$subjectId,'khoi'=>$khoi,'tab'=>'unassigned','only_incomplete'=>0]) ?>">Hiện tất cả</a>
-                                    </div>
-                                </form>
-
-                                <div class="table-responsive">
-                                    <table class="table table-bordered table-sm">
-                                        <thead>
-                                        <tr>
-                                            <th>STT</th>
-                                            <th>SBD</th>
-                                            <th>Họ tên</th>
-                                            <th>Lớp</th>
-                                            <?php foreach ($unassignedMatrixSubjects as $sub): ?>
-                                                <th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th>
-                                            <?php endforeach; ?>
-                                        </tr>
-                                        </thead>
-                                        <tbody>
-                                        <?php if (empty($unassignedMatrixRows)): ?>
-                                            <tr><td colspan="<?= 4 + max(1, count($unassignedMatrixSubjects)) ?>" class="text-center">Không có học sinh phù hợp điều kiện lọc.</td></tr>
-                                        <?php else: foreach ($unassignedMatrixRows as $idx => $st): ?>
-                                            <tr>
-                                                <td><?= $idx + 1 ?></td>
-                                                <td><?= htmlspecialchars((string) ($st['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                                <td><?= htmlspecialchars((string) ($st['hoten'] ?? 'N/A'), ENT_QUOTES, 'UTF-8') ?></td>
-                                                <td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                                <?php foreach ($unassignedMatrixSubjects as $sub): $subId = (int) ($sub['subject_id'] ?? 0); ?>
-                                                    <td><?= htmlspecialchars((string) (($st['rooms_by_subject'][$subId] ?? '') ?: ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                                <?php endforeach; ?>
-                                            </tr>
-                                        <?php endforeach; endif; ?>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            <?php else: ?>
-                                <div class="alert alert-info">Chọn môn + khối để xem thí sinh chưa phân phòng.</div>
-                            <?php endif; ?>
-                        </div>
-                    </div>>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
@@ -1301,50 +1070,6 @@ require_once BASE_PATH . '/layout/header.php';
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-const manualGradesBySubject = <?= json_encode($manualGradesBySubject, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-const allManualGrades = <?= json_encode(array_values(array_keys($allManualGrades)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-const manualSubjectSelect = document.getElementById('manualSubjectSelect');
-const manualKhoiSelect = document.getElementById('manualKhoiSelect');
-
-function refreshManualKhoiOptions() {
-    const manualKhoiOptions = document.getElementById('manualKhoiOptions');
-    if (!manualKhoiOptions) return;
-
-    const selectedSubject = manualSubjectSelect ? parseInt(manualSubjectSelect.value || '0', 10) : 0;
-    const options = selectedSubject > 0
-        ? (manualGradesBySubject[selectedSubject] || [])
-        : allManualGrades;
-
-    manualKhoiOptions.innerHTML = '';
-    options.forEach((grade) => {
-        const op = document.createElement('option');
-        op.value = grade;
-        manualKhoiOptions.appendChild(op);
-    });
-}
-
-manualSubjectSelect?.addEventListener('change', refreshManualKhoiOptions);
-refreshManualKhoiOptions();
-
-
-const adjustViewSelect = document.getElementById('adjustViewSelect');
-const adjustRoomFilterWrap = document.getElementById('adjustRoomFilterWrap');
-const adjustClassFilterWrap = document.getElementById('adjustClassFilterWrap');
-
-function refreshAdjustViewFilters() {
-    if (!adjustViewSelect) return;
-    const isRoomView = adjustViewSelect.value === 'room';
-    if (adjustRoomFilterWrap) {
-        adjustRoomFilterWrap.style.display = isRoomView ? '' : 'none';
-    }
-    if (adjustClassFilterWrap) {
-        adjustClassFilterWrap.style.display = isRoomView ? 'none' : '';
-    }
-}
-
-adjustViewSelect?.addEventListener('change', refreshAdjustViewFilters);
-refreshAdjustViewFilters();
-
 const overwriteCheckbox = document.getElementById('overwrite_existing');
 const overwriteWarningText = document.getElementById('overwriteWarningText');
 const confirmOverwriteMessage = 'Bạn đang chọn ghi đè toàn bộ phân phòng của kỳ thi này. Hệ thống sẽ xóa toàn bộ dữ liệu phòng và gán phòng hiện có trước khi phân phòng lại. Bạn có chắc chắn tiếp tục?';
