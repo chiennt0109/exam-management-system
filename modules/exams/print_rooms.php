@@ -269,7 +269,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">' . htmlspecialchars($examName) . '</div></div>';
             echo '<div class="header-right"><div class="title-main">PHIẾU THU BÀI</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
             echo '</div>';
-            echo '<div class="table-wrap"><table><thead><tr><th style="width:6%">STT</th><th style="width:12%">SBD</th><th style="width:25%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:9%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:18%">Ghi chú / Ký tên</th></tr></thead><tbody>';
+            echo '<div class="table-wrap"><table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th style="width:25%">Họ và tên</th><th style="width:12%">Ngày sinh</th><th style="width:15%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:18%">Ghi chú / Ký tên</th></tr></thead><tbody>';
             foreach ($displayStudents as $i => $st) {
                 echo '<tr><td class="center col-tight">' . ($i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell">' . htmlspecialchars($st['lop']) . '</td><td></td><td></td><td></td></tr>';
             }
