@@ -232,37 +232,50 @@ if (in_array($export, ['format1', 'format2'], true)) {
         header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
     }
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>Export phòng thi</title><style>body{font-family:"Times New Roman",serif;margin:24px}h3,h4,p{text-align:center;margin:2px 0}table{width:100%;border-collapse:collapse;margin-top:8px;margin-bottom:24px}th,td{border:1px solid #333;padding:4px;font-size:14px}th{text-align:center} .right{text-align:right}.center{text-align:center}@media print{.print-toolbar{display:none}body{margin:0}}</style></head><body>';
+    $year = date('Y');
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>Export phòng thi</title><style>@page{size:A4 portrait;margin:20mm 15mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.print-toolbar{display:none}.export-page{page-break-after:always;min-height:calc(297mm - 40mm);display:flex;flex-direction:column}.header-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:12px;align-items:start}.header-left,.header-right{text-align:center;line-height:1.25}.title-main{font-size:16px;font-weight:700}.title-sub{font-size:14px;font-weight:700}.room-subject{margin-top:6px;font-size:13px}.table-wrap{margin-top:8px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{text-align:center;font-weight:700}.right{text-align:right}.center{text-align:center}.footer-right{margin-top:auto;text-align:right;font-size:13px;line-height:1.6}.summary{font-size:12px;line-height:1.5;margin-top:8px}.signature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:14px;text-align:center;font-weight:700}.small-note{font-size:11px;font-style:italic;margin-top:4px}.sig-space{height:54px}.nowrap{white-space:nowrap}@media screen{body{padding:24px}.print-toolbar{display:flex;position:sticky;top:0;background:#fff;padding:8px 0 12px;gap:8px;z-index:5}.export-page{min-height:auto;border:1px dashed #bbb;padding:12mm 10mm;margin-bottom:20px}}@media print{.print-toolbar{display:none}}</style></head><body>';
     if ($isPdfExport) {
-        echo '<div class="print-toolbar" style="position:sticky;top:0;background:#fff;padding:8px 0 12px 0;display:flex;gap:8px"><button type="button" onclick="window.print()">In / Lưu PDF</button><a href="' . htmlspecialchars((string) ($_SERVER['HTTP_REFERER'] ?? (BASE_URL . '/modules/exams/print_rooms.php')), ENT_QUOTES, 'UTF-8') . '">Quay lại</a></div>';
+        echo '<div class="print-toolbar"><button type="button" onclick="window.print()">In / Lưu PDF</button><a href="' . htmlspecialchars((string) ($_SERVER['HTTP_REFERER'] ?? (BASE_URL . '/modules/exams/print_rooms.php')), ENT_QUOTES, 'UTF-8') . '">Quay lại</a></div>';
     }
 
     foreach ($allGroups as $group) {
+        $students = array_values($group['students']);
+        $maxRows = $export === 'format1' ? 30 : 28;
+        $displayStudents = array_slice($students, 0, $maxRows);
+        $truncated = count($students) > $maxRows;
+
+        echo '<section class="export-page">';
         if ($export === 'format1') {
-            echo '<h3>TRƯỜNG THPT CHUYÊN TRẦN PHÚ</h3>';
-            echo '<h4>DANH SÁCH NIÊM YẾT</h4>';
-            echo '<p><strong>PHÒNG: ' . htmlspecialchars($group['ten_phong']) . '</strong> | Môn: ' . htmlspecialchars($group['ten_mon']) . '</p>';
-            echo '<table><tr><th>STT</th><th>SBD</th><th>Họ và tên</th><th>Ngày sinh</th><th>Lớp</th><th>Ghi chú</th></tr>';
-            foreach ($group['students'] as $i => $st) {
-                echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars($st['sbd']) . '</td><td>' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center">' . htmlspecialchars($st['lop']) . '</td><td></td></tr>';
+            echo '<div class="header-grid">';
+            echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">KIỂM TRA GIỮA KỲ II - KHỐI 12</div></div>';
+            echo '<div class="header-right"><div class="title-main">DANH SÁCH NIÊM YẾT</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
+            echo '</div>';
+            echo '<div class="table-wrap"><table><thead><tr><th style="width:7%">STT</th><th style="width:12%">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:13%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
+            foreach ($displayStudents as $i => $st) {
+                echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center nowrap">' . htmlspecialchars($st['sbd']) . '</td><td>' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center">' . htmlspecialchars($st['lop']) . '</td><td></td></tr>';
             }
-            echo '</table>';
-            echo '<p class="right"><em>Hải Phòng, ngày ... tháng ... năm ...</em></p>';
-            echo '<p class="right"><strong>CHỦ TỊCH HỘI ĐỒNG</strong></p>';
+            echo '</tbody></table></div>';
+            if ($truncated) {
+                echo '<div class="small-note">Danh sách vượt quá ' . $maxRows . ' học sinh, chỉ hiển thị ' . $maxRows . ' học sinh đầu tiên trên trang in.</div>';
+            }
+            echo '<div class="footer-right"><div><em>Hải Phòng, ngày ... tháng ... năm ' . $year . '</em></div><div style="text-align:center;margin-top:6px"><strong>CHỦ TỊCH HỘI ĐỒNG</strong></div><div class="sig-space"></div></div>';
         } else {
-            echo '<h3>TRƯỜNG THPT CHUYÊN TRẦN PHÚ</h3>';
-            echo '<h4>PHIẾU THU BÀI</h4>';
-            echo '<p><strong>PHÒNG: ' . htmlspecialchars($group['ten_phong']) . '</strong> | Môn: ' . htmlspecialchars($group['ten_mon']) . '</p>';
-            echo '<table><tr><th>STT</th><th>SBD</th><th>Họ và tên</th><th>Ngày sinh</th><th>Lớp</th><th>Số tờ</th><th>Mã đề</th><th>Ghi chú / Ký tên</th></tr>';
-            foreach ($group['students'] as $i => $st) {
-                echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars($st['sbd']) . '</td><td>' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center">' . htmlspecialchars($st['lop']) . '</td><td></td><td></td><td></td></tr>';
+            echo '<div class="header-grid">';
+            echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">KIỂM TRA GIỮA KỲ II - KHỐI 12</div></div>';
+            echo '<div class="header-right"><div class="title-main">PHIẾU THU BÀI</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
+            echo '</div>';
+            echo '<div class="table-wrap"><table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th>Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:10%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:23%">Ghi chú / Ký tên</th></tr></thead><tbody>';
+            foreach ($displayStudents as $i => $st) {
+                echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center nowrap">' . htmlspecialchars($st['sbd']) . '</td><td>' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center">' . htmlspecialchars($st['lop']) . '</td><td></td><td></td><td></td></tr>';
             }
-            echo '</table>';
-            echo '<p>Trong đó: ... học sinh tham dự; ... học sinh vắng.</p>';
-            echo '<p class="right"><em>Hải Phòng, ngày ... tháng ... năm ...</em></p>';
-            echo '<p><strong>GIÁM THỊ 1 &nbsp;&nbsp;&nbsp; GIÁM THỊ 2 &nbsp;&nbsp;&nbsp; CHỦ TỊCH HỘI ĐỒNG</strong></p>';
+            echo '</tbody></table></div>';
+            if ($truncated) {
+                echo '<div class="small-note">Danh sách vượt quá ' . $maxRows . ' học sinh, chỉ hiển thị ' . $maxRows . ' học sinh đầu tiên trên trang in.</div>';
+            }
+            echo '<div class="summary">Trong đó:<br>- Số học sinh tham dự: ......<br>- Số học sinh vắng: ......<br>- SBD vắng: ...................................<br><br>Tổng số bài: ..........<br>Tổng mã đề: ..........</div>';
+            echo '<div class="signature-grid"><div>GIÁM THỊ 1<div class="sig-space"></div></div><div>GIÁM THỊ 2<div class="sig-space"></div></div><div>CHỦ TỊCH HỘI ĐỒNG<div class="sig-space"></div></div></div>';
         }
-        echo '<hr style="border:0;border-top:1px dashed #999;margin:24px 0">';
+        echo '</section>';
     }
     if ($isPdfExport) {
         echo '<script>window.print();</script>';
