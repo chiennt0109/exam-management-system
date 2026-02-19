@@ -68,7 +68,7 @@ if (!in_array($scopeType, ['khoi', 'lop'], true)) {
 }
 $scopeValue = trim((string) ($_POST['scope_value'] ?? ''));
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         $errors[] = 'CSRF token không hợp lệ.';
     }
@@ -174,6 +174,7 @@ require_once BASE_PATH . '/layout/header.php';
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="parsed_headers_json" id="parsedHeadersJson">
                     <input type="hidden" name="parsed_rows_json" id="parsedRowsJson">
+                    <input type="hidden" name="import" value="1">
 
                     <div class="col-md-4">
                         <label class="form-label" for="import_profile">Chế độ import</label>
