@@ -44,11 +44,12 @@ $upsertExamScore = $pdo->prepare('INSERT INTO exam_scores (exam_id, student_id, 
     ON CONFLICT(exam_id, student_id, subject_id)
     DO UPDATE SET score = excluded.score, updated_at = excluded.updated_at');
 
-$selectScore = $pdo->prepare('SELECT component_1, component_2, component_3, total_score FROM scores WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id = :subject_id LIMIT 1');
-$upsertScore = $pdo->prepare('INSERT INTO scores (exam_id, student_id, subject_id, component_1, component_2, component_3, total_score, diem, scorer_id, updated_at)
-    VALUES (:exam_id, :student_id, :subject_id, :c1, :c2, :c3, :total, :total, NULL, :updated_at)
-    ON CONFLICT(exam_id, student_id, subject_id)
-    DO UPDATE SET component_1 = excluded.component_1, component_2 = excluded.component_2, component_3 = excluded.component_3, total_score = excluded.total_score, diem = excluded.diem, updated_at = excluded.updated_at');
+$selectScore = $pdo->prepare('SELECT id, component_1, component_2, component_3, total_score FROM scores WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id = :subject_id LIMIT 1');
+$insertScore = $pdo->prepare('INSERT INTO scores (exam_id, student_id, subject_id, component_1, component_2, component_3, total_score, diem, scorer_id, updated_at)
+    VALUES (:exam_id, :student_id, :subject_id, :c1, :c2, :c3, :total, :total, NULL, :updated_at)');
+$updateScore = $pdo->prepare('UPDATE scores
+    SET component_1 = :c1, component_2 = :c2, component_3 = :c3, total_score = :total, diem = :total, updated_at = :updated_at
+    WHERE id = :id');
 
 $updated = 0;
 $deleted = 0;
@@ -76,7 +77,8 @@ try {
         }
 
         $selectScore->execute([':exam_id' => $examId, ':student_id' => $studentId, ':subject_id' => $subjectId]);
-        $old = $selectScore->fetch(PDO::FETCH_ASSOC) ?: ['component_1'=>null,'component_2'=>null,'component_3'=>null,'total_score'=>null];
+        $old = $selectScore->fetch(PDO::FETCH_ASSOC) ?: ['id'=>0,'component_1'=>null,'component_2'=>null,'component_3'=>null,'total_score'=>null];
+        $scoreRowId = (int) ($old['id'] ?? 0);
         $c1 = $old['component_1'] === null ? null : (float) $old['component_1'];
         $c2 = $old['component_2'] === null ? null : (float) $old['component_2'];
         $c3 = $old['component_3'] === null ? null : (float) $old['component_3'];
@@ -103,7 +105,7 @@ try {
             continue;
         }
 
-        $upsertScore->execute([
+        $scoreParams = [
             ':exam_id' => $examId,
             ':student_id' => $studentId,
             ':subject_id' => $subjectId,
@@ -112,7 +114,19 @@ try {
             ':c3' => $c3,
             ':total' => $total,
             ':updated_at' => date('c'),
-        ]);
+        ];
+        if ($scoreRowId > 0) {
+            $updateScore->execute([
+                ':id' => $scoreRowId,
+                ':c1' => $scoreParams[':c1'],
+                ':c2' => $scoreParams[':c2'],
+                ':c3' => $scoreParams[':c3'],
+                ':total' => $scoreParams[':total'],
+                ':updated_at' => $scoreParams[':updated_at'],
+            ]);
+        } else {
+            $insertScore->execute($scoreParams);
+        }
         $upsertExamScore->execute([
             ':exam_id' => $examId,
             ':student_id' => $studentId,
