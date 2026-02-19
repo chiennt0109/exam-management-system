@@ -216,7 +216,7 @@ require_once BASE_PATH . '/layout/header.php';
 <?php if (in_array($key, $allowedComponents, true)): ?><button type="button" class="btn btn-link btn-sm p-0 fill-max" data-fill-column="<?= $key ?>" data-max="<?= $key === 'component_1' ? $max1 : ($key === 'component_2' ? $max2 : $max3) ?>">Điền tối đa</button><?php endif; ?>
 </th>
 <?php endforeach; ?>
-<th>Tổng</th>
+<th><?= $role === 'admin' ? 'Tổng (toàn bộ)' : 'Tổng (được phân công)' ?></th>
 </tr>
 </thead>
 <tbody>
@@ -236,7 +236,23 @@ require_once BASE_PATH . '/layout/header.php';
 ?>
 <td><input class="form-control form-control-sm score-input" data-col="<?= $key ?>" data-max="<?= $max ?>" name="rows[<?= (int) $r['id'] ?>][<?= $name ?>]" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>" <?= $editable ? '' : 'readonly' ?>></td>
 <?php endforeach; ?>
-<td><?= htmlspecialchars($r['total_score'] === null ? '' : score_value_to_string((float) $r['total_score']), ENT_QUOTES, 'UTF-8') ?></td>
+<?php
+    if ($role === 'admin') {
+        $displayTotal = $r['total_score'] === null ? '' : score_value_to_string((float) $r['total_score']);
+    } else {
+        $sumVisible = 0.0;
+        $hasVisible = false;
+        foreach (array_keys($displayComponentLabels) as $compKey) {
+            $v = $r[$compKey] ?? null;
+            if ($v !== null && $v !== '') {
+                $sumVisible += (float) $v;
+                $hasVisible = true;
+            }
+        }
+        $displayTotal = $hasVisible ? score_value_to_string(round($sumVisible, 2)) : '';
+    }
+?>
+<td><?= htmlspecialchars((string) $displayTotal, ENT_QUOTES, 'UTF-8') ?></td>
 </tr>
 <?php endforeach; ?>
 </tbody>

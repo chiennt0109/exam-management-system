@@ -48,7 +48,6 @@ foreach ($subjectCfgs as $cfg) {
     if ($count >= 3) {
         $labels['component_3'] = 'Nói';
     }
-    $labels['total'] = 'Tổng';
     $componentMap[$sid] = $labels;
 }
 
@@ -74,7 +73,7 @@ $assignmentLookupStmt->execute([':exam_id' => $examId]);
 $assignmentLookupMap = [];
 foreach ($assignmentLookupStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
     $sid = (int) ($r['subject_id'] ?? 0);
-    $component = (string) ($r['component_name'] ?? 'total');
+    $component = (string) ($r['component_name'] ?? 'component_1');
     $roomId = (int) ($r['room_id'] ?? 0);
     $khoiKey = trim((string) ($r['khoi'] ?? ''));
     $scopeKey = $roomId > 0 ? ('room:' . $roomId) : ('khoi:' . $khoiKey);
@@ -150,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $subjectId = (int) ($_POST['subject_id'] ?? 0);
                 $mode = (string) ($_POST['assign_mode'] ?? 'subject_grade');
-                $componentNames = array_values(array_unique(array_map('strval', (array)($_POST['component_name'] ?? ['total']))));
+                $componentNames = array_values(array_unique(array_map('strval', (array)($_POST['component_name'] ?? ['component_1']))));
                 $khoi = trim((string) ($_POST['khoi'] ?? ''));
                 $userId = (int) ($_POST['user_id'] ?? 0);
 
@@ -359,7 +358,7 @@ require_once BASE_PATH . '/layout/header.php';
 <div class="col-12"><button class="btn btn-success" type="submit" <?= !$isExamLocked ? 'disabled' : '' ?>>Lưu phân công</button></div>
 </form></div></div>
 
-<?php if (!empty($unassignedBySubject)): ?><div class="alert alert-info"><strong>Môn/phòng chưa được phân công đủ:</strong><ul class="mb-0"><?php foreach($unassignedBySubject as $u): ?><li><?= htmlspecialchars((string)$u['ten_mon'], ENT_QUOTES, 'UTF-8') ?>: còn thiếu <?= (int)$u['missing_rooms'] ?> phòng</li><?php endforeach; ?></ul></div><?php endif; ?><div class="card shadow-sm"><div class="card-header">Danh sách phân công</div><div class="card-body"><table class="table table-sm table-bordered"><thead><tr><th>Môn</th><th>Thành phần</th><th>Phạm vi</th><th>Người nhập điểm</th><th></th></tr></thead><tbody><?php foreach($assignments as $a): ?><tr><td><?= htmlspecialchars((string)$a['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string)($a['component_name'] ?? 'total'), ENT_QUOTES, 'UTF-8') ?></td><td><?= $a['room_id'] ? ('Phòng '.htmlspecialchars((string)$a['ten_phong'], ENT_QUOTES, 'UTF-8')) : ('Khối '.htmlspecialchars((string)$a['khoi'], ENT_QUOTES, 'UTF-8')) ?></td><td><?= htmlspecialchars((string)$a['username'], ENT_QUOTES, 'UTF-8') ?></td><td><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int)$a['id'] ?>"><button class="btn btn-sm btn-outline-danger">Xoá</button></form></td></tr><?php endforeach; ?></tbody></table></div></div>
+<?php if (!empty($unassignedBySubject)): ?><div class="alert alert-info"><strong>Môn/phòng chưa được phân công đủ:</strong><ul class="mb-0"><?php foreach($unassignedBySubject as $u): ?><li><?= htmlspecialchars((string)$u['ten_mon'], ENT_QUOTES, 'UTF-8') ?>: còn thiếu <?= (int)$u['missing_rooms'] ?> phòng</li><?php endforeach; ?></ul></div><?php endif; ?><div class="card shadow-sm"><div class="card-header">Danh sách phân công</div><div class="card-body"><table class="table table-sm table-bordered"><thead><tr><th>Môn</th><th>Thành phần</th><th>Phạm vi</th><th>Người nhập điểm</th><th></th></tr></thead><tbody><?php foreach($assignments as $a): ?><tr><td><?= htmlspecialchars((string)$a['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td><td><?php $cmp=(string)($a['component_name'] ?? ''); $cmpLabel = $cmp === 'component_1' ? 'Tự luận' : ($cmp === 'component_2' ? 'Trắc nghiệm' : ($cmp === 'component_3' ? 'Nói' : $cmp)); ?><?= htmlspecialchars($cmpLabel, ENT_QUOTES, 'UTF-8') ?></td><td><?= $a['room_id'] ? ('Phòng '.htmlspecialchars((string)$a['ten_phong'], ENT_QUOTES, 'UTF-8')) : ('Khối '.htmlspecialchars((string)$a['khoi'], ENT_QUOTES, 'UTF-8')) ?></td><td><?= htmlspecialchars((string)$a['username'], ENT_QUOTES, 'UTF-8') ?></td><td><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int)$a['id'] ?>"><button class="btn btn-sm btn-outline-danger">Xoá</button></form></td></tr><?php endforeach; ?></tbody></table></div></div>
 </div></div>
 <script>
 const roomData = <?= json_encode(array_map(static fn($r) => ['id' => (int)$r['id'], 'subject_id' => (int)$r['subject_id'], 'label' => (string)($r['ten_phong'].' (Khối '.$r['khoi'].')')], $rooms), JSON_UNESCAPED_UNICODE) ?>;
@@ -385,7 +384,7 @@ function syncMode(){
 }
 function refreshComponents(){
   const sid = subjectSelect.value;
-  const cmp = componentMap[sid] || {'total':'Tổng'};
+  const cmp = componentMap[sid] || {'component_1':'Tự luận'};
   componentBoxes.innerHTML = '';
   Object.entries(cmp).forEach(([k,v], idx)=>{
     const id = 'cmp_'+k;
@@ -426,7 +425,7 @@ document.getElementById('assignForm')?.addEventListener('submit', (e) => {
   const userId = Number(form.querySelector('select[name="user_id"]')?.value || 0);
   const mode = currentMode();
   const selectedComponents = Array.from(form.querySelectorAll('input[name="component_name[]"]:checked')).map(el => el.value);
-  const components = selectedComponents.length ? selectedComponents : ['total'];
+  const components = selectedComponents.length ? selectedComponents : ['component_1'];
 
   const scopes = [];
   if (mode === 'subject_room') {

@@ -199,6 +199,10 @@ foreach ($subjectMap as $sid => $_meta) {
 $preview = [];
 $validRows = [];
 $existingCount = 0;
+$perPageOptions = [20, 50, 100];
+$perPage = (int) ($_GET['per_page'] ?? 20);
+if (!in_array($perPage, $perPageOptions, true)) { $perPage = 20; }
+$page = max(1, (int) ($_GET['page'] ?? 1));
 
 foreach ($rows as $idx => $row) {
     $sbd = trim((string) ($row[$selectedSbd] ?? ''));
@@ -215,6 +219,7 @@ foreach ($rows as $idx => $row) {
         $studentId = (int) ($student['student_id'] ?? 0);
         $name = (string) ($student['hoten'] ?? '');
 
+        $scorePreview = [];
         foreach ($targets as $target) {
             $sid = (int) $target['subject_id'];
             $comp = (string) $target['component'];
@@ -238,8 +243,11 @@ foreach ($rows as $idx => $row) {
             }
             if ($raw !== '' && $parsed === null) {
                 $status = '⚠ Điểm không hợp lệ ở ' . $target['label'];
+                $scorePreview[$target['label']] = $raw . ' → lỗi';
                 continue;
             }
+
+            $scorePreview[$target['label']] = $raw === '' ? '' : ($raw . ' → ' . ($parsed === null ? '' : (string) $parsed));
 
             $validRows[] = [
                 'student_id' => $studentId,
@@ -255,6 +263,7 @@ foreach ($rows as $idx => $row) {
         'sbd' => $sbd,
         'name' => $name,
         'status' => $status,
+        'score_preview' => $scorePreview ?? [],
     ];
 }
 
@@ -265,6 +274,12 @@ foreach ($validRows as $v) {
         $existingCount++;
     }
 }
+
+$totalRows = count($preview);
+$totalPages = max(1, (int) ceil($totalRows / max(1, $perPage)));
+if ($page > $totalPages) { $page = $totalPages; }
+$offset = ($page - 1) * $perPage;
+$previewPageRows = array_slice($preview, $offset, $perPage);
 
 $_SESSION['score_import_preview'] = [
     'exam_id' => $examId,
@@ -299,10 +314,21 @@ require_once BASE_PATH . '/layout/header.php';
 
             <div class="table-responsive">
                 <table class="table table-sm table-bordered align-middle">
-                    <thead><tr><th>Dòng</th><th>SBD</th><th>Họ tên</th><th>Trạng thái</th></tr></thead>
-                    <tbody><?php foreach ($preview as $r): ?><tr><td><?= (int) $r['line'] ?></td><td><?= htmlspecialchars((string) $r['sbd'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) $r['name'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) $r['status'], ENT_QUOTES, 'UTF-8') ?></td></tr><?php endforeach; ?></tbody>
+                    <thead><tr><th>Dòng</th><th>SBD</th><th>Họ tên</th><?php foreach ($targets as $t): ?><th><?= htmlspecialchars((string) $t['label'], ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?><th>Trạng thái</th></tr></thead>
+                    <tbody><?php foreach ($previewPageRows as $r): ?><tr><td><?= (int) $r['line'] ?></td><td><?= htmlspecialchars((string) $r['sbd'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) $r['name'], ENT_QUOTES, 'UTF-8') ?></td><?php foreach ($targets as $t): ?><td><?= htmlspecialchars((string) (($r['score_preview'][(string)$t['label']] ?? '')), ENT_QUOTES, 'UTF-8') ?></td><?php endforeach; ?><td><?= htmlspecialchars((string) $r['status'], ENT_QUOTES, 'UTF-8') ?></td></tr><?php endforeach; ?></tbody>
                 </table>
             </div>
+            <?php if ($totalRows > 0): ?>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <div class="small text-muted">Hiển thị <?= count($previewPageRows) ?> / <?= $totalRows ?> dòng</div>
+                    <div class="btn-group">
+                        <?php $baseQuery = ['page'=>max(1,$page-1),'per_page'=>$perPage]; ?>
+                        <a class="btn btn-sm btn-outline-secondary <?= $page <= 1 ? 'disabled' : '' ?>" href="?<?= http_build_query($baseQuery) ?>">Trước</a>
+                        <?php $nextQuery = ['page'=>min($totalPages,$page+1),'per_page'=>$perPage]; ?>
+                        <a class="btn btn-sm btn-outline-secondary <?= $page >= $totalPages ? 'disabled' : '' ?>" href="?<?= http_build_query($nextQuery) ?>">Sau</a>
+                    </div>
+                </div>
+            <?php endif; ?>
 
             <form method="post" action="<?= BASE_URL ?>/modules/exams/process_import.php" class="d-flex gap-2 mt-3">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
