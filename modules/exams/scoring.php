@@ -135,29 +135,37 @@ if ($componentCount >= 3) {
 }
 
 $allowedComponents = array_keys($componentLabels);
+$assignedComponentNamesForScope = array_keys($componentLabels);
 if ($role === 'scorer') {
     $aStmt = $pdo->prepare('SELECT component_name
         FROM score_assignments
         WHERE exam_id = :exam_id AND subject_id = :subject_id AND user_id = :user_id
           AND ((room_id IS NOT NULL AND room_id = :room_id) OR (room_id IS NULL AND khoi = :khoi))');
     $aStmt->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':user_id' => $userId, ':room_id' => $roomId, ':khoi' => $roomKhoi]);
-    $as = $aStmt->fetchAll(PDO::FETCH_COLUMN);
+    $as = array_values(array_unique(array_map('strval', $aStmt->fetchAll(PDO::FETCH_COLUMN))));
+
     if (empty($as)) {
         $allowedComponents = [];
-    } elseif (!in_array('total', $as, true)) {
-        $allowedComponents = array_values(array_intersect(array_keys($componentLabels), $as));
+        $assignedComponentNamesForScope = [];
+    } elseif (in_array('total', $as, true)) {
+        $allowedComponents = array_keys($componentLabels);
+        $assignedComponentNamesForScope = array_keys($componentLabels);
+    } else {
+        $assignedComponentNamesForScope = array_values(array_intersect(array_keys($componentLabels), $as));
+        $allowedComponents = $assignedComponentNamesForScope;
     }
 }
 
-$displayComponentLabels = $componentLabels;
-if ($role === 'scorer') {
-    $displayComponentLabels = [];
-    foreach ($componentLabels as $key => $label) {
-        if (in_array($key, $allowedComponents, true)) {
-            $displayComponentLabels[$key] = $label;
-        }
+$displayComponentLabels = [];
+foreach ($assignedComponentNamesForScope as $componentName) {
+    if (isset($componentLabels[$componentName])) {
+        $displayComponentLabels[$componentName] = $componentLabels[$componentName];
     }
 }
+if ($role !== 'scorer' && empty($displayComponentLabels)) {
+    $displayComponentLabels = $componentLabels;
+}
+$assignedComponentTitle = implode(', ', array_values($displayComponentLabels));
 
 $listStmt = $pdo->prepare('SELECT sc.id, es.sbd, st.hoten, st.ngaysinh, st.lop, sc.component_1, sc.component_2, sc.component_3, sc.total_score
     FROM scores sc
@@ -188,6 +196,7 @@ require_once BASE_PATH . '/layout/header.php';
 <?php if ($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach ($errors as $e): ?><li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 <?php if ($role === 'scorer' && empty($subjects)): ?><div class="alert alert-warning">Bạn chưa được phân công phạm vi nhập điểm.</div><?php endif; ?>
 <?php if ($role === 'scorer' && !empty($subjects) && empty($displayComponentLabels)): ?><div class="alert alert-warning">Bạn chưa được phân công thành phần điểm cho phạm vi đang chọn.</div><?php endif; ?>
+<?php if ($role === 'scorer' && !empty($displayComponentLabels)): ?><div class="small text-muted mb-2">Thành phần được phân công: <strong><?= htmlspecialchars($assignedComponentTitle, ENT_QUOTES, 'UTF-8') ?></strong></div><?php endif; ?>
 <form method="get" class="row g-2 mb-3" id="scoringFilterForm">
 <div class="col-md-4"><label class="form-label">Môn</label><select class="form-select" name="subject_id" id="subjectFilterSelect"><?php foreach ($subjects as $s): ?><option value="<?= (int) $s['id'] ?>" <?= $subjectId === (int) $s['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $s['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
 <div class="col-md-4"><label class="form-label">Phòng thi</label><select class="form-select" name="room_id" id="roomFilterSelect"><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['id'] ?>" <?= $roomId === (int) $r['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $r['ten_phong'] . ' - Khối ' . $r['khoi'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
