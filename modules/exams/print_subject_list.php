@@ -4,63 +4,123 @@ require_once __DIR__ . '/../../bootstrap.php';
 require_once BASE_PATH . '/modules/exams/_common.php';
 
 $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
-$examStmt = $pdo->prepare('SELECT ten_ky_thi, exam_mode FROM exams WHERE id = :id LIMIT 1');
+$examStmt = $pdo->prepare('SELECT ten_ky_thi FROM exams WHERE id = :id LIMIT 1');
 $examStmt->execute([':id' => $examId]);
-$exam = $examStmt->fetch(PDO::FETCH_ASSOC) ?: [];
-$examName = trim((string) ($exam['ten_ky_thi'] ?? ''));
-if ($examName === '') {
-    $examName = 'KỲ THI HIỆN TẠI';
-}
+$examName = trim((string) ($examStmt->fetchColumn() ?: 'KỲ THI HIỆN TẠI'));
+
+$subjectStmt = $pdo->prepare('SELECT es.subject_id, sub.ten_mon
+    FROM exam_subjects es
+    INNER JOIN subjects sub ON sub.id = es.subject_id
+    WHERE es.exam_id = :exam_id
+    ORDER BY es.sort_order ASC, sub.ten_mon ASC');
+$subjectStmt->execute([':exam_id' => $examId]);
+$subjects = $subjectStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $classStmt = $pdo->prepare('SELECT DISTINCT trim(st.lop) AS lop
     FROM exam_students es
     INNER JOIN students st ON st.id = es.student_id
-    WHERE es.exam_id = :exam_id AND trim(coalesce(st.lop, "")) <> ""
-    ORDER BY lop');
+    WHERE es.exam_id = :exam_id AND es.subject_id IS NULL AND trim(coalesce(st.lop, "")) <> ""
+    ORDER BY lop ASC');
 $classStmt->execute([':exam_id' => $examId]);
-$classOptions = array_values(array_filter(array_map(static fn($r) => (string) ($r['lop'] ?? ''), $classStmt->fetchAll(PDO::FETCH_ASSOC))));
+$classOptions = array_values(array_filter(array_map(static fn(array $r): string => (string) ($r['lop'] ?? ''), $classStmt->fetchAll(PDO::FETCH_ASSOC))));
 
-$className = trim((string) ($_GET['class'] ?? ($classOptions[0] ?? '')));
+$filterClass = trim((string) ($_GET['class'] ?? ''));
+$perPageOptions = [50, 100, 200];
+$perPage = (int) ($_GET['per_page'] ?? 100);
+if (!in_array($perPage, $perPageOptions, true)) {
+    $perPage = 100;
+}
+$page = max(1, (int) ($_GET['page'] ?? 1));
 $export = (string) ($_GET['export'] ?? '');
 
-$list = [];
-if ($className !== '') {
-    $listStmt = $pdo->prepare('SELECT es.sbd, st.hoten, st.lop, st.ngaysinh
+$where = ' WHERE es.exam_id = :exam_id AND es.subject_id IS NULL';
+$params = [':exam_id' => $examId];
+if ($filterClass !== '') {
+    $where .= ' AND trim(coalesce(st.lop, "")) = :lop';
+    $params[':lop'] = $filterClass;
+}
+
+$countStmt = $pdo->prepare('SELECT COUNT(*)
+    FROM exam_students es
+    INNER JOIN students st ON st.id = es.student_id' . $where);
+$countStmt->execute($params);
+$totalRows = (int) ($countStmt->fetchColumn() ?: 0);
+
+if ($export === '1') {
+    $page = 1;
+    $perPage = max(1, $totalRows);
+}
+$totalPages = max(1, (int) ceil($totalRows / max(1, $perPage)));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$offset = ($page - 1) * $perPage;
+
+$listSql = 'SELECT es.student_id, es.sbd, st.hoten, st.lop, st.ngaysinh
+    FROM exam_students es
+    INNER JOIN students st ON st.id = es.student_id' . $where . '
+    ORDER BY st.lop, es.sbd, st.hoten
+    LIMIT :limit OFFSET :offset';
+$listStmt = $pdo->prepare($listSql);
+foreach ($params as $k => $v) {
+    $listStmt->bindValue($k, $v, PDO::PARAM_STR);
+}
+$listStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$listStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$listStmt->execute();
+$listRows = $listStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$studentIds = array_values(array_filter(array_map(static fn(array $r): int => (int) ($r['student_id'] ?? 0), $listRows)));
+$roomByStudentSubject = [];
+if (!empty($studentIds) && !empty($subjects)) {
+    $ph = implode(',', array_fill(0, count($studentIds), '?'));
+    $mapStmt = $pdo->prepare('SELECT es.student_id, es.subject_id, r.ten_phong
         FROM exam_students es
-        INNER JOIN students st ON st.id = es.student_id
-        WHERE es.exam_id = :exam_id AND trim(coalesce(st.lop, "")) = :lop
-        ORDER BY es.sbd, st.hoten');
-    $listStmt->execute([':exam_id' => $examId, ':lop' => $className]);
-    foreach ($listStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
-        $dob = (string) ($r['ngaysinh'] ?? '');
-        $ts = strtotime($dob);
-        $list[] = [
-            'sbd' => (string) ($r['sbd'] ?? ''),
-            'hoten' => (string) ($r['hoten'] ?? ''),
-            'lop' => (string) ($r['lop'] ?? ''),
-            'ngaysinh' => $ts ? date('d/m/Y', $ts) : $dob,
-        ];
+        LEFT JOIN rooms r ON r.id = es.room_id
+        WHERE es.exam_id = ? AND es.subject_id IS NOT NULL AND es.student_id IN (' . $ph . ')');
+    $mapStmt->execute(array_merge([$examId], $studentIds));
+    foreach ($mapStmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
+        $sid = (int) ($m['student_id'] ?? 0);
+        $subId = (int) ($m['subject_id'] ?? 0);
+        if ($sid > 0 && $subId > 0) {
+            $roomByStudentSubject[$sid][$subId] = (string) ($m['ten_phong'] ?? '');
+        }
     }
 }
 
 if ($export === '1') {
     header('Content-Type: text/html; charset=UTF-8');
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>In theo lớp</title><style>@page{size:A4 portrait;margin:20mm 15mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.page{page-break-after:always}.header{display:grid;grid-template-columns:1fr 1fr;column-gap:12px}.left,.right{text-align:center;line-height:1.3}.title{font-size:16px;font-weight:700}.sub{font-size:14px;font-weight:700}.meta{font-size:13px;margin-top:6px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:center}.center{text-align:center}.footer{text-align:right;margin-top:8px;font-size:13px}.sign{display:inline-block;text-align:center}.sig-space{height:54px}</style></head><body>';
-    echo '<section class="page">';
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>DANH SÁCH NIÊM YẾT</title><style>@page{size:A4 portrait;margin:20mm 15mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.header{display:grid;grid-template-columns:1fr 1fr;column-gap:12px}.left,.right{text-align:center;line-height:1.3}.title{font-size:16px;font-weight:700}.sub{font-size:14px;font-weight:700}.meta{font-size:13px;margin-top:6px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:left}.center{text-align:center}</style></head><body>';
     echo '<div class="header"><div class="left"><div class="sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="sub">' . htmlspecialchars($examName) . '</div></div>';
-    echo '<div class="right"><div class="title">DANH SÁCH NIÊM YẾT</div><div class="meta">Lớp: <strong>' . htmlspecialchars($className) . '</strong></div></div></div>';
-    echo '<table><thead><tr><th style="width:8%">STT</th><th style="width:14%">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:14%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
-    foreach ($list as $i => $row) {
-        echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars($row['sbd']) . '</td><td>' . htmlspecialchars($row['hoten']) . '</td><td class="center">' . htmlspecialchars($row['ngaysinh']) . '</td><td class="center">' . htmlspecialchars($row['lop']) . '</td><td></td></tr>';
+    echo '<div class="right"><div class="title">DANH SÁCH NIÊM YẾT</div><div class="meta">Lớp: <strong>' . htmlspecialchars($filterClass !== '' ? $filterClass : '-- Tất cả lớp --') . '</strong></div></div></div>';
+    echo '<table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th style="width:28%">Họ tên</th><th style="width:13%">Ngày sinh</th><th style="width:12%">Lớp</th>';
+    foreach ($subjects as $sub) {
+        echo '<th>' . htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') . '</th>';
     }
-    if (empty($list)) {
-        echo '<tr><td colspan="6" class="center">Không có dữ liệu.</td></tr>';
+    echo '</tr></thead><tbody>';
+    foreach ($listRows as $i => $row) {
+        $sid = (int) ($row['student_id'] ?? 0);
+        $dob = (string) ($row['ngaysinh'] ?? '');
+        $ts = strtotime($dob);
+        $dobFmt = $ts ? date('d/m/Y', $ts) : $dob;
+        echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars($dobFmt, ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars((string) ($row['lop'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
+        foreach ($subjects as $sub) {
+            $subId = (int) ($sub['subject_id'] ?? 0);
+            echo '<td>' . htmlspecialchars((string) ($roomByStudentSubject[$sid][$subId] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
+        }
+        echo '</tr>';
     }
-    echo '</tbody></table>';
-    echo '<div class="footer"><div class="sign"><div><em>Hải Phòng, ngày ... tháng ... năm 2026</em></div><div><strong>CHỦ TỊCH HỘI ĐỒNG</strong></div><div class="sig-space"></div></div></div>';
-    echo '</section></body></html>';
+    if (empty($listRows)) {
+        echo '<tr><td class="center" colspan="' . (5 + count($subjects)) . '">Không có dữ liệu.</td></tr>';
+    }
+    echo '</tbody></table></body></html>';
     exit;
 }
+
+$baseQuery = [
+    'class' => $filterClass,
+    'per_page' => $perPage,
+];
 
 require_once BASE_PATH . '/layout/header.php';
 ?>
@@ -68,22 +128,50 @@ require_once BASE_PATH . '/layout/header.php';
 <div style="display:flex;min-height:calc(100vh - 44px);">
 <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
 <div style="flex:1;padding:20px;min-width:0;">
-<div class="card shadow-sm"><div class="card-header bg-primary text-white d-flex justify-content-between align-items-center"><strong>B6b: Danh sách niêm yết theo lớp</strong>
+<div class="card shadow-sm"><div class="card-header bg-primary text-white d-flex justify-content-between align-items-center"><strong>DANH SÁCH NIÊM YẾT</strong>
 <a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/print_rooms.php">Quay lại B6</a>
 </div><div class="card-body">
 <form method="get" action="<?= BASE_URL ?>/modules/exams/print_subject_list.php" class="row g-2 mb-3">
-<div class="col-md-4"><label class="form-label">Lớp</label><select class="form-select" name="class">
+<div class="col-md-3">
+<label class="form-label">Chế độ xem</label>
+<select class="form-select" disabled><option>Theo lớp</option></select>
+</div>
+<div class="col-md-3">
+<label class="form-label">Lớp</label>
+<select class="form-select" name="class">
+<option value="">-- Tất cả lớp --</option>
 <?php foreach ($classOptions as $lop): ?>
-<option value="<?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?>" <?= $className === $lop ? 'selected' : '' ?>><?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?></option>
+<option value="<?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?>" <?= $filterClass === $lop ? 'selected' : '' ?>><?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?></option>
 <?php endforeach; ?>
-</select></div>
-<div class="col-md-2 align-self-end"><button class="btn btn-primary w-100" type="submit">Xem</button></div>
-<div class="col-md-3 align-self-end"><a class="btn btn-outline-secondary w-100" target="_blank" href="<?= BASE_URL ?>/modules/exams/print_subject_list.php?<?= http_build_query(['class' => $className, 'export' => 1]) ?>">In danh sách</a></div>
+</select>
+</div>
+<div class="col-md-2">
+<label class="form-label">Số dòng/trang</label>
+<select class="form-select" name="per_page"><?php foreach($perPageOptions as $opt): ?><option value="<?= $opt ?>" <?= $perPage === $opt ? 'selected' : '' ?>><?= $opt ?></option><?php endforeach; ?></select>
+</div>
+<div class="col-md-2 align-self-end"><button class="btn btn-primary w-100" type="submit">Lọc</button></div>
+<div class="col-md-2 align-self-end"><a class="btn btn-outline-secondary w-100" target="_blank" href="<?= BASE_URL ?>/modules/exams/print_subject_list.php?<?= http_build_query(array_merge($baseQuery, ['export' => 1])) ?>">In</a></div>
 </form>
-<table class="table table-sm table-bordered"><thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th></tr></thead><tbody>
-<?php if (empty($list)): ?><tr><td colspan="5" class="text-center">Không có dữ liệu.</td></tr><?php else: foreach($list as $i => $row): ?>
-<tr><td><?= $i + 1 ?></td><td><?= htmlspecialchars($row['sbd'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($row['hoten'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($row['ngaysinh'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($row['lop'], ENT_QUOTES, 'UTF-8') ?></td></tr>
+
+<div class="table-responsive">
+<table class="table table-bordered table-sm align-middle"><thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><?php foreach ($subjects as $sub): ?><th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?></tr></thead><tbody>
+<?php if (empty($listRows)): ?>
+<tr><td colspan="<?= 5 + count($subjects) ?>" class="text-center">Không có dữ liệu.</td></tr>
+<?php else: foreach ($listRows as $i => $row): $sid=(int)($row['student_id']??0); $dob=(string)($row['ngaysinh']??''); $ts=strtotime($dob); ?>
+<tr><td><?= $offset + $i + 1 ?></td><td><?= htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($ts ? date('d/m/Y',$ts) : $dob, ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($row['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><?php foreach ($subjects as $sub): $subId=(int)($sub['subject_id']??0); ?><td><?= htmlspecialchars((string) ($roomByStudentSubject[$sid][$subId] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><?php endforeach; ?></tr>
 <?php endforeach; endif; ?>
-</tbody></table>
+</tbody></table></div>
+
+<?php if ($totalPages > 1): ?>
+<?php $mk = static fn(int $target): string => BASE_URL . '/modules/exams/print_subject_list.php?' . http_build_query(array_merge($baseQuery, ['page' => $target])); ?>
+<nav><ul class="pagination pagination-sm">
+<li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>"><?= $page <= 1 ? '<span class="page-link">Trước</span>' : '<a class="page-link" href="'.htmlspecialchars($mk($page-1), ENT_QUOTES, 'UTF-8').'">Trước</a>' ?></li>
+<?php for ($p=max(1,$page-5); $p<=min($totalPages,$page+5); $p++): ?>
+<li class="page-item <?= $p === $page ? 'active' : '' ?>"><a class="page-link" href="<?= htmlspecialchars($mk($p), ENT_QUOTES, 'UTF-8') ?>"><?= $p ?></a></li>
+<?php endfor; ?>
+<li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>"><?= $page >= $totalPages ? '<span class="page-link">Sau</span>' : '<a class="page-link" href="'.htmlspecialchars($mk($page+1), ENT_QUOTES, 'UTF-8').'">Sau</a>' ?></li>
+</ul></nav>
+<?php endif; ?>
+
 </div></div></div></div>
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>
