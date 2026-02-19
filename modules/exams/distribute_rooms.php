@@ -836,14 +836,6 @@ if ($examId > 0) {
         $matrixParams[':khoi'] = $khoi;
     }
 
-    $subjectColsStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
-        FROM exam_students es
-        INNER JOIN subjects sub ON sub.id = es.subject_id
-        WHERE es.exam_id = :exam_id AND es.subject_id IS NOT NULL' . $matrixKhoiSql . '
-        ORDER BY sub.ten_mon');
-    $subjectColsStmt->execute($matrixParams);
-    $unassignedMatrixSubjects = $subjectColsStmt->fetchAll(PDO::FETCH_ASSOC);
-
     $baseRowsStmt = $pdo->prepare('SELECT es.student_id, es.sbd, es.lop, st.hoten
         FROM exam_students es
         INNER JOIN students st ON st.id = es.student_id
@@ -851,6 +843,58 @@ if ($examId > 0) {
         ORDER BY es.lop, es.sbd, st.hoten');
     $baseRowsStmt->execute($matrixParams);
     $unassignedMatrixRows = $baseRowsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $subjectById = [];
+    if ($examMode === 2) {
+        $subjectColsStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
+            FROM exam_student_subjects ess
+            INNER JOIN exam_students es ON es.exam_id = ess.exam_id AND es.student_id = ess.student_id AND es.subject_id IS NULL
+            INNER JOIN subjects sub ON sub.id = ess.subject_id
+            WHERE ess.exam_id = :exam_id' . $matrixKhoiSql . '
+            ORDER BY sub.ten_mon');
+        $subjectColsStmt->execute($matrixParams);
+        foreach ($subjectColsStmt->fetchAll(PDO::FETCH_ASSOC) as $sub) {
+            $sid = (int) ($sub['subject_id'] ?? 0);
+            if ($sid > 0) {
+                $subjectById[$sid] = (string) ($sub['ten_mon'] ?? '');
+            }
+        }
+    }
+
+    $subjectFromAssignStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
+        FROM exam_students es
+        INNER JOIN subjects sub ON sub.id = es.subject_id
+        WHERE es.exam_id = :exam_id AND es.subject_id IS NOT NULL' . $matrixKhoiSql . '
+        ORDER BY sub.ten_mon');
+    $subjectFromAssignStmt->execute($matrixParams);
+    foreach ($subjectFromAssignStmt->fetchAll(PDO::FETCH_ASSOC) as $sub) {
+        $sid = (int) ($sub['subject_id'] ?? 0);
+        if ($sid > 0 && !isset($subjectById[$sid])) {
+            $subjectById[$sid] = (string) ($sub['ten_mon'] ?? '');
+        }
+    }
+
+    asort($subjectById, SORT_NATURAL | SORT_FLAG_CASE);
+    $unassignedMatrixSubjects = [];
+    foreach ($subjectById as $sid => $name) {
+        $unassignedMatrixSubjects[] = ['subject_id' => $sid, 'ten_mon' => $name];
+    }
+
+    $matrixSelectedMap = [];
+    if ($examMode === 2) {
+        $selectedStmt = $pdo->prepare('SELECT DISTINCT ess.student_id, ess.subject_id
+            FROM exam_student_subjects ess
+            INNER JOIN exam_students es ON es.exam_id = ess.exam_id AND es.student_id = ess.student_id AND es.subject_id IS NULL
+            WHERE ess.exam_id = :exam_id' . $matrixKhoiSql);
+        $selectedStmt->execute($matrixParams);
+        foreach ($selectedStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $sid = (int) ($row['student_id'] ?? 0);
+            $subId = (int) ($row['subject_id'] ?? 0);
+            if ($sid > 0 && $subId > 0) {
+                $matrixSelectedMap[$sid][$subId] = true;
+            }
+        }
+    }
 
     $assignMapStmt = $pdo->prepare('SELECT es.student_id, es.subject_id, r.ten_phong
         FROM exam_students es
@@ -864,7 +908,10 @@ if ($examId > 0) {
         if ($sid <= 0 || $subId <= 0) {
             continue;
         }
-        $matrixAssignMap[$sid][$subId] = (string) ($row['ten_phong'] ?? '');
+        $matrixAssignMap[$sid][$subId] = [
+            'has_row' => true,
+            'room_name' => trim((string) ($row['ten_phong'] ?? '')),
+        ];
     }
 
     $subjectIds = array_values(array_filter(array_map(static fn(array $r): int => (int) ($r['subject_id'] ?? 0), $unassignedMatrixSubjects), static fn(int $v): bool => $v > 0));
@@ -874,19 +921,50 @@ if ($examId > 0) {
         if ($sid <= 0) {
             continue;
         }
-        $roomsBySubject = [];
+
+        $cellsBySubject = [];
         $missingCount = 0;
         foreach ($subjectIds as $subId) {
-            $roomName = (string) ($matrixAssignMap[$sid][$subId] ?? '');
-            $roomsBySubject[$subId] = $roomName;
-            if ($roomName === '') {
+            $isSelected = $examMode !== 2 || !empty($matrixSelectedMap[$sid][$subId]);
+            $status = $matrixAssignMap[$sid][$subId] ?? null;
+            $hasRow = is_array($status);
+            $roomName = $hasRow ? (string) ($status['room_name'] ?? '') : '';
+
+            $cell = [
+                'text' => $roomName,
+                'class' => '',
+                'is_alert' => false,
+            ];
+
+            if (!$isSelected) {
+                if ($hasRow) {
+                    $cell['text'] = 'Cần điều chỉnh: chưa chọn môn';
+                    $cell['class'] = 'text-danger fw-semibold';
+                    $cell['is_alert'] = true;
+                    $missingCount++;
+                } else {
+                    $cell['text'] = 'Không chọn';
+                    $cell['class'] = 'text-muted';
+                }
+            } elseif (!$hasRow) {
+                $cell['text'] = 'Cần điều chỉnh: thiếu dữ liệu môn';
+                $cell['class'] = 'text-danger fw-semibold';
+                $cell['is_alert'] = true;
+                $missingCount++;
+            } elseif ($roomName === '') {
+                $cell['text'] = 'Chưa phân phòng';
+                $cell['class'] = 'text-danger';
                 $missingCount++;
             }
+
+            $cellsBySubject[$subId] = $cell;
         }
+
         if ($onlyIncomplete && $missingCount === 0) {
             continue;
         }
-        $row['rooms_by_subject'] = $roomsBySubject;
+
+        $row['rooms_by_subject'] = $cellsBySubject;
         $row['missing_count'] = $missingCount;
         $preparedRows[] = $row;
     }
@@ -1031,6 +1109,8 @@ require_once BASE_PATH . '/layout/header.php';
                             </div>
                         </form>
 
+                        <div class="small text-danger mb-2">Các ô chữ đỏ là dữ liệu cần điều chỉnh trong ma trận chọn môn hoặc phân phòng.</div>
+
                         <div class="table-responsive">
                             <table class="table table-bordered table-sm">
                                 <thead>
@@ -1054,7 +1134,8 @@ require_once BASE_PATH . '/layout/header.php';
                                         <td><?= htmlspecialchars((string) ($st['hoten'] ?? 'N/A'), ENT_QUOTES, 'UTF-8') ?></td>
                                         <td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <?php foreach ($unassignedMatrixSubjects as $sub): $subId = (int) ($sub['subject_id'] ?? 0); ?>
-                                            <td><?= htmlspecialchars((string) (($st['rooms_by_subject'][$subId] ?? '') ?: ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                            <?php $cell = $st['rooms_by_subject'][$subId] ?? ['text' => '', 'class' => '', 'is_alert' => false]; ?>
+                                            <td class="<?= htmlspecialchars((string) ($cell['class'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($cell['text'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <?php endforeach; ?>
                                     </tr>
                                 <?php endforeach; endif; ?>
