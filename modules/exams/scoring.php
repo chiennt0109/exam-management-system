@@ -149,6 +149,16 @@ if ($role === 'scorer') {
     }
 }
 
+$displayComponentLabels = $componentLabels;
+if ($role === 'scorer') {
+    $displayComponentLabels = [];
+    foreach ($componentLabels as $key => $label) {
+        if (in_array($key, $allowedComponents, true)) {
+            $displayComponentLabels[$key] = $label;
+        }
+    }
+}
+
 $listStmt = $pdo->prepare('SELECT sc.id, es.sbd, st.hoten, st.ngaysinh, st.lop, sc.component_1, sc.component_2, sc.component_3, sc.total_score
     FROM scores sc
     INNER JOIN exam_students es ON es.exam_id = sc.exam_id AND es.student_id = sc.student_id AND es.subject_id = sc.subject_id
@@ -177,6 +187,7 @@ require_once BASE_PATH . '/layout/header.php';
 <?= exams_display_flash(); ?>
 <?php if ($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach ($errors as $e): ?><li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div><?php endif; ?>
 <?php if ($role === 'scorer' && empty($subjects)): ?><div class="alert alert-warning">Bạn chưa được phân công phạm vi nhập điểm.</div><?php endif; ?>
+<?php if ($role === 'scorer' && !empty($subjects) && empty($displayComponentLabels)): ?><div class="alert alert-warning">Bạn chưa được phân công thành phần điểm cho phạm vi đang chọn.</div><?php endif; ?>
 <form method="get" class="row g-2 mb-3" id="scoringFilterForm">
 <div class="col-md-4"><label class="form-label">Môn</label><select class="form-select" name="subject_id" id="subjectFilterSelect"><?php foreach ($subjects as $s): ?><option value="<?= (int) $s['id'] ?>" <?= $subjectId === (int) $s['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $s['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
 <div class="col-md-4"><label class="form-label">Phòng thi</label><select class="form-select" name="room_id" id="roomFilterSelect"><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['id'] ?>" <?= $roomId === (int) $r['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $r['ten_phong'] . ' - Khối ' . $r['khoi'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
@@ -190,7 +201,7 @@ require_once BASE_PATH . '/layout/header.php';
 <thead>
 <tr>
 <th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th>
-<?php foreach ($componentLabels as $key => $label): ?>
+<?php foreach ($displayComponentLabels as $key => $label): ?>
 <th>
 <div><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></div>
 <?php if (in_array($key, $allowedComponents, true)): ?><button type="button" class="btn btn-link btn-sm p-0 fill-max" data-fill-column="<?= $key ?>" data-max="<?= $key === 'component_1' ? $max1 : ($key === 'component_2' ? $max2 : $max3) ?>">Điền tối đa</button><?php endif; ?>
@@ -207,7 +218,7 @@ require_once BASE_PATH . '/layout/header.php';
 <td><?= htmlspecialchars((string) $r['hoten'], ENT_QUOTES, 'UTF-8') ?></td>
 <td><?= htmlspecialchars(fmtDob((string) $r['ngaysinh']), ENT_QUOTES, 'UTF-8') ?></td>
 <td><?= htmlspecialchars((string) $r['lop'], ENT_QUOTES, 'UTF-8') ?></td>
-<?php foreach ($componentLabels as $key => $label):
+<?php foreach ($displayComponentLabels as $key => $label):
     $name = $key === 'component_1' ? 'c1' : ($key === 'component_2' ? 'c2' : 'c3');
     $editable = in_array($key, $allowedComponents, true);
     $max = $key === 'component_1' ? $max1 : ($key === 'component_2' ? $max2 : $max3);
@@ -221,7 +232,7 @@ require_once BASE_PATH . '/layout/header.php';
 <?php endforeach; ?>
 </tbody>
 </table>
-<div class="mt-2"><button class="btn btn-success" type="submit" <?= (empty($allowedComponents) || $roomId <= 0) ? 'disabled' : '' ?>>Lưu điểm</button></div>
+<div class="mt-2"><button class="btn btn-success" type="submit" <?= (empty($displayComponentLabels) || $roomId <= 0) ? 'disabled' : '' ?>>Lưu điểm</button></div>
 </form>
 </div></div></div></div>
 
