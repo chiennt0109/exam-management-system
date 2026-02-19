@@ -32,6 +32,10 @@ if (!in_array($perPage, $perPageOptions, true)) {
 }
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $export = (string) ($_GET['export'] ?? '');
+$exportFile = (string) ($_GET['file'] ?? 'pdf');
+if (!in_array($exportFile, ['pdf', 'excel'], true)) {
+    $exportFile = 'pdf';
+}
 
 $where = ' WHERE es.exam_id = :exam_id AND es.subject_id IS NULL';
 $params = [':exam_id' => $examId];
@@ -89,33 +93,138 @@ if (!empty($studentIds) && !empty($subjects)) {
 }
 
 if ($export === '1') {
-    header('Content-Type: text/html; charset=UTF-8');
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>DANH SÁCH NIÊM YẾT</title><style>@page{size:A4 portrait;margin:20mm 15mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.header{display:grid;grid-template-columns:1fr 1fr;column-gap:12px}.left,.right{text-align:center;line-height:1.3}.title{font-size:16px;font-weight:700}.sub{font-size:14px;font-weight:700}.meta{font-size:13px;margin-top:6px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:left}.center{text-align:center}</style></head><body>';
-    echo '<div class="header"><div class="left"><div class="sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="sub">' . htmlspecialchars($examName) . '</div></div>';
-    echo '<div class="right"><div class="title">DANH SÁCH NIÊM YẾT</div><div class="meta">Lớp: <strong>' . htmlspecialchars($filterClass !== '' ? $filterClass : '-- Tất cả lớp --') . '</strong></div></div></div>';
-    echo '<table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th style="width:28%">Họ tên</th><th style="width:13%">Ngày sinh</th><th style="width:12%">Lớp</th>';
-    foreach ($subjects as $sub) {
-        echo '<th>' . htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') . '</th>';
+    $classesToExport = $filterClass !== '' ? [$filterClass] : $classOptions;
+    if (empty($classesToExport)) {
+        $classesToExport = ['--'];
     }
-    echo '</tr></thead><tbody>';
-    foreach ($listRows as $i => $row) {
-        $sid = (int) ($row['student_id'] ?? 0);
-        $dob = (string) ($row['ngaysinh'] ?? '');
-        $ts = strtotime($dob);
-        $dobFmt = $ts ? date('d/m/Y', $ts) : $dob;
-        echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars($dobFmt, ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars((string) ($row['lop'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
-        foreach ($subjects as $sub) {
-            $subId = (int) ($sub['subject_id'] ?? 0);
-            echo '<td>' . htmlspecialchars((string) ($roomByStudentSubject[$sid][$subId] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
+
+    $allRowsByClass = [];
+    if ($classesToExport !== ['--']) {
+        $phClass = implode(',', array_fill(0, count($classesToExport), '?'));
+        $allStmt = $pdo->prepare('SELECT es.student_id, es.sbd, st.hoten, st.lop, st.ngaysinh
+            FROM exam_students es
+            INNER JOIN students st ON st.id = es.student_id
+            WHERE es.exam_id = ? AND es.subject_id IS NULL AND trim(coalesce(st.lop, "")) IN (' . $phClass . ')
+            ORDER BY st.lop, es.sbd, st.hoten');
+        $allStmt->execute(array_merge([$examId], $classesToExport));
+        foreach ($allStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $lop = trim((string) ($r['lop'] ?? ''));
+            if ($lop === '') {
+                continue;
+            }
+            $allRowsByClass[$lop][] = $r;
         }
-        echo '</tr>';
     }
-    if (empty($listRows)) {
-        echo '<tr><td class="center" colspan="' . (5 + count($subjects)) . '">Không có dữ liệu.</td></tr>';
+    foreach ($classesToExport as $lop) {
+        $allRowsByClass[$lop] = $allRowsByClass[$lop] ?? [];
     }
-    echo '</tbody></table></body></html>';
+
+    $allStudentIds = [];
+    foreach ($allRowsByClass as $rows) {
+        foreach ($rows as $r) {
+            $sid = (int) ($r['student_id'] ?? 0);
+            if ($sid > 0) {
+                $allStudentIds[$sid] = true;
+            }
+        }
+    }
+    $allStudentIds = array_keys($allStudentIds);
+
+    $allRoomByStudentSubject = [];
+    if (!empty($allStudentIds) && !empty($subjects)) {
+        $ph = implode(',', array_fill(0, count($allStudentIds), '?'));
+        $mapStmt = $pdo->prepare('SELECT es.student_id, es.subject_id, r.ten_phong
+            FROM exam_students es
+            LEFT JOIN rooms r ON r.id = es.room_id
+            WHERE es.exam_id = ? AND es.subject_id IS NOT NULL AND es.student_id IN (' . $ph . ')');
+        $mapStmt->execute(array_merge([$examId], $allStudentIds));
+        foreach ($mapStmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
+            $sid = (int) ($m['student_id'] ?? 0);
+            $subId = (int) ($m['subject_id'] ?? 0);
+            if ($sid > 0 && $subId > 0) {
+                $allRoomByStudentSubject[$sid][$subId] = (string) ($m['ten_phong'] ?? '');
+            }
+        }
+    }
+
+    if ($exportFile === 'excel') {
+        header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="danh_sach_niem_yet_theo_lop_exam_' . $examId . '.xls"');
+        $xmlEscape = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        echo '<?xml version="1.0" encoding="UTF-8"?>';
+        echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">';
+        echo '<Styles>';
+        echo '<Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Times New Roman" ss:Size="12"/></Style>';
+        echo '<Style ss:ID="HeadL"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="14"/></Style>';
+        echo '<Style ss:ID="HeadR"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="16"/></Style>';
+        echo '<Style ss:ID="HeadS"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="12"/></Style>';
+        echo '<Style ss:ID="TH"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:Bold="1"/></Style>';
+        echo '<Style ss:ID="C"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>';
+        echo '<Style ss:ID="L"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>';
+        echo '</Styles>';
+
+        foreach ($classesToExport as $lop) {
+            $rows = $allRowsByClass[$lop] ?? [];
+            $sheetName = substr(preg_replace('/[^\p{L}\p{N}_-]+/u', '_', $lop) ?: 'Class', 0, 31);
+            echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table ss:ExpandedColumnCount="' . (5 + count($subjects)) . '">';
+            foreach ([5,10,28,12,12] as $w) echo '<Column ss:Width="' . ($w * 6.5) . '"/>';
+            foreach ($subjects as $_) echo '<Column ss:Width="120"/>';
+            echo '<Row ss:Height="24"><Cell ss:MergeAcross="3" ss:MergeDown="1" ss:StyleID="HeadL"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
+" . $examName) . '</Data></Cell><Cell ss:Index="5" ss:MergeAcross="' . (count($subjects)) . '" ss:StyleID="HeadR"><Data ss:Type="String">DANH SÁCH NIÊM YẾT</Data></Cell></Row>';
+            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="' . (count($subjects)) . '" ss:StyleID="HeadS"><Data ss:Type="String">Lớp: ' . $xmlEscape($lop) . '</Data></Cell></Row>';
+            echo '<Row ss:Height="10"></Row>';
+            echo '<Row><Cell ss:StyleID="TH"><Data ss:Type="String">STT</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">SBD</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Họ tên</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Ngày sinh</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Lớp</Data></Cell>';
+            foreach ($subjects as $sub) echo '<Cell ss:StyleID="TH"><Data ss:Type="String">' . $xmlEscape((string) ($sub['ten_mon'] ?? '')) . '</Data></Cell>';
+            echo '</Row>';
+            foreach ($rows as $i => $row) {
+                $sid = (int) ($row['student_id'] ?? 0);
+                $dob = (string) ($row['ngaysinh'] ?? '');
+                $ts = strtotime($dob);
+                $dobFmt = $ts ? date('d/m/Y', $ts) : $dob;
+                echo '<Row><Cell ss:StyleID="C"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape((string) ($row['sbd'] ?? '')) . '</Data></Cell><Cell ss:StyleID="L"><Data ss:Type="String">' . $xmlEscape((string) ($row['hoten'] ?? '')) . '</Data></Cell><Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape($dobFmt) . '</Data></Cell><Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape((string) ($row['lop'] ?? '')) . '</Data></Cell>';
+                foreach ($subjects as $sub) {
+                    $subId = (int) ($sub['subject_id'] ?? 0);
+                    echo '<Cell ss:StyleID="L"><Data ss:Type="String">' . $xmlEscape((string) ($allRoomByStudentSubject[$sid][$subId] ?? '')) . '</Data></Cell>';
+                }
+                echo '</Row>';
+            }
+            echo '</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><PageSetup><Layout x:Orientation="Portrait"/><PageMargins x:Top="0.7" x:Bottom="0.7" x:Left="0.7" x:Right="0.7"/></PageSetup><Print><ValidPrinterInfo/><PaperSizeIndex>9</PaperSizeIndex><FitWidth>1</FitWidth><FitHeight>1</FitHeight></Print></WorksheetOptions></Worksheet>';
+        }
+        echo '</Workbook>';
+        exit;
+    }
+
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>DANH SÁCH NIÊM YẾT</title><style>@page{size:A4 portrait;margin:20mm 15mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.page{page-break-after:always}.header{display:grid;grid-template-columns:1fr 1fr;column-gap:12px}.left,.right{text-align:center;line-height:1.3}.title{font-size:16px;font-weight:700}.sub{font-size:14px;font-weight:700}.meta{font-size:13px;margin-top:6px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:left}.center{text-align:center}</style></head><body>';
+    foreach ($classesToExport as $lop) {
+        $rows = $allRowsByClass[$lop] ?? [];
+        echo '<section class="page"><div class="header"><div class="left"><div class="sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="sub">' . htmlspecialchars($examName) . '</div></div><div class="right"><div class="title">DANH SÁCH NIÊM YẾT</div><div class="meta">Lớp: <strong>' . htmlspecialchars($lop) . '</strong></div></div></div>';
+        echo '<table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th style="width:28%">Họ tên</th><th style="width:13%">Ngày sinh</th><th style="width:12%">Lớp</th>';
+        foreach ($subjects as $sub) {
+            echo '<th>' . htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') . '</th>';
+        }
+        echo '</tr></thead><tbody>';
+        foreach ($rows as $i => $row) {
+            $sid = (int) ($row['student_id'] ?? 0);
+            $dob = (string) ($row['ngaysinh'] ?? '');
+            $ts = strtotime($dob);
+            $dobFmt = $ts ? date('d/m/Y', $ts) : $dob;
+            echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars($dobFmt, ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars((string) ($row['lop'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
+            foreach ($subjects as $sub) {
+                $subId = (int) ($sub['subject_id'] ?? 0);
+                echo '<td>' . htmlspecialchars((string) ($allRoomByStudentSubject[$sid][$subId] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
+            }
+            echo '</tr>';
+        }
+        if (empty($rows)) {
+            echo '<tr><td class="center" colspan="' . (5 + count($subjects)) . '">Không có dữ liệu.</td></tr>';
+        }
+        echo '</tbody></table></section>';
+    }
+    echo '<script>window.print();</script></body></html>';
     exit;
 }
+
 
 $baseQuery = [
     'class' => $filterClass,
@@ -132,7 +241,7 @@ require_once BASE_PATH . '/layout/header.php';
 <a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/print_rooms.php">Quay lại B6</a>
 </div><div class="card-body">
 <form method="get" action="<?= BASE_URL ?>/modules/exams/print_subject_list.php" class="row g-2 mb-3">
-<div class="col-md-3">
+<div class="col-md-2">
 <label class="form-label">Chế độ xem</label>
 <select class="form-select" disabled><option>Theo lớp</option></select>
 </div>
@@ -149,8 +258,9 @@ require_once BASE_PATH . '/layout/header.php';
 <label class="form-label">Số dòng/trang</label>
 <select class="form-select" name="per_page"><?php foreach($perPageOptions as $opt): ?><option value="<?= $opt ?>" <?= $perPage === $opt ? 'selected' : '' ?>><?= $opt ?></option><?php endforeach; ?></select>
 </div>
-<div class="col-md-2 align-self-end"><button class="btn btn-primary w-100" type="submit">Lọc</button></div>
-<div class="col-md-2 align-self-end"><a class="btn btn-outline-secondary w-100" target="_blank" href="<?= BASE_URL ?>/modules/exams/print_subject_list.php?<?= http_build_query(array_merge($baseQuery, ['export' => 1])) ?>">In</a></div>
+<div class="col-md-1 align-self-end"><button class="btn btn-primary w-100" type="submit">Lọc</button></div>
+<div class="col-md-2 align-self-end"><a class="btn btn-outline-success w-100" href="<?= BASE_URL ?>/modules/exams/print_subject_list.php?<?= http_build_query(array_merge($baseQuery, ['export' => 1, 'file' => 'excel'])) ?>">Xuất Excel</a></div>
+<div class="col-md-2 align-self-end"><a class="btn btn-outline-secondary w-100" target="_blank" href="<?= BASE_URL ?>/modules/exams/print_subject_list.php?<?= http_build_query(array_merge($baseQuery, ['export' => 1, 'file' => 'pdf'])) ?>">Xuất PDF</a></div>
 </form>
 
 <div class="table-responsive">
