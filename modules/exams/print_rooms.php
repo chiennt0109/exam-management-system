@@ -6,9 +6,14 @@ require_once BASE_PATH . '/modules/exams/_common.php';
 $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
 $csrf = exams_get_csrf_token();
 $role = (string) ($_SESSION['user']['role'] ?? '');
-$examModeStmt = $pdo->prepare('SELECT exam_mode FROM exams WHERE id = :id LIMIT 1');
+$examModeStmt = $pdo->prepare('SELECT exam_mode, ten_ky_thi FROM exams WHERE id = :id LIMIT 1');
 $examModeStmt->execute([':id' => $examId]);
-$examMode = (int) ($examModeStmt->fetchColumn() ?: 1);
+$examMeta = $examModeStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$examMode = (int) ($examMeta['exam_mode'] ?? 1);
+$examName = trim((string) ($examMeta['ten_ky_thi'] ?? ''));
+if ($examName === '') {
+    $examName = 'KIỂM TRA GIỮA KỲ II - KHỐI 12';
+}
 if (!in_array($examMode, [1, 2], true)) {
     $examMode = 1;
 }
@@ -232,8 +237,8 @@ if (in_array($export, ['format1', 'format2'], true)) {
         header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
     }
-    $year = date('Y');
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>Export phòng thi</title><style>@page{size:A4 portrait;margin:20mm 15mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.print-toolbar{display:none}.export-page{page-break-after:always;min-height:calc(297mm - 40mm);display:flex;flex-direction:column}.header-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:12px;align-items:start}.header-left,.header-right{text-align:center;line-height:1.25}.title-main{font-size:16px;font-weight:700}.title-sub{font-size:14px;font-weight:700}.room-subject{margin-top:6px;font-size:13px}.table-wrap{margin-top:8px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{text-align:center;font-weight:700}.right{text-align:right}.center{text-align:center}.footer-right{margin-top:auto;text-align:right;font-size:13px;line-height:1.6}.summary{font-size:12px;line-height:1.5;margin-top:8px}.signature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:14px;text-align:center;font-weight:700}.small-note{font-size:11px;font-style:italic;margin-top:4px}.sig-space{height:54px}.nowrap{white-space:nowrap}@media screen{body{padding:24px}.print-toolbar{display:flex;position:sticky;top:0;background:#fff;padding:8px 0 12px;gap:8px;z-index:5}.export-page{min-height:auto;border:1px dashed #bbb;padding:12mm 10mm;margin-bottom:20px}}@media print{.print-toolbar{display:none}}</style></head><body>';
+    $year = '2026';
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>Export phòng thi</title><style>@page{size:A4 portrait;margin:20mm 15mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.print-toolbar{display:none}.export-page{page-break-after:always;min-height:calc(297mm - 40mm);display:flex;flex-direction:column}.header-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:12px;align-items:start}.header-left,.header-right{text-align:center;line-height:1.25}.title-main{font-size:16px;font-weight:700}.title-sub{font-size:14px;font-weight:700}.room-subject{margin-top:6px;font-size:13px}.table-wrap{margin-top:8px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{text-align:center;font-weight:700}.right{text-align:right}.center{text-align:center}.footer-right{margin-top:8px;text-align:right;font-size:13px;line-height:1.6}.footer-signature{display:inline-block;text-align:center}.summary{font-size:12px;line-height:1.5;margin-top:8px}.signature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:14px;text-align:center;font-weight:700}.small-note{font-size:11px;font-style:italic;margin-top:4px}.sig-space{height:54px}.nowrap{white-space:nowrap}@media screen{body{padding:24px}.print-toolbar{display:flex;position:sticky;top:0;background:#fff;padding:8px 0 12px;gap:8px;z-index:5}.export-page{min-height:auto;padding:0;margin-bottom:20px}}@media print{.print-toolbar{display:none}}</style></head><body>';
     if ($isPdfExport) {
         echo '<div class="print-toolbar"><button type="button" onclick="window.print()">In / Lưu PDF</button><a href="' . htmlspecialchars((string) ($_SERVER['HTTP_REFERER'] ?? (BASE_URL . '/modules/exams/print_rooms.php')), ENT_QUOTES, 'UTF-8') . '">Quay lại</a></div>';
     }
@@ -247,7 +252,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
         echo '<section class="export-page">';
         if ($export === 'format1') {
             echo '<div class="header-grid">';
-            echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">KIỂM TRA GIỮA KỲ II - KHỐI 12</div></div>';
+            echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">' . htmlspecialchars($examName) . '</div></div>';
             echo '<div class="header-right"><div class="title-main">DANH SÁCH NIÊM YẾT</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
             echo '</div>';
             echo '<div class="table-wrap"><table><thead><tr><th style="width:7%">STT</th><th style="width:12%">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:13%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
@@ -258,10 +263,10 @@ if (in_array($export, ['format1', 'format2'], true)) {
             if ($truncated) {
                 echo '<div class="small-note">Danh sách vượt quá ' . $maxRows . ' học sinh, chỉ hiển thị ' . $maxRows . ' học sinh đầu tiên trên trang in.</div>';
             }
-            echo '<div class="footer-right"><div><em>Hải Phòng, ngày ... tháng ... năm ' . $year . '</em></div><div style="text-align:center;margin-top:6px"><strong>CHỦ TỊCH HỘI ĐỒNG</strong></div><div class="sig-space"></div></div>';
+            echo '<div class="footer-right"><div class="footer-signature"><div><em>Hải Phòng, ngày ... tháng ... năm ' . $year . '</em></div><div><strong>CHỦ TỊCH HỘI ĐỒNG</strong></div><div class="sig-space"></div></div></div>';
         } else {
             echo '<div class="header-grid">';
-            echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">KIỂM TRA GIỮA KỲ II - KHỐI 12</div></div>';
+            echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">' . htmlspecialchars($examName) . '</div></div>';
             echo '<div class="header-right"><div class="title-main">PHIẾU THU BÀI</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
             echo '</div>';
             echo '<div class="table-wrap"><table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th>Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:10%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:23%">Ghi chú / Ký tên</th></tr></thead><tbody>';
