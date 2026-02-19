@@ -66,6 +66,27 @@ $roomsStmt = $pdo->prepare('SELECT r.id, r.ten_phong, r.khoi, r.subject_id, s.te
 $roomsStmt->execute([':exam_id' => $examId]);
 $rooms = $roomsStmt->fetchAll(PDO::FETCH_ASSOC);
 
+$assignmentLookupStmt = $pdo->prepare('SELECT sa.subject_id, sa.component_name, sa.khoi, sa.room_id, sa.user_id, u.username
+    FROM score_assignments sa
+    INNER JOIN users u ON u.id = sa.user_id
+    WHERE sa.exam_id = :exam_id');
+$assignmentLookupStmt->execute([':exam_id' => $examId]);
+$assignmentLookupMap = [];
+foreach ($assignmentLookupStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+    $sid = (int) ($r['subject_id'] ?? 0);
+    $component = (string) ($r['component_name'] ?? 'total');
+    $roomId = (int) ($r['room_id'] ?? 0);
+    $khoiKey = trim((string) ($r['khoi'] ?? ''));
+    $scopeKey = $roomId > 0 ? ('room:' . $roomId) : ('khoi:' . $khoiKey);
+    if ($sid <= 0 || $scopeKey === 'khoi:') {
+        continue;
+    }
+    $assignmentLookupMap[$sid . '|' . $component . '|' . $scopeKey] = [
+        'user_id' => (int) ($r['user_id'] ?? 0),
+        'username' => (string) ($r['username'] ?? ''),
+    ];
+}
+
 /**
  * Kiểm tra đã có dữ liệu điểm nhập cho đúng phạm vi + thành phần chưa.
  */
@@ -120,6 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         $action = (string) ($_POST['action'] ?? 'create');
         $warnings = [];
+        $confirmedOverwrite = ((string) ($_POST['confirm_overwrite'] ?? '0')) === '1';
         try {
             $pdo->beginTransaction();
             if ($action === 'delete') {
@@ -165,6 +187,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 continue;
                             }
 
+                            if (!$confirmedOverwrite) {
+                                throw new RuntimeException('Phạm vi này đã có phân công người nhập điểm. Vui lòng xác nhận trước khi ghi đè.');
+                            }
+
                             if (scoringAssignmentHasEnteredScores($pdo, $examId, $subjectId, $componentName, $khoi, null)) {
                                 $warnings[] = 'Môn đã có người nhập điểm (môn + khối + thành phần), hệ thống đã đổi người phân công.';
                             }
@@ -203,6 +229,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             if ($oldUserId === $userId) {
                                 continue;
+                            }
+
+                            if (!$confirmedOverwrite) {
+                                throw new RuntimeException('Phạm vi này đã có phân công người nhập điểm. Vui lòng xác nhận trước khi ghi đè.');
                             }
 
                             if (scoringAssignmentHasEnteredScores($pdo, $examId, $subjectId, $componentName, null, $roomId)) {
@@ -309,6 +339,7 @@ require_once BASE_PATH . '/layout/header.php';
 <?php if (!$isExamLocked): ?><div class="alert alert-warning">Phải khoá kỳ thi trước khi phân công nhập điểm.</div><?php endif; ?>
 <form method="post" class="row g-2" id="assignForm">
 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+<input type="hidden" name="confirm_overwrite" id="confirmOverwriteInput" value="0">
 <div class="col-md-3"><label class="form-label">Môn</label><select name="subject_id" id="subjectSelect" class="form-select" required><?php foreach($subjects as $sub): ?><option value="<?= (int)$sub['id'] ?>"><?= htmlspecialchars((string)$sub['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
 <div class="col-md-3"><label class="form-label">Thành phần điểm</label><div id="componentBoxes" class="border rounded p-2 bg-light"></div></div>
 <div class="col-md-3"><label class="form-label">Người nhập điểm</label><select name="user_id" class="form-select" required><?php foreach($scoreUsers as $u): ?><option value="<?= (int)$u['id'] ?>"><?= htmlspecialchars((string)$u['username'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
@@ -333,6 +364,7 @@ require_once BASE_PATH . '/layout/header.php';
 <script>
 const roomData = <?= json_encode(array_map(static fn($r) => ['id' => (int)$r['id'], 'subject_id' => (int)$r['subject_id'], 'label' => (string)($r['ten_phong'].' (Khối '.$r['khoi'].')')], $rooms), JSON_UNESCAPED_UNICODE) ?>;
 const componentMap = <?= json_encode($componentMap, JSON_UNESCAPED_UNICODE) ?>;
+const assignmentLookupMap = <?= json_encode($assignmentLookupMap, JSON_UNESCAPED_UNICODE) ?>;
 const modeRadios = document.querySelectorAll('input[name="assign_mode"]');
 const scopeKhoi = document.getElementById('scopeKhoi');
 const scopeRoom = document.getElementById('scopeRoom');
@@ -382,7 +414,54 @@ available?.addEventListener('dblclick', ()=>moveSelected(available, selected));
 selected?.addEventListener('dblclick', ()=>moveSelected(selected, available));
 subjectSelect?.addEventListener('change', ()=>{ selected.innerHTML=''; refreshComponents(); renderAvailable(); });
 modeRadios.forEach(r=>r.addEventListener('change', syncMode));
-document.getElementById('assignForm')?.addEventListener('submit', markSelectedForSubmit);
+document.getElementById('assignForm')?.addEventListener('submit', (e) => {
+  markSelectedForSubmit();
+  const form = e.currentTarget;
+  const confirmInput = document.getElementById('confirmOverwriteInput');
+  if (confirmInput) {
+    confirmInput.value = '0';
+  }
+
+  const sid = Number(subjectSelect?.value || 0);
+  const userId = Number(form.querySelector('select[name="user_id"]')?.value || 0);
+  const mode = currentMode();
+  const selectedComponents = Array.from(form.querySelectorAll('input[name="component_name[]"]:checked')).map(el => el.value);
+  const components = selectedComponents.length ? selectedComponents : ['total'];
+
+  const scopes = [];
+  if (mode === 'subject_room') {
+    Array.from(selected.options).forEach((opt) => {
+      scopes.push('room:' + String(opt.value));
+    });
+  } else {
+    const khoi = (khoiInput?.value || '').trim();
+    if (khoi !== '') {
+      scopes.push('khoi:' + khoi);
+    }
+  }
+
+  const conflicts = [];
+  components.forEach((component) => {
+    scopes.forEach((scope) => {
+      const key = `${sid}|${component}|${scope}`;
+      const existing = assignmentLookupMap[key];
+      if (existing && Number(existing.user_id || 0) > 0 && Number(existing.user_id || 0) !== userId) {
+        conflicts.push(existing.username || 'người khác');
+      }
+    });
+  });
+
+  if (conflicts.length > 0) {
+    const ok = window.confirm('Phạm vi bạn chọn đã có người được phân công nhập điểm. Bạn có muốn xác nhận ghi đè phân công hiện tại không?');
+    if (!ok) {
+      e.preventDefault();
+      return;
+    }
+    if (confirmInput) {
+      confirmInput.value = '1';
+    }
+  }
+});
 
 syncMode();
 refreshComponents();
