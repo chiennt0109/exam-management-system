@@ -130,7 +130,7 @@ try {
                 $hasAny = true;
             }
         }
-        $total = $hasAny ? $sum : null;
+        $total = $hasAny ? round($sum, 2) : null;
 
         if ($total !== null && $total > $totalMax) {
             throw new RuntimeException('Tổng điểm vượt quá tổng điểm môn.');

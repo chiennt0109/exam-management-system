@@ -42,7 +42,6 @@ $componentLabels = [
     'component_1' => 'Tự luận',
     'component_2' => 'Trắc nghiệm',
     'component_3' => 'Nói',
-    'total' => 'Tổng',
 ];
 
 $subjectsStmt = $pdo->prepare('SELECT DISTINCT s.id, s.ma_mon, s.ten_mon
@@ -86,7 +85,6 @@ if ($importProfile === 'all_exam') {
         $targets[] = ['key' => $sid . '|component_1', 'subject_id' => $sid, 'component' => 'component_1', 'label' => $meta['name'] . ' - Tự luận'];
         if ($count >= 2) $targets[] = ['key' => $sid . '|component_2', 'subject_id' => $sid, 'component' => 'component_2', 'label' => $meta['name'] . ' - Trắc nghiệm'];
         if ($count >= 3) $targets[] = ['key' => $sid . '|component_3', 'subject_id' => $sid, 'component' => 'component_3', 'label' => $meta['name'] . ' - Nói'];
-        $targets[] = ['key' => $sid . '|total', 'subject_id' => $sid, 'component' => 'total', 'label' => $meta['name'] . ' - Tổng'];
     }
 } else {
     if ($subjectId <= 0 || !isset($subjectMap[$subjectId])) {
@@ -98,7 +96,6 @@ if ($importProfile === 'all_exam') {
     $candidate = ['component_1'];
     if ($count >= 2) $candidate[] = 'component_2';
     if ($count >= 3) $candidate[] = 'component_3';
-    $candidate[] = 'total';
 
     if ($role === 'scorer') {
         $khoiValue = '';
@@ -114,10 +111,7 @@ if ($importProfile === 'all_exam') {
               AND ((room_id IS NOT NULL AND room_id=:room_id) OR (room_id IS NULL AND khoi=:khoi))');
         $assignStmt->execute([':exam_id'=>$examId,':subject_id'=>$subjectId,':user_id'=>$userId,':room_id'=>$roomId,':khoi'=>$khoiValue]);
         $assigned = array_values(array_unique(array_map('strval', $assignStmt->fetchAll(PDO::FETCH_COLUMN))));
-        if (in_array('total', $assigned, true)) {
-            $assigned = $candidate;
-        }
-        $candidate = array_values(array_intersect($candidate, $assigned));
+                $candidate = array_values(array_intersect($candidate, $assigned));
     }
 
     foreach ($candidate as $component) {

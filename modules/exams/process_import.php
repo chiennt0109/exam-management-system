@@ -61,7 +61,7 @@ try {
     foreach ($validRows as $row) {
         $studentId = (int) ($row['student_id'] ?? 0);
         $subjectId = (int) ($row['subject_id'] ?? 0);
-        $component = (string) ($row['component_name'] ?? 'total');
+        $component = (string) ($row['component_name'] ?? '');
         $parsedScore = $row['parsed_score'];
 
         if ($studentId <= 0 || $subjectId <= 0) {
@@ -89,11 +89,21 @@ try {
             $c2 = $parsedScore === null ? null : (float) $parsedScore;
         } elseif ($component === 'component_3') {
             $c3 = $parsedScore === null ? null : (float) $parsedScore;
+        } else {
+            $skipped++;
+            continue;
         }
 
-        $total = $component === 'total'
-            ? ($parsedScore === null ? null : (float) $parsedScore)
-            : ((($c1 ?? 0.0) + ($c2 ?? 0.0) + ($c3 ?? 0.0)));
+        $parts = [$c1, $c2, $c3];
+        $sum = 0.0;
+        $hasAny = false;
+        foreach ($parts as $part) {
+            if ($part !== null) {
+                $sum += (float) $part;
+                $hasAny = true;
+            }
+        }
+        $total = $hasAny ? round($sum, 2) : null;
 
         if ($total === null) {
             if ($exists && $strategy === 'overwrite') {
