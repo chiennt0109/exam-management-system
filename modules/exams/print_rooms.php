@@ -165,6 +165,10 @@ if (!empty($roomIds)) {
 }
 
 $export = (string) ($_GET['export'] ?? '');
+$exportFile = (string) ($_GET['file'] ?? 'excel');
+if (!in_array($exportFile, ['excel', 'pdf'], true)) {
+    $exportFile = 'excel';
+}
 if (in_array($export, ['format1', 'format2'], true)) {
     if (!$isExamLocked) {
         exams_set_flash('warning', 'Phải khoá kỳ thi trước khi export danh sách phòng.');
@@ -219,7 +223,13 @@ if (in_array($export, ['format1', 'format2'], true)) {
         }
     }
 
-    header('Content-Type: text/html; charset=UTF-8');
+    $filename = 'danh_sach_phong_' . $export . '_exam_' . $examId . ($exportFile === 'excel' ? '.xls' : '.html');
+    if ($exportFile === 'excel') {
+        header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
+    } else {
+        header('Content-Type: text/html; charset=UTF-8');
+    }
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
     echo '<!doctype html><html><head><meta charset="utf-8"><title>Export phòng thi</title><style>body{font-family:"Times New Roman",serif;margin:24px}h3,h4,p{text-align:center;margin:2px 0}table{width:100%;border-collapse:collapse;margin-top:8px;margin-bottom:24px}th,td{border:1px solid #333;padding:4px;font-size:14px}th{text-align:center} .right{text-align:right}.center{text-align:center}</style></head><body>';
 
     foreach ($allGroups as $group) {
@@ -254,6 +264,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
 }
 
 $baseQuery = [
+    'exam_id' => $examId,
     'subject_id' => $subjectFilter,
     'search' => $search,
     'per_page' => $perPage,
@@ -268,9 +279,13 @@ require_once BASE_PATH . '/layout/header.php';
 <div class="card shadow-sm"><div class="card-header bg-primary text-white d-flex justify-content-between align-items-center"><strong>Bước 6: In danh sách phòng thi</strong>
 <div>
 <?php if ($isExamLocked): ?>
-<a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format1'])) ?>" target="_blank">Export mẫu niêm yết</a>
-<a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format2'])) ?>" target="_blank">Export mẫu phiếu thu bài</a>
-<?php if ($examMode === 2): ?><a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/print_subject_list.php">DS theo môn</a><?php endif; ?>
+<div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format1', 'file' => 'excel'])) ?>">Mẫu niêm yết (Excel)</a>
+    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format1', 'file' => 'pdf'])) ?>">Mẫu niêm yết (PDF)</a>
+    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format2', 'file' => 'excel'])) ?>">Mẫu phiếu thu bài (Excel)</a>
+    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format2', 'file' => 'pdf'])) ?>">Mẫu phiếu thu bài (PDF)</a>
+    <?php if ($examMode === 2): ?><a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/print_subject_list.php">DS theo môn</a><?php endif; ?>
+</div>
 <?php else: ?>
 <span class="badge bg-warning text-dark">Phải khoá kỳ thi trước khi export danh sách</span>
 <?php endif; ?>
