@@ -1,3 +1,32 @@
+<?php
+// Lấy role
+$role = function_exists('current_user_role')
+    ? current_user_role()
+    : strtolower(trim((string) ($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '')));
+
+// Lấy exam_mode hiện tại
+$currentExamMode = 1;
+
+if (function_exists('getCurrentExamId')) {
+    require_once BASE_PATH . '/core/db.php';
+
+    $eid = getCurrentExamId();
+
+    if ($eid > 0) {
+        $stmtMode = $pdo->prepare("
+            SELECT exam_mode 
+            FROM exams 
+            WHERE id = :id 
+            LIMIT 1
+        ");
+        $stmtMode->execute([':id' => $eid]);
+
+        $m = (int) ($stmtMode->fetchColumn() ?: 1);
+        $currentExamMode = in_array($m, [1, 2], true) ? $m : 1;
+    }
+}
+?>
+
 <div class="sidebar">
 <ul>
 
@@ -15,6 +44,7 @@
 <?php if (in_array($role, ['admin', 'organizer'], true)): ?>
 <li>
     <details>
+<<<<<<< HEAD
         <summary><a href="<?= BASE_URL ?>/modules/exams/" onclick="event.stopPropagation();">Tổ chức kỳ thi</a></summary>
         <ul>
             <li><a href="<?= BASE_URL ?>/modules/exams/assign_students.php">B2: Gán học sinh</a></li>
@@ -22,6 +52,15 @@
             <li><a href="<?= BASE_URL ?>/modules/exams/configure_subjects.php">B4: Cấu hình môn</a></li>
             <li><a href="<?= BASE_URL ?>/modules/exams/distribute_rooms.php">B5: Phân phòng</a></li>
             <li><a href="<?= BASE_URL ?>/modules/exams/adjust_rooms.php">B5b: Tinh chỉnh phòng</a></li>
+=======
+        <summary>Tổ chức kỳ thi</summary>
+        <ul>
+            <li><a href="<?= BASE_URL ?>/modules/exams/">B1: Tạo kỳ thi</a></li>
+            <li><a href="<?= BASE_URL ?>/modules/exams/assign_students.php">B2: Gán học sinh</a></li>
+            <li><a href="<?= BASE_URL ?>/modules/exams/generate_sbd.php">B3: Sinh SBD</a></li>
+            <li><a href="<?= BASE_URL ?>/modules/exams/configure_subjects.php">B4: Cấu hình môn</a></li>
+            <li><a href="<?= BASE_URL ?>/modules/exams/distribute_rooms.php">B5: Phân phòng</a></li>            
+>>>>>>> main
             <li><a href="<?= BASE_URL ?>/modules/exams/print_rooms.php">B6: In danh sách</a></li>
         </ul>
     </details>
@@ -30,7 +69,11 @@
 <?php endif; ?>
 
 <?php if (in_array($role, ['admin', 'organizer', 'scorer'], true)): ?>
+<<<<<<< HEAD
     <li><a href="<?= BASE_URL ?>/modules/exams/scoring.php">Nhập điểm (kèm Import Excel)</a></li>
+=======
+    <li><a href="<?= BASE_URL ?>/modules/exams/scoring.php">Nhập điểm</a></li>
+>>>>>>> main
 <?php endif; ?>
 
 <?php if (in_array($role, ['admin', 'organizer'], true)): ?>
