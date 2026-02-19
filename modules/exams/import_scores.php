@@ -20,6 +20,9 @@ $hasPhpSpreadsheet = class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class);
 $csrf = exams_get_csrf_token();
 $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
 $errors = [];
+$role = (string) ($_SESSION['user']['role'] ?? '');
+$userId = (int) ($_SESSION['user']['id'] ?? 0);
+$isAdmin = normalize_role($role) === 'admin';
 
 $roomsStmt = $pdo->prepare('SELECT r.id, r.ten_phong, r.khoi, s.ten_mon, r.subject_id
     FROM rooms r
@@ -29,7 +32,7 @@ $roomsStmt = $pdo->prepare('SELECT r.id, r.ten_phong, r.khoi, s.ten_mon, r.subje
 $roomsStmt->execute([':exam_id' => $examId]);
 $rooms = $roomsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$subjectsStmt = $pdo->prepare('SELECT DISTINCT s.id, s.ten_mon
+$subjectsStmt = $pdo->prepare('SELECT DISTINCT s.id, s.ma_mon, s.ten_mon
     FROM exam_student_subjects ess
     INNER JOIN subjects s ON s.id = ess.subject_id
     WHERE ess.exam_id = :exam_id
@@ -56,14 +59,27 @@ if (!in_array($scopeType, ['khoi', 'lop'], true)) {
     $scopeType = 'khoi';
 }
 $scopeValue = trim((string) ($_POST['scope_value'] ?? ''));
+$targetComponent = (string) ($_POST['target_component'] ?? 'total');
+$allowedTargetComponents = ['total', 'component_1', 'component_2', 'component_3'];
+if (!in_array($targetComponent, $allowedTargetComponents, true)) {
+    $targetComponent = 'total';
+}
+$importAllSubjects = $isAdmin && ((string) ($_POST['import_all_subjects'] ?? '0')) === '1';
+$selectedSubjectIds = array_values(array_unique(array_filter(array_map('intval', (array) ($_POST['subject_ids'] ?? [])), static fn(int $v): bool => $v > 0)));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import'])) {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         $errors[] = 'CSRF token không hợp lệ.';
     }
 
-    if ($subjectId <= 0) {
-        $errors[] = 'Vui lòng chọn môn thi.';
+    if ($isAdmin) {
+        if (!$importAllSubjects && $subjectId <= 0 && empty($selectedSubjectIds)) {
+            $errors[] = 'Vui lòng chọn ít nhất 1 môn thi hoặc chọn import tất cả môn để mapping.';
+        }
+    } else {
+        if ($subjectId <= 0) {
+            $errors[] = 'Vui lòng chọn môn thi.';
+        }
     }
     if ($mode === 'subject_room' && $roomId <= 0) {
         $errors[] = 'Vui lòng chọn phòng thi.';
@@ -136,6 +152,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import'])) {
                 'room_id' => $roomId,
                 'scope_type' => $scopeType,
                 'scope_value' => $scopeValue,
+                'target_component' => $targetComponent,
+                'import_all_subjects' => $importAllSubjects,
+                'subject_ids' => $selectedSubjectIds,
                 'columns' => $columns,
                 'headers' => $headers,
                 'rows' => $rows,
@@ -182,10 +201,32 @@ require_once BASE_PATH . '/layout/header.php';
                         <select id="subject_id" name="subject_id" class="form-select">
                             <option value="0">-- Chọn môn --</option>
                             <?php foreach ($subjects as $subject): ?>
-                                <option value="<?= (int) $subject['id'] ?>" <?= $subjectId === (int) $subject['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $subject['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option>
+                                <option value="<?= (int) $subject['id'] ?>" <?= $subjectId === (int) $subject['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) (($subject['ma_mon'] ?? '') . ' - ' . $subject['ten_mon']), ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label" for="target_component">Thành phần điểm import</label>
+                        <select id="target_component" name="target_component" class="form-select">
+                            <option value="total" <?= $targetComponent === 'total' ? 'selected' : '' ?>>Tổng</option>
+                            <option value="component_1" <?= $targetComponent === 'component_1' ? 'selected' : '' ?>>Tự luận</option>
+                            <option value="component_2" <?= $targetComponent === 'component_2' ? 'selected' : '' ?>>Trắc nghiệm</option>
+                            <option value="component_3" <?= $targetComponent === 'component_3' ? 'selected' : '' ?>>Nói</option>
+                        </select>
+                    </div>
+
+                    <?php if ($isAdmin): ?>
+                    <div class="col-12 border rounded p-2">
+                        <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="import_all_subjects" name="import_all_subjects" value="1" <?= $importAllSubjects ? 'checked' : '' ?>><label class="form-check-label" for="import_all_subjects">Admin: import tất cả môn (mapping theo cột môn ở bước preview)</label></div>
+                        <label class="form-label mb-1">Hoặc chọn nhiều môn để mapping</label>
+                        <select class="form-select" name="subject_ids[]" multiple size="4">
+                            <?php foreach ($subjects as $subject): $sid=(int)$subject['id']; ?>
+                                <option value="<?= $sid ?>" <?= in_array($sid, $selectedSubjectIds, true) ? 'selected' : '' ?>><?= htmlspecialchars((string) (($subject['ma_mon'] ?? '') . ' - ' . $subject['ten_mon']), ENT_QUOTES, 'UTF-8') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php endif; ?>
 
                     <div class="col-md-4 mode-room">
                         <label class="form-label" for="room_id">Phòng thi</label>
@@ -226,7 +267,7 @@ require_once BASE_PATH . '/layout/header.php';
                         <button type="button" class="btn btn-outline-secondary mt-4" onclick="parseExcelClient()">Đọc file trên trình duyệt</button>
                     </div>
                     <div class="col-md-2 d-grid align-items-end">
-                        <button type="submit" name="import" id="import-btn" class="btn btn-primary mt-4">Tiếp tục mapping cột</button>
+                        <button type="submit" name="import" id="import-btn" class="btn btn-primary mt-4" onclick="return confirm('Xác nhận chuyển sang bước mapping/import điểm. Dữ liệu điểm có thể bị ghi đè ở bước cuối.')">Tiếp tục mapping cột</button>
                     </div>
                 </form>
             </div>
