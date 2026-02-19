@@ -43,11 +43,69 @@ $subjectsStmt = $pdo->prepare('SELECT DISTINCT s.id, s.ten_mon
 $subjectsStmt->execute([':exam_id' => $examId]);
 $subjects = $subjectsStmt->fetchAll(PDO::FETCH_ASSOC);
 
+$allRoomsStmt = $pdo->prepare('SELECT id, ten_phong, khoi, subject_id FROM rooms WHERE exam_id = :exam_id ORDER BY ten_phong');
+$allRoomsStmt->execute([':exam_id' => $examId]);
+$allRooms = $allRoomsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$allowedRoomIdsBySubject = [];
+if ($role === 'scorer') {
+    $assignmentStmt = $pdo->prepare('SELECT subject_id, khoi, room_id
+        FROM score_assignments
+        WHERE exam_id = :exam_id AND user_id = :user_id');
+    $assignmentStmt->execute([':exam_id' => $examId, ':user_id' => $userId]);
+    $assignments = $assignmentStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($assignments as $assignment) {
+        $sid = (int) ($assignment['subject_id'] ?? 0);
+        $rid = (int) ($assignment['room_id'] ?? 0);
+        $khoi = trim((string) ($assignment['khoi'] ?? ''));
+        if ($sid <= 0) {
+            continue;
+        }
+        $allowedRoomIdsBySubject[$sid] = $allowedRoomIdsBySubject[$sid] ?? [];
+
+        if ($rid > 0) {
+            $allowedRoomIdsBySubject[$sid][$rid] = true;
+            continue;
+        }
+
+        if ($khoi === '') {
+            continue;
+        }
+
+        foreach ($allRooms as $room) {
+            if ((int) ($room['subject_id'] ?? 0) === $sid && (string) ($room['khoi'] ?? '') === $khoi) {
+                $allowedRoomIdsBySubject[$sid][(int) ($room['id'] ?? 0)] = true;
+            }
+        }
+    }
+
+    $subjects = array_values(array_filter($subjects, static function (array $sub) use ($allowedRoomIdsBySubject): bool {
+        $sid = (int) ($sub['id'] ?? 0);
+        return $sid > 0 && !empty($allowedRoomIdsBySubject[$sid]);
+    }));
+}
+
 $subjectId = max(0, (int) ($_GET['subject_id'] ?? ($subjects[0]['id'] ?? 0)));
-$roomsStmt = $pdo->prepare('SELECT id, ten_phong, khoi FROM rooms WHERE exam_id = :exam_id AND subject_id = :subject_id ORDER BY ten_phong');
-$roomsStmt->execute([':exam_id' => $examId, ':subject_id' => $subjectId]);
-$rooms = $roomsStmt->fetchAll(PDO::FETCH_ASSOC);
+if ($role === 'scorer' && ($subjectId <= 0 || empty($allowedRoomIdsBySubject[$subjectId] ?? []))) {
+    $subjectId = (int) ($subjects[0]['id'] ?? 0);
+}
+
+$rooms = array_values(array_filter($allRooms, static function (array $room) use ($subjectId, $role, $allowedRoomIdsBySubject): bool {
+    $rid = (int) ($room['id'] ?? 0);
+    $sid = (int) ($room['subject_id'] ?? 0);
+    if ($sid !== $subjectId) {
+        return false;
+    }
+    if ($role !== 'scorer') {
+        return true;
+    }
+    return !empty($allowedRoomIdsBySubject[$sid][$rid]);
+}));
 $roomId = max(0, (int) ($_GET['room_id'] ?? ($rooms[0]['id'] ?? 0)));
+if (!in_array($roomId, array_map(static fn(array $r): int => (int) ($r['id'] ?? 0), $rooms), true)) {
+    $roomId = (int) ($rooms[0]['id'] ?? 0);
+}
 
 $roomKhoi = '';
 foreach ($rooms as $r) {
@@ -118,9 +176,10 @@ require_once BASE_PATH . '/layout/header.php';
 <div class="card shadow-sm"><div class="card-header bg-primary text-white d-flex justify-content-between align-items-center"><strong>Nhập điểm theo phòng thi</strong><a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/import_scores.php">Import Excel</a></div><div class="card-body">
 <?= exams_display_flash(); ?>
 <?php if ($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach ($errors as $e): ?><li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div><?php endif; ?>
-<form method="get" class="row g-2 mb-3">
-<div class="col-md-4"><label class="form-label">Môn</label><select class="form-select" name="subject_id" onchange="this.form.submit()"><?php foreach ($subjects as $s): ?><option value="<?= (int) $s['id'] ?>" <?= $subjectId === (int) $s['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $s['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-<div class="col-md-4"><label class="form-label">Phòng thi</label><select class="form-select" name="room_id" onchange="this.form.submit()"><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['id'] ?>" <?= $roomId === (int) $r['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $r['ten_phong'] . ' - Khối ' . $r['khoi'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+<?php if ($role === 'scorer' && empty($subjects)): ?><div class="alert alert-warning">Bạn chưa được phân công phạm vi nhập điểm.</div><?php endif; ?>
+<form method="get" class="row g-2 mb-3" id="scoringFilterForm">
+<div class="col-md-4"><label class="form-label">Môn</label><select class="form-select" name="subject_id" id="subjectFilterSelect"><?php foreach ($subjects as $s): ?><option value="<?= (int) $s['id'] ?>" <?= $subjectId === (int) $s['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $s['ten_mon'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+<div class="col-md-4"><label class="form-label">Phòng thi</label><select class="form-select" name="room_id" id="roomFilterSelect"><?php foreach ($rooms as $r): ?><option value="<?= (int) $r['id'] ?>" <?= $roomId === (int) $r['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $r['ten_phong'] . ' - Khối ' . $r['khoi'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
 </form>
 
 <form method="post" id="scoreForm" action="<?= BASE_URL ?>/modules/exams/save_score.php">
@@ -162,8 +221,59 @@ require_once BASE_PATH . '/layout/header.php';
 <?php endforeach; ?>
 </tbody>
 </table>
-<div class="mt-2"><button class="btn btn-success" type="submit" <?= empty($allowedComponents) ? 'disabled' : '' ?>>Lưu điểm</button></div>
+<div class="mt-2"><button class="btn btn-success" type="submit" <?= (empty($allowedComponents) || $roomId <= 0) ? 'disabled' : '' ?>>Lưu điểm</button></div>
 </form>
 </div></div></div></div>
+
+<script>
+const roomOptionsBySubject = <?= json_encode(array_reduce($allRooms, static function (array $carry, array $room) use ($role, $allowedRoomIdsBySubject): array {
+    $sid = (int) ($room['subject_id'] ?? 0);
+    $rid = (int) ($room['id'] ?? 0);
+    if ($sid <= 0 || $rid <= 0) {
+        return $carry;
+    }
+    if ($role === 'scorer' && empty($allowedRoomIdsBySubject[$sid][$rid])) {
+        return $carry;
+    }
+    $carry[$sid] = $carry[$sid] ?? [];
+    $carry[$sid][] = [
+        'id' => $rid,
+        'label' => (string) (($room['ten_phong'] ?? '') . ' - Khối ' . ($room['khoi'] ?? '')),
+    ];
+    return $carry;
+}, []), JSON_UNESCAPED_UNICODE) ?>;
+
+const scoringFilterForm = document.getElementById('scoringFilterForm');
+const subjectFilterSelect = document.getElementById('subjectFilterSelect');
+const roomFilterSelect = document.getElementById('roomFilterSelect');
+
+function refillRoomOptions(subjectId){
+  if (!roomFilterSelect) {
+    return;
+  }
+  const currentRoom = String(roomFilterSelect.value || '');
+  const items = roomOptionsBySubject[String(subjectId)] || roomOptionsBySubject[Number(subjectId)] || [];
+  roomFilterSelect.innerHTML = '';
+  items.forEach((item, idx) => {
+    const opt = document.createElement('option');
+    opt.value = String(item.id);
+    opt.textContent = String(item.label || '');
+    if (String(item.id) === currentRoom || (currentRoom === '' && idx === 0)) {
+      opt.selected = true;
+    }
+    roomFilterSelect.appendChild(opt);
+  });
+}
+
+subjectFilterSelect?.addEventListener('change', () => {
+  refillRoomOptions(subjectFilterSelect.value || '0');
+  scoringFilterForm?.submit();
+});
+
+roomFilterSelect?.addEventListener('change', () => {
+  scoringFilterForm?.submit();
+});
+</script>
+
 <script src="<?= BASE_URL ?>/modules/exams/assets/score_input.js"></script>
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>
