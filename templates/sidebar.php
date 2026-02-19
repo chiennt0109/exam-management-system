@@ -1,3 +1,32 @@
+<?php
+// Lấy role
+$role = function_exists('current_user_role')
+    ? current_user_role()
+    : strtolower(trim((string) ($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '')));
+
+// Lấy exam_mode hiện tại
+$currentExamMode = 1;
+
+if (function_exists('getCurrentExamId')) {
+    require_once BASE_PATH . '/core/db.php';
+
+    $eid = getCurrentExamId();
+
+    if ($eid > 0) {
+        $stmtMode = $pdo->prepare("
+            SELECT exam_mode 
+            FROM exams 
+            WHERE id = :id 
+            LIMIT 1
+        ");
+        $stmtMode->execute([':id' => $eid]);
+
+        $m = (int) ($stmtMode->fetchColumn() ?: 1);
+        $currentExamMode = in_array($m, [1, 2], true) ? $m : 1;
+    }
+}
+?>
+
 <div class="sidebar">
 <ul>
 
