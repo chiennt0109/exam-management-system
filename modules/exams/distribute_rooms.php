@@ -411,6 +411,7 @@ $activeTab = (string) ($_GET['tab'] ?? 'adjust');
 if (!in_array($activeTab, ['adjust', 'unassigned'], true)) {
     $activeTab = 'adjust';
 }
+$onlyIncomplete = ((string) ($_GET['only_incomplete'] ?? '1')) !== '0';
 $adjustView = (string) ($_GET['adjust_view'] ?? 'room');
 if (!in_array($adjustView, ['room', 'class'], true)) {
     $adjustView = 'room';
@@ -794,6 +795,8 @@ $rooms = [];
 $roomSummary = [];
 $assignedStudents = [];
 $unassignedStudents = [];
+$unassignedMatrixSubjects = [];
+$unassignedMatrixRows = [];
 $availableStudents = [];
 $hasDistribution = false;
 if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
@@ -821,6 +824,64 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
     $assignedStudents = $stuStmt->fetchAll(PDO::FETCH_ASSOC);
 
     $unassignedStudents = getUnassignedStudents($pdo, $examId, $subjectId, $khoi);
+
+    $subjectColsStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
+        FROM exam_students es
+        INNER JOIN subjects sub ON sub.id = es.subject_id
+        WHERE es.exam_id = :exam_id AND es.khoi = :khoi AND es.subject_id IS NOT NULL
+        ORDER BY sub.ten_mon');
+    $subjectColsStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+    $unassignedMatrixSubjects = $subjectColsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $baseRowsStmt = $pdo->prepare('SELECT es.student_id, es.sbd, es.lop, st.hoten
+        FROM exam_students es
+        INNER JOIN students st ON st.id = es.student_id
+        WHERE es.exam_id = :exam_id AND es.subject_id IS NULL AND es.khoi = :khoi
+        ORDER BY es.lop, es.sbd, st.hoten');
+    $baseRowsStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+    $unassignedMatrixRows = $baseRowsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $assignMapStmt = $pdo->prepare('SELECT es.student_id, es.subject_id, r.ten_phong
+        FROM exam_students es
+        LEFT JOIN rooms r ON r.id = es.room_id
+        WHERE es.exam_id = :exam_id AND es.khoi = :khoi AND es.subject_id IS NOT NULL');
+    $assignMapStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+    $matrixAssignMap = [];
+    foreach ($assignMapStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $sid = (int) ($row['student_id'] ?? 0);
+        $subId = (int) ($row['subject_id'] ?? 0);
+        if ($sid <= 0 || $subId <= 0) {
+            continue;
+        }
+        $matrixAssignMap[$sid][$subId] = (string) ($row['ten_phong'] ?? '');
+    }
+
+    $subjectIds = array_map(static fn(array $r): int => (int) ($r['subject_id'] ?? 0), $unassignedMatrixSubjects);
+    $subjectIds = array_values(array_filter($subjectIds, static fn(int $v): bool => $v > 0));
+
+    $preparedRows = [];
+    foreach ($unassignedMatrixRows as $row) {
+        $sid = (int) ($row['student_id'] ?? 0);
+        if ($sid <= 0) {
+            continue;
+        }
+        $roomsBySubject = [];
+        $missingCount = 0;
+        foreach ($subjectIds as $subId) {
+            $roomName = (string) ($matrixAssignMap[$sid][$subId] ?? '');
+            $roomsBySubject[$subId] = $roomName;
+            if ($roomName === '') {
+                $missingCount++;
+            }
+        }
+        if ($onlyIncomplete && $missingCount === 0) {
+            continue;
+        }
+        $row['rooms_by_subject'] = $roomsBySubject;
+        $row['missing_count'] = $missingCount;
+        $preparedRows[] = $row;
+    }
+    $unassignedMatrixRows = $preparedRows;
 
     $availStmt = $pdo->prepare('SELECT es.student_id, s.hoten, es.lop, es.sbd
         FROM exam_students es
@@ -1180,22 +1241,58 @@ require_once BASE_PATH . '/layout/header.php';
 
                         <div class="tab-pane fade <?= $activeTab === 'unassigned' ? 'show active' : '' ?>" id="tab-unassigned">
                             <?php if ($subjectId > 0 && $khoi !== ''): ?>
-                                <form method="post">
-                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="exam_id" value="<?= $examId ?>"><input type="hidden" name="subject_id" value="<?= $subjectId ?>"><input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="tab" value="unassigned"><input type="hidden" name="action" value="assign_unassigned_bulk">
-                                    <div class="row g-2 mb-2"><div class="col-md-4"><select class="form-select" name="target_room_id" required><?php foreach ($rooms as $room): ?><option value="<?= (int) $room['id'] ?>"><?= htmlspecialchars((string) $room['ten_phong'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div><div class="col-md-3"><button class="btn btn-primary btn-sm" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Gán phòng cho danh sách chọn</button></div></div>
-                                    <div class="table-responsive"><table class="table table-bordered table-sm"><thead><tr><th><input type="checkbox" id="chkAll"></th><th>SBD</th><th>Họ tên</th><th>Lớp</th></tr></thead><tbody>
-                                    <?php if (empty($unassignedStudents)): ?>
-                                        <tr><td colspan="4" class="text-center">Không có thí sinh chưa phân phòng.</td></tr>
-                                    <?php else: foreach ($unassignedStudents as $st): ?>
-                                        <tr><td><input type="checkbox" name="unassigned_ids[]" value="<?= (int) $st['id'] ?>"></td><td><?= htmlspecialchars((string) ($st['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($st['hoten'] ?? 'N/A'), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td></tr>
-                                    <?php endforeach; endif; ?>
-                                    </tbody></table></div>
+                                <form method="get" class="row g-2 mb-3">
+                                    <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                    <input type="hidden" name="subject_id" value="<?= $subjectId ?>">
+                                    <input type="hidden" name="khoi" value="<?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="tab" value="unassigned">
+                                    <div class="col-md-6 d-flex align-items-center">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="onlyIncomplete" name="only_incomplete" value="1" <?= $onlyIncomplete ? 'checked' : '' ?>>
+                                            <label class="form-check-label" for="onlyIncomplete">Chỉ hiển thị học sinh chưa được phân ít nhất 1 môn</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 d-flex gap-2">
+                                        <button class="btn btn-outline-primary" type="submit">Lọc</button>
+                                        <a class="btn btn-outline-secondary" href="<?= BASE_URL ?>/modules/exams/distribute_rooms.php?<?= http_build_query(['exam_id'=>$examId,'subject_id'=>$subjectId,'khoi'=>$khoi,'tab'=>'unassigned','only_incomplete'=>0]) ?>">Hiện tất cả</a>
+                                    </div>
                                 </form>
+
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-sm">
+                                        <thead>
+                                        <tr>
+                                            <th>STT</th>
+                                            <th>SBD</th>
+                                            <th>Họ tên</th>
+                                            <th>Lớp</th>
+                                            <?php foreach ($unassignedMatrixSubjects as $sub): ?>
+                                                <th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th>
+                                            <?php endforeach; ?>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <?php if (empty($unassignedMatrixRows)): ?>
+                                            <tr><td colspan="<?= 4 + max(1, count($unassignedMatrixSubjects)) ?>" class="text-center">Không có học sinh phù hợp điều kiện lọc.</td></tr>
+                                        <?php else: foreach ($unassignedMatrixRows as $idx => $st): ?>
+                                            <tr>
+                                                <td><?= $idx + 1 ?></td>
+                                                <td><?= htmlspecialchars((string) ($st['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) ($st['hoten'] ?? 'N/A'), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <?php foreach ($unassignedMatrixSubjects as $sub): $subId = (int) ($sub['subject_id'] ?? 0); ?>
+                                                    <td><?= htmlspecialchars((string) (($st['rooms_by_subject'][$subId] ?? '') ?: ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                <?php endforeach; ?>
+                                            </tr>
+                                        <?php endforeach; endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
                             <?php else: ?>
                                 <div class="alert alert-info">Chọn môn + khối để xem thí sinh chưa phân phòng.</div>
                             <?php endif; ?>
                         </div>
-                    </div>
+                    </div>>
                 <?php endif; ?>
             </div>
         </div>
@@ -1204,10 +1301,6 @@ require_once BASE_PATH . '/layout/header.php';
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-document.getElementById('chkAll')?.addEventListener('change', function () {
-    document.querySelectorAll('input[name="unassigned_ids[]"]').forEach(cb => cb.checked = this.checked);
-});
-
 const manualGradesBySubject = <?= json_encode($manualGradesBySubject, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const allManualGrades = <?= json_encode(array_values(array_keys($allManualGrades)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const manualSubjectSelect = document.getElementById('manualSubjectSelect');

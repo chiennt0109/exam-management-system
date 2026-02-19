@@ -249,7 +249,8 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
         ksort($classOptions);
         $classOptions = array_keys($classOptions);
 
-        $filteredStudents = $assignedStudents;
+        // Room view should only show students currently assigned to at least one room.
+        $filteredStudents = array_values(array_filter($assignedStudents, static fn(array $st): bool => (int) ($st['room_id'] ?? 0) > 0));
         if ($filterRoomId > 0) {
             $filteredStudents = array_values(array_filter($filteredStudents, static fn(array $st): bool => (int) ($st['room_id'] ?? 0) === $filterRoomId));
         }
