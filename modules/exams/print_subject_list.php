@@ -156,7 +156,7 @@ if ($export === '1') {
         echo '<Styles>';
         echo '<Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Times New Roman" ss:Size="12"/></Style>';
         echo '<Style ss:ID="HeadL"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="14"/></Style>';
-        echo '<Style ss:ID="HeadR"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="16"/></Style>';
+        echo '<Style ss:ID="HeadR"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="14"/></Style>';
         echo '<Style ss:ID="HeadS"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="12"/></Style>';
         echo '<Style ss:ID="TH"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:Bold="1"/></Style>';
         echo '<Style ss:ID="C"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>';
@@ -169,9 +169,11 @@ if ($export === '1') {
             echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table ss:ExpandedColumnCount="' . (5 + count($subjects)) . '">';
             foreach ([5,10,28,12,12] as $w) echo '<Column ss:Width="' . ($w * 6.5) . '"/>';
             foreach ($subjects as $_) echo '<Column ss:Width="120"/>';
-            echo '<Row ss:Height="24"><Cell ss:MergeAcross="3" ss:MergeDown="1" ss:StyleID="HeadL"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
-" . $examName) . '</Data></Cell><Cell ss:Index="5" ss:MergeAcross="' . (count($subjects)) . '" ss:StyleID="HeadR"><Data ss:Type="String">DANH SÁCH NIÊM YẾT</Data></Cell></Row>';
-            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="' . (count($subjects)) . '" ss:StyleID="HeadS"><Data ss:Type="String">Lớp: ' . $xmlEscape($lop) . '</Data></Cell></Row>';
+            echo '<Row ss:Height="24"><Cell ss:MergeAcross="2" ss:StyleID="HeadL"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
+") . '</Data></Cell><Cell ss:Index="5" ss:MergeAcross="' . (count($subjects)) . '" ss:StyleID="HeadR"><Data ss:Type="String">DANH SÁCH NIÊM YẾT</Data></Cell></Row>';
+            echo '<Row ss:Height="20">';
+            echo '<Cell ss:MergeAcross="2" ss:StyleID="HeadL"><Data ss:Type="String">' . $xmlEscape("". $examName) . '</Data></Cell>';
+            echo '<Cell ss:Index="5" ss:MergeAcross="' . (count($subjects)) . '" ss:StyleID="HeadS"><Data ss:Type="String">Lớp: ' . $xmlEscape($lop) . '</Data></Cell></Row>';
             echo '<Row ss:Height="10"></Row>';
             echo '<Row><Cell ss:StyleID="TH"><Data ss:Type="String">STT</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">SBD</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Họ tên</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Ngày sinh</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Lớp</Data></Cell>';
             foreach ($subjects as $sub) echo '<Cell ss:StyleID="TH"><Data ss:Type="String">' . $xmlEscape((string) ($sub['ten_mon'] ?? '')) . '</Data></Cell>';
