@@ -166,14 +166,14 @@ if ($export === '1') {
         foreach ($classesToExport as $lop) {
             $rows = $allRowsByClass[$lop] ?? [];
             $sheetName = substr(preg_replace('/[^\p{L}\p{N}_-]+/u', '_', $lop) ?: 'Class', 0, 31);
-            echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table ss:ExpandedColumnCount="' . (5 + count($subjects)) . '">';
-            foreach ([5,10,28,12,12] as $w) echo '<Column ss:Width="' . ($w * 6.5) . '"/>';
+            echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table ss:ExpandedColumnCount="' . (4 + count($subjects)) . '">';
+            foreach ([5,10,32,13] as $w) echo '<Column ss:Width="' . ($w * 6.5) . '"/>';
             foreach ($subjects as $_) echo '<Column ss:Width="120"/>';
             echo '<Row ss:Height="24"><Cell ss:MergeAcross="3" ss:MergeDown="1" ss:StyleID="HeadL"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
-" . $examName) . '</Data></Cell><Cell ss:Index="5" ss:MergeAcross="' . (count($subjects)) . '" ss:StyleID="HeadR"><Data ss:Type="String">DANH SÁCH NIÊM YẾT</Data></Cell></Row>';
-            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="' . (count($subjects)) . '" ss:StyleID="HeadS"><Data ss:Type="String">Lớp: ' . $xmlEscape($lop) . '</Data></Cell></Row>';
+" . $examName) . '</Data></Cell><Cell ss:Index="5" ss:MergeAcross="' . max(0, count($subjects) - 1) . '" ss:StyleID="HeadR"><Data ss:Type="String">DANH SÁCH NIÊM YẾT</Data></Cell></Row>';
+            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="' . max(0, count($subjects) - 1) . '" ss:StyleID="HeadS"><Data ss:Type="String">Lớp: ' . $xmlEscape($lop) . '</Data></Cell></Row>';
             echo '<Row ss:Height="10"></Row>';
-            echo '<Row><Cell ss:StyleID="TH"><Data ss:Type="String">STT</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">SBD</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Họ tên</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Ngày sinh</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Lớp</Data></Cell>';
+            echo '<Row><Cell ss:StyleID="TH"><Data ss:Type="String">STT</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">SBD</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Họ tên</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Ngày sinh</Data></Cell>';
             foreach ($subjects as $sub) echo '<Cell ss:StyleID="TH"><Data ss:Type="String">' . $xmlEscape((string) ($sub['ten_mon'] ?? '')) . '</Data></Cell>';
             echo '</Row>';
             foreach ($rows as $i => $row) {
@@ -181,7 +181,7 @@ if ($export === '1') {
                 $dob = (string) ($row['ngaysinh'] ?? '');
                 $ts = strtotime($dob);
                 $dobFmt = $ts ? date('d/m/Y', $ts) : $dob;
-                echo '<Row><Cell ss:StyleID="C"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape((string) ($row['sbd'] ?? '')) . '</Data></Cell><Cell ss:StyleID="L"><Data ss:Type="String">' . $xmlEscape((string) ($row['hoten'] ?? '')) . '</Data></Cell><Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape($dobFmt) . '</Data></Cell><Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape((string) ($row['lop'] ?? '')) . '</Data></Cell>';
+                echo '<Row><Cell ss:StyleID="C"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape((string) ($row['sbd'] ?? '')) . '</Data></Cell><Cell ss:StyleID="L"><Data ss:Type="String">' . $xmlEscape((string) ($row['hoten'] ?? '')) . '</Data></Cell><Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape($dobFmt) . '</Data></Cell>';
                 foreach ($subjects as $sub) {
                     $subId = (int) ($sub['subject_id'] ?? 0);
                     echo '<Cell ss:StyleID="L"><Data ss:Type="String">' . $xmlEscape((string) ($allRoomByStudentSubject[$sid][$subId] ?? '')) . '</Data></Cell>';
@@ -199,7 +199,7 @@ if ($export === '1') {
     foreach ($classesToExport as $lop) {
         $rows = $allRowsByClass[$lop] ?? [];
         echo '<section class="page"><div class="header"><div class="left"><div class="sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="sub">' . htmlspecialchars($examName) . '</div></div><div class="right"><div class="title">DANH SÁCH NIÊM YẾT</div><div class="meta">Lớp: <strong>' . htmlspecialchars($lop) . '</strong></div></div></div>';
-        echo '<table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th style="width:28%">Họ tên</th><th style="width:13%">Ngày sinh</th><th style="width:12%">Lớp</th>';
+        echo '<table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th style="width:34%">Họ tên</th><th style="width:14%">Ngày sinh</th>';
         foreach ($subjects as $sub) {
             echo '<th>' . htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') . '</th>';
         }
@@ -209,7 +209,7 @@ if ($export === '1') {
             $dob = (string) ($row['ngaysinh'] ?? '');
             $ts = strtotime($dob);
             $dobFmt = $ts ? date('d/m/Y', $ts) : $dob;
-            echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars($dobFmt, ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars((string) ($row['lop'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars($dobFmt, ENT_QUOTES, 'UTF-8') . '</td>';
             foreach ($subjects as $sub) {
                 $subId = (int) ($sub['subject_id'] ?? 0);
                 echo '<td>' . htmlspecialchars((string) ($allRoomByStudentSubject[$sid][$subId] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
@@ -217,7 +217,7 @@ if ($export === '1') {
             echo '</tr>';
         }
         if (empty($rows)) {
-            echo '<tr><td class="center" colspan="' . (5 + count($subjects)) . '">Không có dữ liệu.</td></tr>';
+            echo '<tr><td class="center" colspan="' . (4 + count($subjects)) . '">Không có dữ liệu.</td></tr>';
         }
         echo '</tbody></table></section>';
     }
