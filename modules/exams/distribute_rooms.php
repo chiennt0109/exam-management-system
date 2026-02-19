@@ -927,34 +927,26 @@ if ($examId > 0) {
         foreach ($subjectIds as $subId) {
             $isSelected = $examMode !== 2 || !empty($matrixSelectedMap[$sid][$subId]);
             $status = $matrixAssignMap[$sid][$subId] ?? null;
-            $hasRow = is_array($status);
-            $roomName = $hasRow ? (string) ($status['room_name'] ?? '') : '';
+            $roomName = is_array($status) ? (string) ($status['room_name'] ?? '') : '';
+            $hasAssignedRoom = $roomName !== '';
 
             $cell = [
-                'text' => $roomName,
+                'text' => '',
                 'class' => '',
-                'is_alert' => false,
             ];
 
             if (!$isSelected) {
-                if ($hasRow) {
-                    $cell['text'] = 'Cần điều chỉnh: chưa chọn môn';
+                if ($hasAssignedRoom) {
+                    $cell['text'] = 'Chưa chọn môn (chưa đăng ký môn thi này)';
                     $cell['class'] = 'text-danger fw-semibold';
-                    $cell['is_alert'] = true;
                     $missingCount++;
-                } else {
-                    $cell['text'] = 'Không chọn';
-                    $cell['class'] = 'text-muted';
                 }
-            } elseif (!$hasRow) {
-                $cell['text'] = 'Cần điều chỉnh: thiếu dữ liệu môn';
-                $cell['class'] = 'text-danger fw-semibold';
-                $cell['is_alert'] = true;
-                $missingCount++;
-            } elseif ($roomName === '') {
-                $cell['text'] = 'Chưa phân phòng';
+            } elseif (!$hasAssignedRoom) {
+                $cell['text'] = 'Học sinh chưa có phòng thi';
                 $cell['class'] = 'text-danger';
                 $missingCount++;
+            } else {
+                $cell['text'] = $roomName;
             }
 
             $cellsBySubject[$subId] = $cell;
@@ -1109,7 +1101,7 @@ require_once BASE_PATH . '/layout/header.php';
                             </div>
                         </form>
 
-                        <div class="small text-danger mb-2">Các ô chữ đỏ là dữ liệu cần điều chỉnh trong ma trận chọn môn hoặc phân phòng.</div>
+                        <div class="small text-danger mb-2">Chú thích: "Chưa chọn môn" nghĩa là học sinh chưa đăng ký môn thi này; "Học sinh chưa có phòng thi" nghĩa là đã đăng ký môn nhưng chưa được xếp phòng.</div>
 
                         <div class="table-responsive">
                             <table class="table table-bordered table-sm">
@@ -1134,7 +1126,7 @@ require_once BASE_PATH . '/layout/header.php';
                                         <td><?= htmlspecialchars((string) ($st['hoten'] ?? 'N/A'), ENT_QUOTES, 'UTF-8') ?></td>
                                         <td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <?php foreach ($unassignedMatrixSubjects as $sub): $subId = (int) ($sub['subject_id'] ?? 0); ?>
-                                            <?php $cell = $st['rooms_by_subject'][$subId] ?? ['text' => '', 'class' => '', 'is_alert' => false]; ?>
+                                            <?php $cell = $st['rooms_by_subject'][$subId] ?? ['text' => '', 'class' => '']; ?>
                                             <td class="<?= htmlspecialchars((string) ($cell['class'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) ($cell['text'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <?php endforeach; ?>
                                     </tr>
