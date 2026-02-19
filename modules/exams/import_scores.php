@@ -267,43 +267,73 @@ function syncScopeValue() {
 }
 
 document.getElementById('scoreImportForm')?.addEventListener('submit', function (e) {
+    const form = e.currentTarget;
     const input = document.getElementById('excelfile');
     const file = input?.files?.[0];
     if (!file) { return; }
 
+    if (typeof XLSX === 'undefined') {
+        // fallback: let server parse file
+        return;
+    }
+
     e.preventDefault();
+    const submitBtn = document.getElementById('import-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Đang đọc file...';
+    }
+
     const reader = new FileReader();
     reader.onload = (evt) => {
-        const data = new Uint8Array(evt.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '' });
-        if (!rows.length) {
-            alert('File Excel trống.');
-            return;
-        }
+        try {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '' });
+            if (!rows.length) {
+                alert('File Excel trống.');
+                return;
+            }
 
-        const headersArray = rows[0].map((v, idx) => {
-            const txt = String(v || '').trim();
-            return txt !== '' ? txt : `Cột ${idx + 1}`;
-        });
-        const columns = headersArray.map((_, idx) => XLSX.utils.encode_col(idx));
-        const headers = {};
-        columns.forEach((col, idx) => { headers[col] = headersArray[idx]; });
-        const dataRows = rows.slice(1).map((r) => {
-            const row = {};
-            columns.forEach((col, idx) => { row[col] = String(r[idx] ?? '').trim(); });
-            return row;
-        });
+            const headersArray = rows[0].map((v, idx) => {
+                const txt = String(v || '').trim();
+                return txt !== '' ? txt : `Cột ${idx + 1}`;
+            });
+            const columns = headersArray.map((_, idx) => XLSX.utils.encode_col(idx));
+            const headers = {};
+            columns.forEach((col, idx) => { headers[col] = headersArray[idx]; });
+            const dataRows = rows.slice(1).map((r) => {
+                const row = {};
+                columns.forEach((col, idx) => { row[col] = String(r[idx] ?? '').trim(); });
+                return row;
+            });
 
-        document.getElementById('parsedHeadersJson').value = JSON.stringify(headers);
-        document.getElementById('parsedRowsJson').value = JSON.stringify(dataRows);
-        document.getElementById('parseStatus').textContent = `Đã đọc ${dataRows.length} dòng dữ liệu.`;
+            document.getElementById('parsedHeadersJson').value = JSON.stringify(headers);
+            document.getElementById('parsedRowsJson').value = JSON.stringify(dataRows);
+            document.getElementById('parseStatus').textContent = `Đã đọc ${dataRows.length} dòng dữ liệu.`;
 
-        if (window.confirm('Xác nhận chuyển sang bước mapping và preview dữ liệu import?')) {
-            e.target.submit();
+            if (window.confirm('Xác nhận chuyển sang bước mapping và preview dữ liệu import?')) {
+                form.submit();
+            }
+        } catch (err) {
+            alert('Không đọc được file Excel. Vui lòng kiểm tra định dạng file.');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Duyệt file';
+            }
         }
     };
+
+    reader.onerror = () => {
+        alert('Không thể đọc tệp đã chọn.');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Duyệt file';
+        }
+    };
+
     reader.readAsArrayBuffer(file);
 });
 
