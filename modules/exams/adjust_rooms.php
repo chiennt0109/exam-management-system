@@ -170,6 +170,8 @@ $classOptions = [];
 $assignedStudents = [];
 $filteredStudents = [];
 $pagedStudents = [];
+$classViewSubjects = [];
+$classViewSubjectByStudent = [];
 $totalRows = 0;
 $totalPages = 1;
 $offset = 0;
@@ -185,7 +187,8 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
         $filterRoomId = 0;
     }
 
-    $all = $pdo->prepare('SELECT es.id, s.hoten AS name, s.ngaysinh, es.lop, es.sbd, es.room_id
+    // Dataset for operation tabs (selected subject only)
+    $all = $pdo->prepare('SELECT es.id, es.student_id, s.hoten AS name, s.ngaysinh, es.lop, es.sbd, es.room_id
         FROM exam_students es
         JOIN students s ON s.id = es.student_id
         WHERE es.exam_id = :exam_id AND es.subject_id = :subject_id AND es.khoi = :khoi
@@ -193,21 +196,66 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
     $all->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
     $assignedStudents = $all->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach ($assignedStudents as $st) {
-        $lop = trim((string) ($st['lop'] ?? ''));
-        if ($lop !== '') {
-            $classOptions[$lop] = true;
-        }
-    }
-    ksort($classOptions);
-    $classOptions = array_keys($classOptions);
+    if ($viewMode === 'class') {
+        // In class view: show each student with all subjects they take and corresponding room.
+        $baseStmt = $pdo->prepare('SELECT es.student_id, s.hoten AS name, s.ngaysinh, es.lop, es.sbd
+            FROM exam_students es
+            JOIN students s ON s.id = es.student_id
+            WHERE es.exam_id = :exam_id AND es.subject_id IS NULL AND es.khoi = :khoi
+            ORDER BY es.lop, es.sbd, s.hoten');
+        $baseStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+        $filteredStudents = $baseStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $filteredStudents = $assignedStudents;
-    if ($viewMode === 'room' && $filterRoomId > 0) {
-        $filteredStudents = array_values(array_filter($filteredStudents, static fn(array $st): bool => (int) ($st['room_id'] ?? 0) === $filterRoomId));
-    }
-    if ($viewMode === 'class' && $filterClass !== '') {
-        $filteredStudents = array_values(array_filter($filteredStudents, static fn(array $st): bool => (string) ($st['lop'] ?? '') === $filterClass));
+        foreach ($filteredStudents as $st) {
+            $lop = trim((string) ($st['lop'] ?? ''));
+            if ($lop !== '') {
+                $classOptions[$lop] = true;
+            }
+        }
+        ksort($classOptions);
+        $classOptions = array_keys($classOptions);
+
+        if ($filterClass !== '') {
+            $filteredStudents = array_values(array_filter($filteredStudents, static fn(array $st): bool => (string) ($st['lop'] ?? '') === $filterClass));
+        }
+
+        $subjectStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
+            FROM exam_students es
+            INNER JOIN subjects sub ON sub.id = es.subject_id
+            WHERE es.exam_id = :exam_id AND es.khoi = :khoi AND es.subject_id IS NOT NULL
+            ORDER BY sub.ten_mon');
+        $subjectStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+        $classViewSubjects = $subjectStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $mapStmt = $pdo->prepare('SELECT es.student_id, es.subject_id, r.ten_phong
+            FROM exam_students es
+            LEFT JOIN rooms r ON r.id = es.room_id
+            WHERE es.exam_id = :exam_id AND es.khoi = :khoi AND es.subject_id IS NOT NULL');
+        $mapStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+        foreach ($mapStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $sid = (int) ($row['student_id'] ?? 0);
+            $subId = (int) ($row['subject_id'] ?? 0);
+            if ($sid > 0 && $subId > 0) {
+                $classViewSubjectByStudent[$sid][$subId] = (string) ($row['ten_phong'] ?? '');
+            }
+        }
+    } else {
+        foreach ($assignedStudents as $st) {
+            $lop = trim((string) ($st['lop'] ?? ''));
+            if ($lop !== '') {
+                $classOptions[$lop] = true;
+            }
+        }
+        ksort($classOptions);
+        $classOptions = array_keys($classOptions);
+
+        $filteredStudents = $assignedStudents;
+        if ($filterRoomId > 0) {
+            $filteredStudents = array_values(array_filter($filteredStudents, static fn(array $st): bool => (int) ($st['room_id'] ?? 0) === $filterRoomId));
+        }
+        if ($filterClass !== '') {
+            $filteredStudents = array_values(array_filter($filteredStudents, static fn(array $st): bool => (string) ($st['lop'] ?? '') === $filterClass));
+        }
     }
 
     $totalRows = count($filteredStudents);
@@ -371,10 +419,10 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered table-sm">
-                            <thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><?php if ($viewMode === 'class'): ?><th>Môn</th><th>Phòng</th><?php endif; ?></tr></thead>
+                            <thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><?php if ($viewMode === 'class'): ?><?php foreach ($classViewSubjects as $sub): ?><th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?><?php endif; ?></tr></thead>
                             <tbody>
                             <?php if (empty($pagedStudents)): ?>
-                                <tr><td colspan="<?= $viewMode === 'class' ? 7 : 5 ?>" class="text-center">Không có dữ liệu phù hợp.</td></tr>
+                                <tr><td colspan="<?= $viewMode === 'class' ? 5 + count($classViewSubjects) : 5 ?>" class="text-center">Không có dữ liệu phù hợp.</td></tr>
                             <?php else: foreach ($pagedStudents as $idx => $st): ?>
                                 <tr>
                                     <td><?= $offset + $idx + 1 ?></td>
@@ -383,8 +431,11 @@ require_once BASE_PATH . '/layout/header.php';
                                     <td><?= htmlspecialchars(exams_format_date_vn((string) ($st['ngaysinh'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= htmlspecialchars((string) ($st['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                     <?php if ($viewMode === 'class'): ?>
-                                        <td><?= htmlspecialchars($selectedSubjectLabel, ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars((string) ($roomMap[(int) ($st['room_id'] ?? 0)] ?? 'Chưa phân phòng'), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <?php $studentId = (int) ($st['student_id'] ?? 0); ?>
+                                        <?php foreach ($classViewSubjects as $sub): ?>
+                                            <?php $subId = (int) ($sub['subject_id'] ?? 0); ?>
+                                            <td><?= htmlspecialchars((string) ($classViewSubjectByStudent[$studentId][$subId] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <?php endforeach; ?>
                                     <?php endif; ?>
                                 </tr>
                             <?php endforeach; endif; ?>
