@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../bootstrap.php';
 require_once BASE_PATH . '/modules/exams/_common.php';
 require_once BASE_PATH . '/modules/exams/score_utils.php';
-require_role(['admin', 'organizer', 'scorer']);
+require_role(['admin', 'scorer']);
 
 $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
 $role = (string) ($_SESSION['user']['role'] ?? '');
