@@ -10,21 +10,27 @@ $errors = [];
 $lockState = exams_get_lock_state($pdo, $examId);
 $isExamLocked = ((int) ($lockState['exam_locked'] ?? 0)) === 1;
 
-$subjectCfgStmt = $pdo->prepare('SELECT c.subject_id, MAX(c.component_count) AS component_count, s.ten_mon
-    FROM exam_subject_config c
-    INNER JOIN subjects s ON s.id = c.subject_id
-    WHERE c.exam_id = :exam_id
-    GROUP BY c.subject_id, s.ten_mon
-    ORDER BY s.ten_mon');
+$subjectCfgStmt = $pdo->prepare('SELECT es.subject_id, s.ten_mon, es.sort_order, COALESCE(cfg.component_count, 1) AS component_count
+    FROM exam_subjects es
+    INNER JOIN subjects s ON s.id = es.subject_id
+    LEFT JOIN (
+        SELECT c.subject_id, MAX(c.component_count) AS component_count
+        FROM exam_subject_config c
+        WHERE c.exam_id = :exam_id
+        GROUP BY c.subject_id
+    ) cfg ON cfg.subject_id = es.subject_id
+    WHERE es.exam_id = :exam_id
+    ORDER BY es.sort_order ASC, s.ten_mon ASC');
 $subjectCfgStmt->execute([':exam_id' => $examId]);
 $subjectCfgs = $subjectCfgStmt->fetchAll(PDO::FETCH_ASSOC);
 
 if (empty($subjectCfgs)) {
-    $fallbackStmt = $pdo->prepare('SELECT es.subject_id, 1 AS component_count, s.ten_mon
-        FROM exam_subjects es
-        INNER JOIN subjects s ON s.id = es.subject_id
-        WHERE es.exam_id = :exam_id
-        ORDER BY es.sort_order ASC, s.ten_mon');
+    $fallbackStmt = $pdo->prepare('SELECT c.subject_id, MAX(c.component_count) AS component_count, s.ten_mon, 999999 AS sort_order
+        FROM exam_subject_config c
+        INNER JOIN subjects s ON s.id = c.subject_id
+        WHERE c.exam_id = :exam_id
+        GROUP BY c.subject_id, s.ten_mon
+        ORDER BY s.ten_mon ASC');
     $fallbackStmt->execute([':exam_id' => $examId]);
     $subjectCfgs = $fallbackStmt->fetchAll(PDO::FETCH_ASSOC);
 }
