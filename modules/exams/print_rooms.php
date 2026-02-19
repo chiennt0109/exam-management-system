@@ -288,10 +288,10 @@ require_once BASE_PATH . '/layout/header.php';
 <div>
 <?php if ($isExamLocked): ?>
 <div class="d-flex flex-wrap gap-2">
-    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format1', 'file' => 'excel'])) ?>">Mẫu niêm yết (Excel)</a>
-    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format1', 'file' => 'pdf'])) ?>" target="_blank" rel="noopener">Mẫu niêm yết (PDF)</a>
-    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format2', 'file' => 'excel'])) ?>">Mẫu phiếu thu bài (Excel)</a>
-    <a class="btn btn-light btn-sm" href="?<?= http_build_query(array_merge($baseQuery, ['export' => 'format2', 'file' => 'pdf'])) ?>" target="_blank" rel="noopener">Mẫu phiếu thu bài (PDF)</a>
+    <a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/print_rooms.php?<?= http_build_query(array_merge($baseQuery, ['export' => 'format1', 'file' => 'excel'])) ?>">Mẫu niêm yết (Excel)</a>
+    <a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/print_rooms.php?<?= http_build_query(array_merge($baseQuery, ['export' => 'format1', 'file' => 'pdf'])) ?>" target="_blank" rel="noopener">Mẫu niêm yết (PDF)</a>
+    <a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/print_rooms.php?<?= http_build_query(array_merge($baseQuery, ['export' => 'format2', 'file' => 'excel'])) ?>">Mẫu phiếu thu bài (Excel)</a>
+    <a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/print_rooms.php?<?= http_build_query(array_merge($baseQuery, ['export' => 'format2', 'file' => 'pdf'])) ?>" target="_blank" rel="noopener">Mẫu phiếu thu bài (PDF)</a>
     <?php if ($examMode === 2): ?><a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/print_subject_list.php">DS theo môn</a><?php endif; ?>
 </div>
 <?php else: ?>
@@ -303,12 +303,12 @@ require_once BASE_PATH . '/layout/header.php';
 <?php if (!$isExamLocked): ?><div class="alert alert-warning">Phải khoá kỳ thi trước khi in danh sách</div><?php endif; ?>
 <div class="mb-3 d-flex gap-2">
 <?php if (!$isExamLocked): ?>
-<form method="post" class="d-inline"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="lock_exam"><button class="btn btn-success btn-sm">Khoá kỳ thi</button></form>
+<form method="post" action="<?= BASE_URL ?>/modules/exams/print_rooms.php" class="d-inline"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="lock_exam"><button class="btn btn-success btn-sm">Khoá kỳ thi</button></form>
 <?php endif; ?>
-<?php if ($role === 'admin' && $isExamLocked): ?><form method="post" class="d-inline"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="unlock_exam"><button class="btn btn-outline-danger btn-sm">Mở khoá kỳ thi</button></form><?php endif; ?>
+<?php if ($role === 'admin' && $isExamLocked): ?><form method="post" action="<?= BASE_URL ?>/modules/exams/print_rooms.php" class="d-inline"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="unlock_exam"><button class="btn btn-outline-danger btn-sm">Mở khoá kỳ thi</button></form><?php endif; ?>
 </div>
 
-<form method="get" class="row g-2 mb-3">
+<form method="get" action="<?= BASE_URL ?>/modules/exams/print_rooms.php" class="row g-2 mb-3">
     <div class="col-md-4">
         <label class="form-label">Lọc theo môn</label>
         <select class="form-select" name="subject_id">
