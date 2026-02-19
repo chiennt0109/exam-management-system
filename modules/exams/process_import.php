@@ -18,13 +18,13 @@ if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
 }
 
 $strategy = (string) ($_POST['strategy'] ?? 'cancel');
-$allowed = ['overwrite', 'skip_existing', 'cancel'];
-if (!in_array($strategy, $allowed, true)) {
+if (!in_array($strategy, ['overwrite', 'skip_existing', 'cancel'], true)) {
     $strategy = 'cancel';
 }
 
 $preview = (array) ($_SESSION['score_import_preview'] ?? []);
-if (($preview['exam_id'] ?? 0) !== $examId || empty($preview['valid_rows'])) {
+$validRows = (array) ($preview['valid_rows'] ?? []);
+if (($preview['exam_id'] ?? 0) !== $examId || empty($validRows)) {
     exams_set_flash('error', 'Không có dữ liệu preview để lưu.');
     header('Location: ' . BASE_URL . '/modules/exams/import_scores.php');
     exit;
@@ -37,19 +37,15 @@ if ($strategy === 'cancel') {
     exit;
 }
 
-$subjectId = (int) ($preview['subject_id'] ?? 0);
-$validRows = (array) ($preview['valid_rows'] ?? []);
-$targetComponent = (string) ($preview['target_component'] ?? 'total');
-
 $selectExisting = $pdo->prepare('SELECT 1 FROM exam_scores WHERE exam_id = :exam_id AND subject_id = :subject_id AND student_id = :student_id LIMIT 1');
-$deleteScore = $pdo->prepare('DELETE FROM exam_scores WHERE exam_id = :exam_id AND subject_id = :subject_id AND student_id = :student_id');
-$upsertScore = $pdo->prepare('INSERT INTO exam_scores (exam_id, student_id, subject_id, score, updated_at)
+$deleteExamScore = $pdo->prepare('DELETE FROM exam_scores WHERE exam_id = :exam_id AND subject_id = :subject_id AND student_id = :student_id');
+$upsertExamScore = $pdo->prepare('INSERT INTO exam_scores (exam_id, student_id, subject_id, score, updated_at)
     VALUES (:exam_id, :student_id, :subject_id, :score, :updated_at)
     ON CONFLICT(exam_id, student_id, subject_id)
     DO UPDATE SET score = excluded.score, updated_at = excluded.updated_at');
 
-$selectScoreRow = $pdo->prepare('SELECT component_1, component_2, component_3, total_score FROM scores WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id = :subject_id LIMIT 1');
-$upsertScoreRow = $pdo->prepare('INSERT INTO scores (exam_id, student_id, subject_id, component_1, component_2, component_3, total_score, diem, scorer_id, updated_at)
+$selectScore = $pdo->prepare('SELECT component_1, component_2, component_3, total_score FROM scores WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id = :subject_id LIMIT 1');
+$upsertScore = $pdo->prepare('INSERT INTO scores (exam_id, student_id, subject_id, component_1, component_2, component_3, total_score, diem, scorer_id, updated_at)
     VALUES (:exam_id, :student_id, :subject_id, :c1, :c2, :c3, :total, :total, NULL, :updated_at)
     ON CONFLICT(exam_id, student_id, subject_id)
     DO UPDATE SET component_1 = excluded.component_1, component_2 = excluded.component_2, component_3 = excluded.component_3, total_score = excluded.total_score, diem = excluded.diem, updated_at = excluded.updated_at');
@@ -63,66 +59,64 @@ try {
 
     foreach ($validRows as $row) {
         $studentId = (int) ($row['student_id'] ?? 0);
-        $rowSubjectId = (int) ($row['subject_id'] ?? $subjectId);
-        if ($studentId <= 0) {
+        $subjectId = (int) ($row['subject_id'] ?? 0);
+        $component = (string) ($row['component_name'] ?? 'total');
+        $parsedScore = $row['parsed_score'];
+
+        if ($studentId <= 0 || $subjectId <= 0) {
             $skipped++;
             continue;
         }
 
-        $parsedScore = $row['parsed_score'];
-        $isNullScore = $parsedScore === null;
-
-$selectExisting->execute([':exam_id' => $examId, ':subject_id' => $rowSubjectId, ':student_id' => $studentId]);
+        $selectExisting->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':student_id' => $studentId]);
         $exists = (bool) $selectExisting->fetchColumn();
-
         if ($exists && $strategy === 'skip_existing') {
             $skipped++;
             continue;
         }
 
-        if ($isNullScore) {
-$deleteScore->execute([':exam_id' => $examId, ':subject_id' => $rowSubjectId, ':student_id' => $studentId]);
-            $deleted++;
+        $selectScore->execute([':exam_id' => $examId, ':student_id' => $studentId, ':subject_id' => $subjectId]);
+        $old = $selectScore->fetch(PDO::FETCH_ASSOC) ?: ['component_1'=>null,'component_2'=>null,'component_3'=>null,'total_score'=>null];
+        $c1 = $old['component_1'] === null ? null : (float) $old['component_1'];
+        $c2 = $old['component_2'] === null ? null : (float) $old['component_2'];
+        $c3 = $old['component_3'] === null ? null : (float) $old['component_3'];
+
+        if ($component === 'component_1') {
+            $c1 = $parsedScore === null ? null : (float) $parsedScore;
+        } elseif ($component === 'component_2') {
+            $c2 = $parsedScore === null ? null : (float) $parsedScore;
+        } elseif ($component === 'component_3') {
+            $c3 = $parsedScore === null ? null : (float) $parsedScore;
+        }
+
+        $total = $component === 'total'
+            ? ($parsedScore === null ? null : (float) $parsedScore)
+            : ((($c1 ?? 0.0) + ($c2 ?? 0.0) + ($c3 ?? 0.0)));
+
+        if ($total === null) {
+            if ($exists && $strategy === 'overwrite') {
+                $deleteExamScore->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':student_id' => $studentId]);
+                $deleted++;
+            } else {
+                $skipped++;
+            }
             continue;
         }
 
-        if ($exists && $strategy === 'overwrite') {
-$deleteScore->execute([':exam_id' => $examId, ':subject_id' => $rowSubjectId, ':student_id' => $studentId]);
-        }
-
-        $selectScoreRow->execute([':exam_id' => $examId, ':student_id' => $studentId, ':subject_id' => $rowSubjectId]);
-        $oldRow = $selectScoreRow->fetch(PDO::FETCH_ASSOC) ?: ['component_1' => null, 'component_2' => null, 'component_3' => null, 'total_score' => null];
-        $c1 = $oldRow['component_1'] === null ? null : (float) $oldRow['component_1'];
-        $c2 = $oldRow['component_2'] === null ? null : (float) $oldRow['component_2'];
-        $c3 = $oldRow['component_3'] === null ? null : (float) $oldRow['component_3'];
-
-        if ($targetComponent === 'component_1') {
-            $c1 = (float) $parsedScore;
-        } elseif ($targetComponent === 'component_2') {
-            $c2 = (float) $parsedScore;
-        } elseif ($targetComponent === 'component_3') {
-            $c3 = (float) $parsedScore;
-        }
-
-        $total = $targetComponent === 'total'
-            ? (float) $parsedScore
-            : ((($c1 ?? 0.0) + ($c2 ?? 0.0) + ($c3 ?? 0.0)));
-
-        $upsertScoreRow->execute([
+        $upsertScore->execute([
             ':exam_id' => $examId,
             ':student_id' => $studentId,
-            ':subject_id' => $rowSubjectId,
+            ':subject_id' => $subjectId,
             ':c1' => $c1,
             ':c2' => $c2,
             ':c3' => $c3,
             ':total' => $total,
             ':updated_at' => date('c'),
         ]);
-
-        $upsertScore->execute([
+        $upsertExamScore->execute([
             ':exam_id' => $examId,
             ':student_id' => $studentId,
-            ':subject_id' => $rowSubjectId,
+            ':subject_id' => $subjectId,
             ':score' => $total,
             ':updated_at' => date('c'),
         ]);
