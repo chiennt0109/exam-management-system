@@ -20,10 +20,15 @@ $hasPhpSpreadsheet = class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class);
 $csrf = exams_get_csrf_token();
 $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
 $errors = [];
-$role = normalize_role((string) ($_SESSION['user']['role'] ?? ''));
-$userId = (int) ($_SESSION['user']['id'] ?? 0);
+$role = normalize_role((string) ($_SESSION['user']['role'] ?? $_SESSION['role'] ?? ''));
+$userId = (int) ($_SESSION['user']['id'] ?? $_SESSION['user_id'] ?? 0);
 $isAdmin = $role === 'admin';
 $isScorer = $role === 'scorer';
+
+function normalizeScopeToken(string $value): string
+{
+    return strtoupper(trim($value));
+}
 
 $assignedSubjectIds = [];
 $assignedRoomIdsBySubject = [];
@@ -48,7 +53,7 @@ if ($isScorer) {
 
         $khoi = trim((string) ($assignment['khoi'] ?? ''));
         if ($khoi !== '') {
-            $assignedKhoisBySubject[$sid][$khoi] = true;
+            $assignedKhoisBySubject[$sid][normalizeScopeToken($khoi)] = $khoi;
         }
     }
 }
@@ -71,7 +76,7 @@ if ($isScorer) {
         }
         $khoi = trim((string) ($room['khoi'] ?? ''));
         if ($khoi !== '') {
-            $assignedKhoisBySubject[$sid][$khoi] = true;
+            $assignedKhoisBySubject[$sid][normalizeScopeToken($khoi)] = $khoi;
         }
     }
 
@@ -79,7 +84,7 @@ if ($isScorer) {
         $sid = (int) ($room['subject_id'] ?? 0);
         $rid = (int) ($room['id'] ?? 0);
         $khoi = trim((string) ($room['khoi'] ?? ''));
-        return isset($assignedRoomIdsBySubject[$sid][$rid]) || ($khoi !== '' && isset($assignedKhoisBySubject[$sid][$khoi]));
+        return isset($assignedRoomIdsBySubject[$sid][$rid]) || ($khoi !== '' && isset($assignedKhoisBySubject[$sid][normalizeScopeToken($khoi)]));
     }));
 }
 
@@ -147,7 +152,7 @@ if ($isScorer && $importProfile === 'assigned_scope') {
 $khois = [];
 if ($subjectId > 0) {
     if ($isScorer) {
-        $khois = array_values(array_keys($assignedKhoisBySubject[$subjectId] ?? []));
+        $khois = array_values(array_map('strval', $assignedKhoisBySubject[$subjectId] ?? []));
     } else {
         $khoiOptions = $pdo->prepare('SELECT DISTINCT khoi FROM exam_students WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi IS NOT NULL AND khoi <> "" ORDER BY khoi');
         $khoiOptions->execute([':exam_id' => $examId, ':subject_id' => $subjectId]);
@@ -184,7 +189,8 @@ if ($mode === 'subject_grade') {
     }
 
     $allowedScopeValues = $scopeType === 'khoi' ? $khois : $lops;
-    if (!in_array($scopeValue, $allowedScopeValues, true)) {
+    $normalizedAllowedScopeValues = array_values(array_unique(array_map(static fn(string $value): string => normalizeScopeToken($value), $allowedScopeValues)));
+    if (!in_array(normalizeScopeToken($scopeValue), $normalizedAllowedScopeValues, true)) {
         $scopeValue = '';
     }
 
@@ -194,6 +200,13 @@ if ($mode === 'subject_grade') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($isScorer && $userId <= 0) {
+        $errors[] = 'Không xác định được tài khoản người dùng.';
+    }
+    if ($isScorer && empty($assignedSubjectIds)) {
+        $errors[] = 'Tài khoản chưa được phân công chấm điểm cho kỳ thi này.';
+    }
+
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         $errors[] = 'CSRF token không hợp lệ.';
     }
@@ -211,10 +224,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($mode === 'subject_grade' && $scopeValue === '') {
             $errors[] = 'Vui lòng chọn khối/lớp.';
         }
-        if ($mode === 'subject_grade' && $scopeType === 'khoi' && $scopeValue !== '' && !in_array($scopeValue, $khois, true)) {
+        if ($mode === 'subject_grade' && $scopeType === 'khoi' && $scopeValue !== '' && !in_array(normalizeScopeToken($scopeValue), array_map(static fn(string $value): string => normalizeScopeToken($value), $khois), true)) {
             $errors[] = 'Khối đã chọn không thuộc phạm vi được phân công.';
         }
-        if ($mode === 'subject_grade' && $scopeType === 'lop' && $scopeValue !== '' && !in_array($scopeValue, $lops, true)) {
+        if ($mode === 'subject_grade' && $scopeType === 'lop' && $scopeValue !== '' && !in_array(normalizeScopeToken($scopeValue), array_map(static fn(string $value): string => normalizeScopeToken($value), $lops), true)) {
             $errors[] = 'Lớp đã chọn không thuộc phạm vi được phân công.';
         }
     }
