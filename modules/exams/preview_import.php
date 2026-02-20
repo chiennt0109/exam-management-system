@@ -319,13 +319,22 @@ require_once BASE_PATH . '/layout/header.php';
                 </table>
             </div>
             <?php if ($totalRows > 0): ?>
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                    <div class="small text-muted">Hiển thị <?= count($previewPageRows) ?> / <?= $totalRows ?> dòng</div>
+                <div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2">
+                    <div class="small text-muted">Hiển thị <?= count($previewPageRows) ?> / <?= $totalRows ?> dòng (Trang <?= $page ?>/<?= $totalPages ?>)</div>
+                    <form method="get" action="<?= BASE_URL ?>/modules/exams/preview_import.php" class="d-flex align-items-center gap-2">
+                        <label class="small text-muted" for="perPageSelect">Mỗi trang</label>
+                        <select id="perPageSelect" name="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <?php foreach ($perPageOptions as $opt): ?>
+                                <option value="<?= $opt ?>" <?= $perPage === $opt ? 'selected' : '' ?>><?= $opt ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <input type="hidden" name="page" value="1">
+                    </form>
                     <div class="btn-group">
-                        <?php $baseQuery = ['page'=>max(1,$page-1),'per_page'=>$perPage]; ?>
-                        <a class="btn btn-sm btn-outline-secondary <?= $page <= 1 ? 'disabled' : '' ?>" href="?<?= http_build_query($baseQuery) ?>">Trước</a>
+                        <?php $prevQuery = ['page'=>max(1,$page-1),'per_page'=>$perPage]; ?>
+                        <a class="btn btn-sm btn-outline-secondary <?= $page <= 1 ? 'disabled' : '' ?>" href="<?= BASE_URL ?>/modules/exams/preview_import.php?<?= http_build_query($prevQuery) ?>">Trước</a>
                         <?php $nextQuery = ['page'=>min($totalPages,$page+1),'per_page'=>$perPage]; ?>
-                        <a class="btn btn-sm btn-outline-secondary <?= $page >= $totalPages ? 'disabled' : '' ?>" href="?<?= http_build_query($nextQuery) ?>">Sau</a>
+                        <a class="btn btn-sm btn-outline-secondary <?= $page >= $totalPages ? 'disabled' : '' ?>" href="<?= BASE_URL ?>/modules/exams/preview_import.php?<?= http_build_query($nextQuery) ?>">Sau</a>
                     </div>
                 </div>
             <?php endif; ?>
