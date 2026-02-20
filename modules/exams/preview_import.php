@@ -103,15 +103,25 @@ if ($importProfile === 'all_exam') {
             $khoiStmt = $pdo->prepare('SELECT khoi FROM rooms WHERE id = :id AND exam_id = :exam_id AND subject_id = :subject_id LIMIT 1');
             $khoiStmt->execute([':id' => $roomId, ':exam_id' => $examId, ':subject_id' => $subjectId]);
             $khoiValue = (string) ($khoiStmt->fetchColumn() ?: '');
-        } else {
-            $khoiValue = $scopeType === 'khoi' ? $scopeValue : '';
+        } elseif ($scopeType === 'khoi') {
+            $khoiValue = $scopeValue;
+        } elseif ($scopeType === 'lop' && $scopeValue !== '') {
+            $khoiFromLopStmt = $pdo->prepare('SELECT khoi FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND lop = :lop AND khoi IS NOT NULL AND khoi <> "" LIMIT 1');
+            $khoiFromLopStmt->execute([':exam_id' => $examId, ':lop' => $scopeValue]);
+            $khoiValue = (string) ($khoiFromLopStmt->fetchColumn() ?: '');
         }
+
         $assignStmt = $pdo->prepare('SELECT DISTINCT component_name FROM score_assignments
             WHERE exam_id=:exam_id AND subject_id=:subject_id AND user_id=:user_id
               AND ((room_id IS NOT NULL AND room_id=:room_id) OR (room_id IS NULL AND khoi=:khoi))');
         $assignStmt->execute([':exam_id'=>$examId,':subject_id'=>$subjectId,':user_id'=>$userId,':room_id'=>$roomId,':khoi'=>$khoiValue]);
         $assigned = array_values(array_unique(array_map('strval', $assignStmt->fetchAll(PDO::FETCH_COLUMN))));
-                $candidate = array_values(array_intersect($candidate, $assigned));
+
+        if (in_array('total', $assigned, true)) {
+            // "total" nghĩa là được phép nhập toàn bộ thành phần của phạm vi.
+        } else {
+            $candidate = array_values(array_intersect($candidate, $assigned));
+        }
     }
 
     foreach ($candidate as $component) {

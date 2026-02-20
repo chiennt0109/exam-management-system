@@ -108,6 +108,19 @@ try {
             continue;
         }
 
+        $hasEditableInput = false;
+        foreach ($allowedComponents as $componentName) {
+            $field = $componentName === 'component_1' ? 'c1' : ($componentName === 'component_2' ? 'c2' : 'c3');
+            if (trim((string) ($vals[$field] ?? '')) !== '') {
+                $hasEditableInput = true;
+                break;
+            }
+        }
+        if (!$hasEditableInput) {
+            // Không nhập ô nào => không thay đổi dữ liệu, tránh phát sinh tổng = 0 sai.
+            continue;
+        }
+
         $c1 = in_array('component_1', $allowedComponents, true)
             ? parseSmartScore((string) ($vals['c1'] ?? ''), $max1)
             : (($old['component_1'] === null) ? null : (float) $old['component_1']);
