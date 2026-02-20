@@ -4,12 +4,8 @@ require_once __DIR__ . '/_layout.php';
 student_require_login();
 
 $student = student_portal_student();
-$examStmt = $pdo->prepare('SELECT * FROM exams WHERE id = :id LIMIT 1');
-$examStmt->execute([':id' => $student['exam_id']]);
-$exam = $examStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-$canViewScores = $exam
-    && (int) ($exam['is_score_published'] ?? 0) === 1
-    && (int) ($exam['is_score_entry_locked'] ?? 0) === 1;
+$exam = student_portal_get_exam($pdo, $student['exam_id']);
+$canViewScores = $exam ? student_portal_can_view_scores($exam) : false;
 
 $scores = [];
 $total = 0.0;
@@ -23,6 +19,16 @@ if ($canViewScores) {
         ORDER BY s.ten_mon');
     $stmt->execute([':student_id' => $student['id'], ':exam_id' => $student['exam_id']]);
     $scores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($scores)) {
+        $fallbackStmt = $pdo->prepare('SELECT s.ten_mon AS ma_mon, COALESCE(sc.total_score, sc.diem) AS diem
+            FROM scores sc
+            INNER JOIN subjects s ON s.id = sc.subject_id
+            WHERE sc.student_id = :student_id AND sc.exam_id = :exam_id
+            ORDER BY s.ten_mon');
+        $fallbackStmt->execute([':student_id' => $student['id'], ':exam_id' => $student['exam_id']]);
+        $scores = $fallbackStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
     if (!empty($scores)) {
         $vals = array_map(static fn(array $r): float => (float) ($r['diem'] ?? 0), $scores);

@@ -6,10 +6,8 @@ student_require_login();
 $student = student_portal_student();
 $csrf = student_portal_csrf_token();
 
-$examStmt = $pdo->prepare('SELECT * FROM exams WHERE id = :id LIMIT 1');
-$examStmt->execute([':id' => $student['exam_id']]);
-$exam = $examStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-$canRegister = $exam && (int) ($exam['is_locked'] ?? 0) === 0;
+$exam = student_portal_get_exam($pdo, $student['exam_id']);
+$canRegister = $exam ? student_portal_can_register_subjects($exam) : false;
 
 $subjectsStmt = $pdo->prepare('SELECT s.id, s.ten_mon FROM exam_subjects es INNER JOIN subjects s ON s.id = es.subject_id WHERE es.exam_id = :exam_id ORDER BY es.sort_order ASC, s.ten_mon ASC');
 $subjectsStmt->execute([':exam_id' => $student['exam_id']]);
@@ -22,19 +20,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     } elseif (!student_portal_verify_csrf($_POST['csrf_token'] ?? null)) {
         $message = 'CSRF token không hợp lệ.';
     } else {
-        $chosen = array_map('intval', (array) ($_POST['subjects'] ?? []));
+        $chosen = array_values(array_unique(array_map('intval', (array) ($_POST['subjects'] ?? []))));
+        $allowedSubjectIds = array_map(static fn(array $row): int => (int) ($row['id'] ?? 0), $subjects);
+        $chosen = array_values(array_filter($chosen, static fn(int $id): bool => in_array($id, $allowedSubjectIds, true)));
+
         $pdo->beginTransaction();
         try {
-            $del = $pdo->prepare('DELETE FROM student_exam_subjects WHERE exam_id = :exam AND student_id = :student');
+            $del = $pdo->prepare('DELETE FROM exam_student_subjects WHERE exam_id = :exam AND student_id = :student');
             $del->execute([':exam' => $student['exam_id'], ':student' => $student['id']]);
 
-            $ins = $pdo->prepare('INSERT INTO student_exam_subjects (exam_id, student_id, subject_id, created_at) VALUES (:exam, :student, :subject, :created_at)');
+            $ins = $pdo->prepare('INSERT OR IGNORE INTO exam_student_subjects (exam_id, student_id, subject_id) VALUES (:exam, :student, :subject)');
             foreach ($chosen as $subjectId) {
                 $ins->execute([
                     ':exam' => $student['exam_id'],
                     ':student' => $student['id'],
                     ':subject' => $subjectId,
-                    ':created_at' => date('c'),
                 ]);
             }
             $pdo->commit();
@@ -48,7 +48,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 }
 
-$selectedStmt = $pdo->prepare('SELECT subject_id FROM student_exam_subjects WHERE exam_id = :exam AND student_id = :student');
+$selectedStmt = $pdo->prepare('SELECT subject_id FROM exam_student_subjects WHERE exam_id = :exam AND student_id = :student');
 $selectedStmt->execute([':exam' => $student['exam_id'], ':student' => $student['id']]);
 $selected = array_map('intval', $selectedStmt->fetchAll(PDO::FETCH_COLUMN));
 

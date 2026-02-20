@@ -4,10 +4,8 @@ require_once __DIR__ . '/_layout.php';
 student_require_login();
 
 $student = student_portal_student();
-$examStmt = $pdo->prepare('SELECT * FROM exams WHERE id = :id LIMIT 1');
-$examStmt->execute([':id' => $student['exam_id']]);
-$exam = $examStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-$canViewRooms = $exam && (int) ($exam['is_locked'] ?? 0) === 1;
+$exam = student_portal_get_exam($pdo, $student['exam_id']);
+$canViewRooms = $exam ? student_portal_can_view_rooms($exam) : false;
 
 $hasExamRoomsTable = (bool) $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='exam_rooms'")->fetchColumn();
 

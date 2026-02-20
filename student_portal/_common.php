@@ -20,16 +20,6 @@ function student_portal_init_schema(PDO $pdo): void
         $pdo->exec('ALTER TABLE exams ADD COLUMN is_score_published INTEGER DEFAULT 0');
     }
 
-    $pdo->exec('CREATE TABLE IF NOT EXISTS student_exam_subjects (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        exam_id INTEGER NOT NULL,
-        student_id INTEGER NOT NULL,
-        subject_id INTEGER NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(exam_id, student_id, subject_id)
-    )');
-    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_student_exam_subjects_student ON student_exam_subjects(student_id)');
-    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_student_exam_subjects_exam ON student_exam_subjects(exam_id)');
 }
 
 function student_portal_default_exam(PDO $pdo): ?array
@@ -64,6 +54,48 @@ function student_portal_csrf_token(): string
 function student_portal_verify_csrf(?string $token): bool
 {
     return is_string($token) && isset($_SESSION['student_portal_csrf']) && hash_equals($_SESSION['student_portal_csrf'], $token);
+}
+
+
+function student_portal_get_exam(PDO $pdo, int $examId): ?array
+{
+    if ($examId <= 0) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare('SELECT * FROM exams WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $examId]);
+    $exam = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $exam ?: null;
+}
+
+function student_portal_can_register_subjects(array $exam): bool
+{
+    $isLocked = (int) ($exam['is_locked'] ?? 0) === 1;
+    $distributionLocked = (int) ($exam['distribution_locked'] ?? 0) === 1;
+    $roomsLocked = (int) ($exam['rooms_locked'] ?? 0) === 1;
+    $examLocked = (int) ($exam['exam_locked'] ?? 0) === 1;
+
+    return !$isLocked && !$distributionLocked && !$roomsLocked && !$examLocked;
+}
+
+function student_portal_can_view_rooms(array $exam): bool
+{
+    return (int) ($exam['is_locked'] ?? 0) === 1
+        || (int) ($exam['distribution_locked'] ?? 0) === 1
+        || (int) ($exam['rooms_locked'] ?? 0) === 1
+        || (int) ($exam['exam_locked'] ?? 0) === 1;
+}
+
+function student_portal_can_view_scores(array $exam): bool
+{
+    $published = (int) ($exam['is_score_published'] ?? 0) === 1;
+    $scoreEntryLocked = (int) ($exam['is_score_entry_locked'] ?? 0) === 1
+        || (int) ($exam['scoring_closed'] ?? 0) === 1
+        || (int) ($exam['exam_locked'] ?? 0) === 1;
+
+    return $published && $scoreEntryLocked;
 }
 
 function student_portal_student(): array
