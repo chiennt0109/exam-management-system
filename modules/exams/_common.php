@@ -228,6 +228,9 @@ function exams_init_schema(PDO $pdo): void
     if (!in_array('exam_locked', $examCols, true)) {
         $pdo->exec('ALTER TABLE exams ADD COLUMN exam_locked INTEGER DEFAULT 0');
     }
+    if (!in_array('scoring_closed', $examCols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN scoring_closed INTEGER DEFAULT 0');
+    }
     if (!in_array('is_default', $examCols, true)) {
         $pdo->exec('ALTER TABLE exams ADD COLUMN is_default INTEGER DEFAULT 0');
     }
@@ -375,10 +378,10 @@ function exams_guard_write_access(PDO $pdo, int $examId, string $maintenanceMess
 function exams_get_lock_state(PDO $pdo, int $examId): array
 {
     if ($examId <= 0) {
-        return ['distribution_locked' => 0, 'rooms_locked' => 0, 'exam_locked' => 0];
+        return ['distribution_locked' => 0, 'rooms_locked' => 0, 'exam_locked' => 0, 'scoring_closed' => 0];
     }
 
-    $stmt = $pdo->prepare('SELECT distribution_locked, rooms_locked, exam_locked FROM exams WHERE id = :id LIMIT 1');
+    $stmt = $pdo->prepare('SELECT distribution_locked, rooms_locked, exam_locked, COALESCE(scoring_closed,0) AS scoring_closed FROM exams WHERE id = :id LIMIT 1');
     $stmt->execute([':id' => $examId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
@@ -386,6 +389,7 @@ function exams_get_lock_state(PDO $pdo, int $examId): array
         'distribution_locked' => (int) ($row['distribution_locked'] ?? 0),
         'rooms_locked' => (int) ($row['rooms_locked'] ?? 0),
         'exam_locked' => (int) ($row['exam_locked'] ?? 0),
+        'scoring_closed' => (int) ($row['scoring_closed'] ?? 0),
     ];
 }
 

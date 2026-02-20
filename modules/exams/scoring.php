@@ -11,6 +11,31 @@ $role = (string) ($_SESSION['user']['role'] ?? '');
 $userId = (int) ($_SESSION['user']['id'] ?? 0);
 $errors = [];
 
+$lockState = exams_get_lock_state($pdo, $examId);
+$isScoringClosed = ((int) ($lockState['scoring_closed'] ?? 0)) === 1;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ((string) ($_POST['action'] ?? '')) !== '') {
+    if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
+        exams_set_flash('error', 'CSRF token không hợp lệ.');
+    } elseif ($role !== 'admin') {
+        exams_set_flash('error', 'Chỉ admin mới có quyền kết thúc/mở lại nhập điểm.');
+    } else {
+        $action = (string) ($_POST['action'] ?? '');
+        if ($action === 'close_scoring') {
+            $pdo->prepare('UPDATE exams SET scoring_closed = 1 WHERE id = :id')->execute([':id' => $examId]);
+            exams_set_flash('success', 'Đã kết thúc nhập điểm cho kỳ thi hiện tại.');
+        } elseif ($action === 'reopen_scoring') {
+            $pdo->prepare('UPDATE exams SET scoring_closed = 0 WHERE id = :id')->execute([':id' => $examId]);
+            exams_set_flash('success', 'Đã mở lại nhập điểm cho kỳ thi hiện tại.');
+        }
+    }
+    header('Location: ' . BASE_URL . '/modules/exams/scoring.php?' . http_build_query([
+        'subject_id' => (int) ($_GET['subject_id'] ?? 0),
+        'room_id' => (int) ($_GET['room_id'] ?? 0),
+    ]));
+    exit;
+}
+
 $examModeStmt = $pdo->prepare('SELECT exam_mode FROM exams WHERE id = :id LIMIT 1');
 $examModeStmt->execute([':id' => $examId]);
 $examMode = (int) ($examModeStmt->fetchColumn() ?: 1);
@@ -194,6 +219,14 @@ require_once BASE_PATH . '/layout/header.php';
 <div class="card shadow-sm"><div class="card-header bg-primary text-white d-flex justify-content-between align-items-center"><strong>Nhập điểm theo phòng thi</strong><a class="btn btn-light btn-sm" href="<?= BASE_URL ?>/modules/exams/import_scores.php">Import Excel</a></div><div class="card-body">
 <?= exams_display_flash(); ?>
 <?php if ($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach ($errors as $e): ?><li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+<?php if ($isScoringClosed && $role !== 'admin'): ?><div class="alert alert-warning">Kỳ thi đã kết thúc nhập điểm. Chỉ admin mới có thể mở lại.</div><?php endif; ?>
+<div class="d-flex justify-content-end mb-2">
+<?php if ($role === 'admin' && !$isScoringClosed): ?>
+<form method="post" class="d-inline"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="close_scoring"><button class="btn btn-sm btn-outline-danger" type="submit" onclick="return confirm('Xác nhận kết thúc nhập điểm?')">Kết thúc nhập điểm</button></form>
+<?php elseif ($role === 'admin' && $isScoringClosed): ?>
+<form method="post" class="d-inline"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="reopen_scoring"><button class="btn btn-sm btn-outline-success" type="submit">Mở lại nhập điểm</button></form>
+<?php endif; ?>
+</div>
 <?php if ($role === 'scorer' && empty($subjects)): ?><div class="alert alert-warning">Bạn chưa được phân công phạm vi nhập điểm.</div><?php endif; ?>
 <?php if ($role === 'scorer' && !empty($subjects) && empty($displayComponentLabels)): ?><div class="alert alert-warning">Bạn chưa được phân công thành phần điểm cho phạm vi đang chọn.</div><?php endif; ?>
 <?php if ($role === 'scorer' && !empty($displayComponentLabels)): ?><div class="small text-muted mb-2">Thành phần được phân công: <strong><?= htmlspecialchars($assignedComponentTitle, ENT_QUOTES, 'UTF-8') ?></strong></div><?php endif; ?>
@@ -234,7 +267,7 @@ require_once BASE_PATH . '/layout/header.php';
     $rawValue = $r[$key];
     $val = $rawValue === null ? '' : score_value_to_string((float) $rawValue);
 ?>
-<td><input class="form-control form-control-sm score-input" data-col="<?= $key ?>" data-max="<?= $max ?>" name="rows[<?= (int) $r['id'] ?>][<?= $name ?>]" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>" <?= $editable ? '' : 'readonly' ?>></td>
+<td><input class="form-control form-control-sm score-input" data-col="<?= $key ?>" data-max="<?= $max ?>" name="rows[<?= (int) $r['id'] ?>][<?= $name ?>]" value="<?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?>" <?= ($editable && !($isScoringClosed && $role !== 'admin')) ? '' : 'readonly' ?>></td>
 <?php endforeach; ?>
 <?php
     if ($role === 'admin') {
@@ -257,7 +290,7 @@ require_once BASE_PATH . '/layout/header.php';
 <?php endforeach; ?>
 </tbody>
 </table>
-<div class="mt-2"><button class="btn btn-success" type="submit" <?= (empty($displayComponentLabels) || $roomId <= 0) ? 'disabled' : '' ?>>Lưu điểm</button></div>
+<div class="mt-2"><button class="btn btn-success" type="submit" <?= (empty($displayComponentLabels) || $roomId <= 0 || ($isScoringClosed && $role !== 'admin')) ? 'disabled' : '' ?>>Lưu điểm</button></div>
 </form>
 </div></div></div></div>
 

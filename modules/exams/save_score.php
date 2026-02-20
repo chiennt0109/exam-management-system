@@ -30,6 +30,15 @@ if (!exams_is_exam_locked($pdo, $examId)) {
     exit;
 }
 
+$scoringClosedStmt = $pdo->prepare('SELECT COALESCE(scoring_closed, 0) FROM exams WHERE id = :id LIMIT 1');
+$scoringClosedStmt->execute([':id' => $examId]);
+$isScoringClosed = ((int) ($scoringClosedStmt->fetchColumn() ?: 0)) === 1;
+if ($isScoringClosed && $role !== 'admin') {
+    exams_set_flash('error', 'Kỳ thi đã kết thúc nhập điểm. Chỉ admin mới có thể chỉnh sửa.');
+    header('Location: ' . $redirectUrl);
+    exit;
+}
+
 if ($roomId <= 0 || $subjectId <= 0) {
     exams_set_flash('error', 'Vui lòng chọn môn và phòng thi.');
     header('Location: ' . $redirectUrl);
@@ -81,6 +90,8 @@ if ($role === 'scorer') {
 }
 
 $rowsPayload = $_POST['rows'] ?? [];
+$changedRows = 0;
+$clearedRows = 0;
 
 try {
     $pdo->beginTransaction();
@@ -108,32 +119,31 @@ try {
             continue;
         }
 
-        $hasEditableInput = false;
-        foreach ($allowedComponents as $componentName) {
-            $field = $componentName === 'component_1' ? 'c1' : ($componentName === 'component_2' ? 'c2' : 'c3');
-            if (trim((string) ($vals[$field] ?? '')) !== '') {
-                $hasEditableInput = true;
-                break;
-            }
-        }
-        if (!$hasEditableInput) {
-            // Không nhập ô nào => không thay đổi dữ liệu, tránh phát sinh tổng = 0 sai.
-            continue;
-        }
+        $oldC1 = $old['component_1'] === null ? null : (float) $old['component_1'];
+        $oldC2 = $old['component_2'] === null ? null : (float) $old['component_2'];
+        $oldC3 = $old['component_3'] === null ? null : (float) $old['component_3'];
 
         $c1 = in_array('component_1', $allowedComponents, true)
             ? parseSmartScore((string) ($vals['c1'] ?? ''), $max1)
-            : (($old['component_1'] === null) ? null : (float) $old['component_1']);
+            : $oldC1;
         $c2 = $componentCount >= 2
             ? (in_array('component_2', $allowedComponents, true)
                 ? parseSmartScore((string) ($vals['c2'] ?? ''), $max2)
-                : (($old['component_2'] === null) ? null : (float) $old['component_2']))
+                : $oldC2)
             : null;
         $c3 = $componentCount >= 3
             ? (in_array('component_3', $allowedComponents, true)
                 ? parseSmartScore((string) ($vals['c3'] ?? ''), $max3)
-                : (($old['component_3'] === null) ? null : (float) $old['component_3']))
+                : $oldC3)
             : null;
+
+        $changed = false;
+        if (in_array('component_1', $allowedComponents, true) && $c1 !== $oldC1) { $changed = true; }
+        if ($componentCount >= 2 && in_array('component_2', $allowedComponents, true) && $c2 !== $oldC2) { $changed = true; }
+        if ($componentCount >= 3 && in_array('component_3', $allowedComponents, true) && $c3 !== $oldC3) { $changed = true; }
+        if (!$changed) {
+            continue;
+        }
 
         $sum = 0.0;
         $hasAny = false;
@@ -161,7 +171,9 @@ try {
             ':subject_id' => $subjectId,
         ]);
 
+        $changedRows++;
         if ($total === null) {
+            $clearedRows++;
             $deleteExamScore->execute([
                 ':exam_id' => $examId,
                 ':student_id' => (int) $old['student_id'],
@@ -180,6 +192,9 @@ try {
 
     $pdo->commit();
     exams_set_flash('success', 'Đã lưu điểm.');
+    if ($changedRows > 0) {
+        exams_set_flash('warning', sprintf('Đã thay đổi %d dòng, trong đó xoá trắng %d dòng.', $changedRows, $clearedRows));
+    }
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
