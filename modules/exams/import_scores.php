@@ -60,11 +60,26 @@ $roomsStmt = $pdo->prepare('SELECT r.id, r.ten_phong, r.khoi, s.ten_mon, r.subje
     ORDER BY s.ten_mon, r.ten_phong');
 $roomsStmt->execute([':exam_id' => $examId]);
 $rooms = $roomsStmt->fetchAll(PDO::FETCH_ASSOC);
+
 if ($isScorer) {
-    $rooms = array_values(array_filter($rooms, static function (array $room) use ($assignedRoomIdsBySubject): bool {
+    // Nếu phân công theo phòng, vẫn phải suy ra được khối tương ứng để dùng cho mode Môn + Khối/Lớp.
+    foreach ($rooms as $room) {
         $sid = (int) ($room['subject_id'] ?? 0);
         $rid = (int) ($room['id'] ?? 0);
-        return isset($assignedRoomIdsBySubject[$sid][$rid]);
+        if (!isset($assignedRoomIdsBySubject[$sid][$rid])) {
+            continue;
+        }
+        $khoi = trim((string) ($room['khoi'] ?? ''));
+        if ($khoi !== '') {
+            $assignedKhoisBySubject[$sid][$khoi] = true;
+        }
+    }
+
+    $rooms = array_values(array_filter($rooms, static function (array $room) use ($assignedRoomIdsBySubject, $assignedKhoisBySubject): bool {
+        $sid = (int) ($room['subject_id'] ?? 0);
+        $rid = (int) ($room['id'] ?? 0);
+        $khoi = trim((string) ($room['khoi'] ?? ''));
+        return isset($assignedRoomIdsBySubject[$sid][$rid]) || ($khoi !== '' && isset($assignedKhoisBySubject[$sid][$khoi]));
     }));
 }
 
