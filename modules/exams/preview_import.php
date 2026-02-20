@@ -119,21 +119,34 @@ if ($importProfile === 'all_exam') {
             'key' => $subjectId . '|' . $component,
             'subject_id' => $subjectId,
             'component' => $component,
-            'label' => $componentLabels[$component] ?? $component,
+            'label' => ($subjectMap[$subjectId]['name'] ?? ('#' . $subjectId)) . ' - ' . ($componentLabels[$component] ?? $component),
         ];
     }
 }
 
-if (empty($targets)) {
+$allTargets = $targets;
+if (empty($allTargets)) {
     exams_set_flash('error', 'Không có thành phần điểm được phân công để import trong phạm vi đã chọn.');
     header('Location: ' . BASE_URL . '/modules/exams/import_scores.php');
+    exit;
+}
+
+$postedSelectedTargets = array_values(array_map('strval', (array) ($_POST['selected_targets'] ?? [])));
+$storedSelectedTargets = array_values(array_map('strval', (array) ($draft['selected_targets'] ?? [])));
+$selectedTargetKeys = !empty($postedSelectedTargets) ? $postedSelectedTargets : (!empty($storedSelectedTargets) ? $storedSelectedTargets : array_column($allTargets, 'key'));
+$selectedTargetLookup = array_fill_keys($selectedTargetKeys, true);
+$targets = array_values(array_filter($allTargets, static fn(array $target): bool => isset($selectedTargetLookup[(string) ($target['key'] ?? '')])));
+
+if (empty($targets)) {
+    exams_set_flash('error', 'Vui lòng chọn ít nhất 1 môn - thành phần để import.');
+    header('Location: ' . BASE_URL . '/modules/exams/preview_import.php');
     exit;
 }
 
 $mapCols = (array) ($_POST['map_cols'] ?? ($draft['map_cols'] ?? []));
 $availableCols = array_values($columns);
 $colIdx = 1;
-foreach ($targets as $target) {
+foreach ($allTargets as $target) {
     $key = $target['key'];
     $selected = (string) ($mapCols[$key] ?? ($availableCols[$colIdx] ?? ($availableCols[0] ?? '')));
     if (!in_array($selected, $availableCols, true)) {
@@ -144,6 +157,7 @@ foreach ($targets as $target) {
 }
 $draft['col_sbd'] = $selectedSbd;
 $draft['map_cols'] = $mapCols;
+$draft['selected_targets'] = array_values(array_map(static fn(array $target): string => (string) $target['key'], $targets));
 $_SESSION['score_import_draft'] = $draft;
 
 $baseStmt = $pdo->prepare('SELECT es.student_id, es.sbd, es.khoi, es.lop, st.hoten
@@ -304,8 +318,17 @@ require_once BASE_PATH . '/layout/header.php';
             <form method="post" class="row g-3 mb-3">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                 <div class="col-md-3"><label class="form-label">Cột SBD</label><select name="col_sbd" class="form-select"><?php foreach ($columns as $col): ?><option value="<?= htmlspecialchars($col, ENT_QUOTES, 'UTF-8') ?>" <?= $selectedSbd === $col ? 'selected' : '' ?>><?= htmlspecialchars(colLabel($col, $headers), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                <?php foreach ($targets as $t): ?>
-                    <div class="col-md-3"><label class="form-label"><?= htmlspecialchars((string) $t['label'], ENT_QUOTES, 'UTF-8') ?></label><select class="form-select" name="map_cols[<?= htmlspecialchars((string) $t['key'], ENT_QUOTES, 'UTF-8') ?>]"><?php foreach ($columns as $col): ?><option value="<?= htmlspecialchars($col, ENT_QUOTES, 'UTF-8') ?>" <?= ($mapCols[$t['key']] ?? '') === $col ? 'selected' : '' ?>><?= htmlspecialchars(colLabel($col, $headers), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
+                <?php foreach ($allTargets as $t): ?>
+                    <?php $checked = isset($selectedTargetLookup[(string) $t['key']]); ?>
+                    <div class="col-md-4">
+                        <div class="form-check mb-1">
+                            <input class="form-check-input target-checkbox" type="checkbox" name="selected_targets[]" value="<?= htmlspecialchars((string) $t['key'], ENT_QUOTES, 'UTF-8') ?>" id="target_<?= htmlspecialchars((string) str_replace('|', '_', (string) $t['key']), ENT_QUOTES, 'UTF-8') ?>" <?= $checked ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="target_<?= htmlspecialchars((string) str_replace('|', '_', (string) $t['key']), ENT_QUOTES, 'UTF-8') ?>">
+                                <?= htmlspecialchars((string) $t['label'], ENT_QUOTES, 'UTF-8') ?>
+                            </label>
+                        </div>
+                        <select class="form-select" name="map_cols[<?= htmlspecialchars((string) $t['key'], ENT_QUOTES, 'UTF-8') ?>]" <?= $checked ? '' : 'disabled' ?>><?php foreach ($columns as $col): ?><option value="<?= htmlspecialchars($col, ENT_QUOTES, 'UTF-8') ?>" <?= ($mapCols[$t['key']] ?? '') === $col ? 'selected' : '' ?>><?= htmlspecialchars(colLabel($col, $headers), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select>
+                    </div>
                 <?php endforeach; ?>
                 <div class="col-12 d-grid"><button class="btn btn-outline-primary" type="submit">Cập nhật preview</button></div>
             </form>
@@ -368,4 +391,15 @@ require_once BASE_PATH . '/layout/header.php';
         </div></div>
     </div>
 </div>
+<script>
+document.querySelectorAll('.target-checkbox').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+        const wrap = checkbox.closest('.col-md-4');
+        const select = wrap ? wrap.querySelector('select') : null;
+        if (select) {
+            select.disabled = !checkbox.checked;
+        }
+    });
+});
+</script>
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>

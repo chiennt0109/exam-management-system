@@ -81,7 +81,9 @@ if ($isScorer) {
     }));
 }
 
-$importProfile = (string) ($_POST['import_profile'] ?? 'assigned_scope');
+$requestData = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $_GET;
+
+$importProfile = (string) ($requestData['import_profile'] ?? 'assigned_scope');
 if (!in_array($importProfile, ['assigned_scope', 'all_exam'], true)) {
     $importProfile = 'assigned_scope';
 }
@@ -89,17 +91,17 @@ if (!$isAdmin && $importProfile === 'all_exam') {
     $importProfile = 'assigned_scope';
 }
 
-$mode = (string) ($_POST['mode'] ?? 'subject_room');
+$mode = (string) ($requestData['mode'] ?? 'subject_room');
 if (!in_array($mode, ['subject_grade', 'subject_room'], true)) {
     $mode = 'subject_room';
 }
-$subjectId = max(0, (int) ($_POST['subject_id'] ?? 0));
-$roomId = max(0, (int) ($_POST['room_id'] ?? 0));
-$scopeType = (string) ($_POST['scope_type'] ?? 'khoi');
+$subjectId = max(0, (int) ($requestData['subject_id'] ?? 0));
+$roomId = max(0, (int) ($requestData['room_id'] ?? 0));
+$scopeType = (string) ($requestData['scope_type'] ?? 'khoi');
 if (!in_array($scopeType, ['khoi', 'lop'], true)) {
     $scopeType = 'khoi';
 }
-$scopeValue = trim((string) ($_POST['scope_value'] ?? ''));
+$scopeValue = trim((string) ($requestData['scope_value'] ?? ''));
 
 if ($isScorer && $subjectId > 0 && !isset($assignedSubjectIds[$subjectId])) {
     $subjectId = 0;
@@ -281,7 +283,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="col-md-4">
                         <label class="form-label" for="import_profile">Chế độ import</label>
-                        <select id="import_profile" name="import_profile" class="form-select" onchange="toggleImportProfile(this.value)">
+                        <select id="import_profile" name="import_profile" class="form-select" onchange="onScopeFilterChange()">
                             <option value="assigned_scope" <?= $importProfile === 'assigned_scope' ? 'selected' : '' ?>>Chế độ 1: Theo phạm vi phân công</option>
                             <?php if ($isAdmin): ?><option value="all_exam" <?= $importProfile === 'all_exam' ? 'selected' : '' ?>>Chế độ 2: Admin import toàn kỳ thi</option><?php endif; ?>
                         </select>
@@ -289,7 +291,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="col-md-4 profile-assigned">
                         <label class="form-label" for="mode">Phạm vi</label>
-                        <select id="mode" name="mode" class="form-select" onchange="toggleMode(this.value)">
+                        <select id="mode" name="mode" class="form-select" onchange="onScopeFilterChange()">
                             <option value="subject_grade" <?= $mode === 'subject_grade' ? 'selected' : '' ?>>Môn + Khối/Lớp</option>
                             <option value="subject_room" <?= $mode === 'subject_room' ? 'selected' : '' ?>>Môn + Phòng</option>
                         </select>
@@ -297,7 +299,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="col-md-4 profile-assigned">
                         <label class="form-label" for="subject_id">Môn thi</label>
-                        <select id="subject_id" name="subject_id" class="form-select">
+                        <select id="subject_id" name="subject_id" class="form-select" onchange="onScopeFilterChange()">
                             <option value="0">-- Chọn môn --</option>
                             <?php foreach ($subjects as $subject): ?>
                                 <option value="<?= (int) $subject['id'] ?>" <?= $subjectId === (int) $subject['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) (($subject['ma_mon'] ?? '') . ' - ' . $subject['ten_mon']), ENT_QUOTES, 'UTF-8') ?></option>
@@ -318,7 +320,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="col-md-2 mode-grade profile-assigned">
                         <label class="form-label" for="scope_type">Theo</label>
-                        <select id="scope_type" name="scope_type" class="form-select">
+                        <select id="scope_type" name="scope_type" class="form-select" onchange="onScopeFilterChange()">
                             <option value="khoi" <?= $scopeType === 'khoi' ? 'selected' : '' ?>>Khối</option>
                             <option value="lop" <?= $scopeType === 'lop' ? 'selected' : '' ?>>Lớp</option>
                         </select>
@@ -357,6 +359,16 @@ function toggleImportProfile(profile){
 function toggleMode(mode) {
     document.querySelectorAll('.mode-room').forEach(el => el.style.display = mode === 'subject_room' ? '' : 'none');
     document.querySelectorAll('.mode-grade').forEach(el => el.style.display = mode === 'subject_grade' ? '' : 'none');
+}
+function onScopeFilterChange() {
+    const params = new URLSearchParams();
+    params.set('import_profile', document.getElementById('import_profile')?.value || 'assigned_scope');
+    params.set('mode', document.getElementById('mode')?.value || 'subject_room');
+    params.set('subject_id', document.getElementById('subject_id')?.value || '0');
+    params.set('room_id', document.getElementById('room_id')?.value || '0');
+    params.set('scope_type', document.getElementById('scope_type')?.value || 'khoi');
+    params.set('scope_value', document.getElementById('scope_value')?.value || '');
+    window.location.href = `<?= BASE_URL ?>/modules/exams/import_scores.php?${params.toString()}`;
 }
 function syncScopeValue() {
     const scopeType = document.getElementById('scope_type')?.value || 'khoi';
@@ -442,9 +454,9 @@ document.getElementById('scoreImportForm')?.addEventListener('submit', function 
     reader.readAsArrayBuffer(file);
 });
 
-document.getElementById('scope_type')?.addEventListener('change', syncScopeValue);
 toggleImportProfile('<?= $importProfile ?>');
 toggleMode('<?= $mode ?>');
 syncScopeValue();
+document.getElementById('scope_value')?.addEventListener('change', onScopeFilterChange);
 </script>
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>
