@@ -179,6 +179,10 @@ if ($mode === 'subject_room' && !in_array($roomId, $availableRoomIds, true)) {
     $roomId = 0;
 }
 if ($mode === 'subject_grade') {
+    if ($isScorer && $importProfile === 'assigned_scope' && $scopeType === 'khoi' && empty($khois) && !empty($lops)) {
+        $scopeType = 'lop';
+    }
+
     $allowedScopeValues = $scopeType === 'khoi' ? $khois : $lops;
     if (!in_array($scopeValue, $allowedScopeValues, true)) {
         $scopeValue = '';
@@ -207,10 +211,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($mode === 'subject_grade' && $scopeValue === '') {
             $errors[] = 'Vui lòng chọn khối/lớp.';
         }
-        if ($mode === 'subject_grade' && $scopeType === 'khoi' && !in_array($scopeValue, $khois, true)) {
+        if ($mode === 'subject_grade' && $scopeType === 'khoi' && $scopeValue !== '' && !in_array($scopeValue, $khois, true)) {
             $errors[] = 'Khối đã chọn không thuộc phạm vi được phân công.';
         }
-        if ($mode === 'subject_grade' && $scopeType === 'lop' && !in_array($scopeValue, $lops, true)) {
+        if ($mode === 'subject_grade' && $scopeType === 'lop' && $scopeValue !== '' && !in_array($scopeValue, $lops, true)) {
             $errors[] = 'Lớp đã chọn không thuộc phạm vi được phân công.';
         }
     }
