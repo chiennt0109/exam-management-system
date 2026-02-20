@@ -138,6 +138,12 @@ if ($subjectId > 0) {
 }
 $availableRoomIds = array_values(array_unique(array_filter($availableRoomIds, static fn(int $id): bool => $id > 0)));
 
+if ($isScorer && $importProfile === 'assigned_scope') {
+    if ($mode === 'subject_room' && $roomId <= 0 && count($availableRoomIds) === 1) {
+        $roomId = (int) $availableRoomIds[0];
+    }
+}
+
 $khois = [];
 if ($subjectId > 0) {
     if ($isScorer) {
@@ -176,6 +182,10 @@ if ($mode === 'subject_grade') {
     $allowedScopeValues = $scopeType === 'khoi' ? $khois : $lops;
     if (!in_array($scopeValue, $allowedScopeValues, true)) {
         $scopeValue = '';
+    }
+
+    if ($isScorer && $importProfile === 'assigned_scope' && $scopeValue === '' && count($allowedScopeValues) === 1) {
+        $scopeValue = (string) $allowedScopeValues[0];
     }
 }
 
