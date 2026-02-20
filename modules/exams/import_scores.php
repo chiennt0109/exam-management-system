@@ -24,6 +24,8 @@ $role = normalize_role((string) ($_SESSION['user']['role'] ?? $_SESSION['role'] 
 $userId = (int) ($_SESSION['user']['id'] ?? $_SESSION['user_id'] ?? 0);
 $isAdmin = $role === 'admin';
 $isScorer = $role === 'scorer';
+$lockState = exams_get_lock_state($pdo, $examId);
+$isScoringClosed = ((int) ($lockState['scoring_closed'] ?? 0)) === 1;
 
 function normalizeScopeToken(string $value): string
 {
@@ -200,6 +202,9 @@ if ($mode === 'subject_grade') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($isScoringClosed && !$isAdmin) {
+        $errors[] = 'Kỳ thi đã kết thúc nhập điểm. Chỉ admin mới có thể import.';
+    }
     if ($isScorer && $userId <= 0) {
         $errors[] = 'Không xác định được tài khoản người dùng.';
     }
@@ -315,6 +320,7 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-body">
                 <?= exams_display_flash(); ?>
                 <?php if ($errors): ?><div class="alert alert-danger"><ul class="mb-0"><?php foreach ($errors as $error): ?><li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div><?php endif; ?>
+                <?php if ($isScoringClosed && !$isAdmin): ?><div class="alert alert-warning">Kỳ thi đã kết thúc nhập điểm. Chỉ admin mới có thể import hoặc chỉnh sửa điểm.</div><?php endif; ?>
                 <div class="alert alert-danger">⚠ Thao tác import có thể ghi đè hoặc xóa dữ liệu điểm. Vui lòng kiểm tra kỹ trước khi xác nhận lưu ở bước cuối.</div>
 
                 <form method="POST" enctype="multipart/form-data" class="row g-3" id="scoreImportForm">
@@ -382,11 +388,11 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="col-md-8">
                         <label class="form-label" for="excelfile">Tệp Excel</label>
-                        <input type="file" name="excelfile" id="excelfile" class="form-control" accept=".xlsx,.xls" required>
+                        <input type="file" name="excelfile" id="excelfile" class="form-control" accept=".xlsx,.xls" required <?= ($isScoringClosed && !$isAdmin) ? "disabled" : "" ?>>
                         <div class="form-text" id="parseStatus">Chưa đọc file.</div>
                     </div>
                     <div class="col-md-4 d-grid align-items-end">
-                        <button type="submit" name="import" id="import-btn" class="btn btn-primary mt-4">Duyệt file</button>
+                        <button type="submit" name="import" id="import-btn" class="btn btn-primary mt-4" <?= ($isScoringClosed && !$isAdmin) ? "disabled" : "" ?>>Duyệt file</button>
                     </div>
                 </form>
             </div>
@@ -436,7 +442,9 @@ function syncScopeValue() {
     }
 }
 
+const scoringClosedForUser = <?= ($isScoringClosed && !$isAdmin) ? 'true' : 'false' ?>;
 document.getElementById('scoreImportForm')?.addEventListener('submit', function (e) {
+    if (scoringClosedForUser) { e.preventDefault(); alert('Kỳ thi đã kết thúc nhập điểm. Chỉ admin mới có thể import.'); return; }
     const form = e.currentTarget;
     const input = document.getElementById('excelfile');
     const file = input?.files?.[0];

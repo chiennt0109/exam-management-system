@@ -17,6 +17,16 @@ if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
     exit;
 }
 
+$role = normalize_role((string) ($_SESSION['user']['role'] ?? $_SESSION['role'] ?? ''));
+$isAdmin = $role === 'admin';
+$lockState = exams_get_lock_state($pdo, $examId);
+$isScoringClosed = ((int) ($lockState['scoring_closed'] ?? 0)) === 1;
+if ($isScoringClosed && !$isAdmin) {
+    exams_set_flash('error', 'Kỳ thi đã kết thúc nhập điểm. Chỉ admin mới có thể import.');
+    header('Location: ' . BASE_URL . '/modules/exams/import_scores.php');
+    exit;
+}
+
 $strategy = (string) ($_POST['strategy'] ?? 'cancel');
 if (!in_array($strategy, ['overwrite', 'skip_existing', 'cancel'], true)) {
     $strategy = 'cancel';

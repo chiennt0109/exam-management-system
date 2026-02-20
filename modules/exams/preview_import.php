@@ -10,6 +10,13 @@ $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
 $role = normalize_role((string) ($_SESSION['user']['role'] ?? ''));
 $userId = (int) ($_SESSION['user']['id'] ?? 0);
 $isAdmin = $role === 'admin';
+$lockState = exams_get_lock_state($pdo, $examId);
+$isScoringClosed = ((int) ($lockState['scoring_closed'] ?? 0)) === 1;
+if ($isScoringClosed && !$isAdmin) {
+    exams_set_flash('error', 'Kỳ thi đã kết thúc nhập điểm. Chỉ admin mới có thể thao tác import.');
+    header('Location: ' . BASE_URL . '/modules/exams/import_scores.php');
+    exit;
+}
 $draft = (array) ($_SESSION['score_import_draft'] ?? []);
 
 if (($draft['exam_id'] ?? 0) !== $examId || empty($draft['rows']) || empty($draft['columns'])) {
