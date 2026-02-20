@@ -298,7 +298,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="col-md-4">
                         <label class="form-label" for="import_profile">Chế độ import</label>
-                        <select id="import_profile" name="import_profile" class="form-select" onchange="onScopeFilterChange()">
+                        <select id="import_profile" name="import_profile" class="form-select" onchange="handleImportProfileChange()">
                             <option value="assigned_scope" <?= $importProfile === 'assigned_scope' ? 'selected' : '' ?>>Chế độ 1: Theo phạm vi phân công</option>
                             <?php if ($isAdmin): ?><option value="all_exam" <?= $importProfile === 'all_exam' ? 'selected' : '' ?>>Chế độ 2: Admin import toàn kỳ thi</option><?php endif; ?>
                         </select>
@@ -306,7 +306,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="col-md-4 profile-assigned">
                         <label class="form-label" for="mode">Phạm vi</label>
-                        <select id="mode" name="mode" class="form-select" onchange="onScopeFilterChange()">
+                        <select id="mode" name="mode" class="form-select" onchange="handleModeChange()">
                             <option value="subject_grade" <?= $mode === 'subject_grade' ? 'selected' : '' ?>>Môn + Khối/Lớp</option>
                             <option value="subject_room" <?= $mode === 'subject_room' ? 'selected' : '' ?>>Môn + Phòng</option>
                         </select>
@@ -314,7 +314,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="col-md-4 profile-assigned">
                         <label class="form-label" for="subject_id">Môn thi</label>
-                        <select id="subject_id" name="subject_id" class="form-select" onchange="onScopeFilterChange()">
+                        <select id="subject_id" name="subject_id" class="form-select" onchange="reloadBySubject()">
                             <option value="0">-- Chọn môn --</option>
                             <?php foreach ($subjects as $subject): ?>
                                 <option value="<?= (int) $subject['id'] ?>" <?= $subjectId === (int) $subject['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) (($subject['ma_mon'] ?? '') . ' - ' . $subject['ten_mon']), ENT_QUOTES, 'UTF-8') ?></option>
@@ -335,7 +335,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="col-md-2 mode-grade profile-assigned">
                         <label class="form-label" for="scope_type">Theo</label>
-                        <select id="scope_type" name="scope_type" class="form-select" onchange="onScopeFilterChange()">
+                        <select id="scope_type" name="scope_type" class="form-select" onchange="handleScopeTypeChange()">
                             <option value="khoi" <?= $scopeType === 'khoi' ? 'selected' : '' ?>>Khối</option>
                             <option value="lop" <?= $scopeType === 'lop' ? 'selected' : '' ?>>Lớp</option>
                         </select>
@@ -375,15 +375,26 @@ function toggleMode(mode) {
     document.querySelectorAll('.mode-room').forEach(el => el.style.display = mode === 'subject_room' ? '' : 'none');
     document.querySelectorAll('.mode-grade').forEach(el => el.style.display = mode === 'subject_grade' ? '' : 'none');
 }
-function onScopeFilterChange() {
+function reloadBySubject() {
     const params = new URLSearchParams();
     params.set('import_profile', document.getElementById('import_profile')?.value || 'assigned_scope');
     params.set('mode', document.getElementById('mode')?.value || 'subject_room');
     params.set('subject_id', document.getElementById('subject_id')?.value || '0');
-    params.set('room_id', document.getElementById('room_id')?.value || '0');
+    params.set('room_id', '0');
     params.set('scope_type', document.getElementById('scope_type')?.value || 'khoi');
-    params.set('scope_value', document.getElementById('scope_value')?.value || '');
+    params.set('scope_value', '');
     window.location.href = `<?= BASE_URL ?>/modules/exams/import_scores.php?${params.toString()}`;
+}
+function handleImportProfileChange() {
+    const profile = document.getElementById('import_profile')?.value || 'assigned_scope';
+    toggleImportProfile(profile);
+}
+function handleModeChange() {
+    const mode = document.getElementById('mode')?.value || 'subject_room';
+    toggleMode(mode);
+}
+function handleScopeTypeChange() {
+    syncScopeValue();
 }
 function syncScopeValue() {
     const scopeType = document.getElementById('scope_type')?.value || 'khoi';
@@ -472,6 +483,5 @@ document.getElementById('scoreImportForm')?.addEventListener('submit', function 
 toggleImportProfile('<?= $importProfile ?>');
 toggleMode('<?= $mode ?>');
 syncScopeValue();
-document.getElementById('scope_value')?.addEventListener('change', onScopeFilterChange);
 </script>
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>
