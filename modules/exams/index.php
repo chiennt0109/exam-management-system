@@ -12,6 +12,7 @@ $currentExamId = getCurrentExamId();
 $columns = $pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::FETCH_ASSOC);
 $hasTrangThai = false;
 $hasDeletedAt = false;
+$hasScorePublished = false;
 foreach ($columns as $col) {
     if (($col['name'] ?? '') === 'trang_thai') {
         $hasTrangThai = true;
@@ -19,10 +20,17 @@ foreach ($columns as $col) {
     if (($col['name'] ?? '') === 'deleted_at') {
         $hasDeletedAt = true;
     }
+    if (($col['name'] ?? '') === 'is_score_published') {
+        $hasScorePublished = true;
+    }
 }
 if (!$hasDeletedAt) {
     $pdo->exec('ALTER TABLE exams ADD COLUMN deleted_at TEXT');
     $hasDeletedAt = true;
+}
+if (!$hasScorePublished) {
+    $pdo->exec('ALTER TABLE exams ADD COLUMN is_score_published INTEGER DEFAULT 0');
+    $hasScorePublished = true;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -49,6 +57,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 
+
+
+    if (empty($errors) && $action === 'toggle_score_publish') {
+        if (current_user_role() !== 'admin') {
+            $errors[] = 'Chỉ admin mới có quyền công bố điểm.';
+        }
+        $examId = max(0, (int) ($_POST['exam_id'] ?? 0));
+        $publish = (int) ($_POST['publish'] ?? 0) === 1 ? 1 : 0;
+        if (empty($errors) && $examId > 0) {
+            $stmt = $pdo->prepare('UPDATE exams SET is_score_published = :published WHERE id = :id');
+            $stmt->execute([':published' => $publish, ':id' => $examId]);
+            exams_set_flash('success', $publish === 1 ? 'Đã công bố điểm cho kỳ thi.' : 'Đã ẩn kết quả kỳ thi.');
+            header('Location: ' . BASE_URL . '/modules/exams/index.php');
+            exit;
+        }
+    }
 
     if (empty($errors) && $action === 'create') {
         $tenKyThi = trim((string) ($_POST['ten_ky_thi'] ?? ''));
@@ -192,10 +216,10 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-bordered table-sm align-middle">
-                        <thead><tr><th>ID</th><th>Tên kỳ thi</th><th>Năm</th><th>Ngày thi</th><th>Trạng thái</th><th>Mặc định</th><th>Workflow</th><th>Xóa</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Tên kỳ thi</th><th>Năm</th><th>Ngày thi</th><th>Trạng thái</th><th>Mặc định</th><th>Workflow</th><th>Công bố điểm</th><th>Xóa</th></tr></thead>
                         <tbody>
                         <?php if (empty($exams)): ?>
-                            <tr><td colspan="8" class="text-center">Chưa có kỳ thi.</td></tr>
+                            <tr><td colspan="9" class="text-center">Chưa có kỳ thi.</td></tr>
                         <?php else: foreach ($exams as $exam): ?>
                             <?php $isDeleted = !empty($exam['deleted_at']); ?>
                             <tr class="<?= $isDeleted ? 'table-warning' : '' ?>">
@@ -220,6 +244,21 @@ require_once BASE_PATH . '/layout/header.php';
                                         <a class="btn btn-sm btn-outline-primary" href="configure_subjects.php">B4</a>
                                         <a class="btn btn-sm btn-outline-primary" href="distribute_rooms.php">B5</a>
                                         <a class="btn btn-sm btn-outline-primary" href="print_rooms.php">B6</a>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if (current_user_role() === 'admin'): ?>
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="action" value="toggle_score_publish">
+                                            <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                            <input type="hidden" name="publish" value="<?= ((int) ($exam['is_score_published'] ?? 0) === 1) ? 0 : 1 ?>">
+                                            <button class="btn btn-sm <?= ((int) ($exam['is_score_published'] ?? 0) === 1) ? 'btn-danger' : 'btn-outline-danger' ?>" type="submit">
+                                                <?= ((int) ($exam['is_score_published'] ?? 0) === 1) ? 'Ẩn điểm' : 'CÔNG BỐ ĐIỂM' ?>
+                                            </button>
+                                        </form>
+                                    <?php else: ?>
+                                        <span class="badge bg-secondary"><?= ((int) ($exam['is_score_published'] ?? 0) === 1) ? 'Đã công bố' : 'Chưa công bố' ?></span>
                                     <?php endif; ?>
                                 </td>
                                 <td>

@@ -89,6 +89,18 @@ function exams_init_schema(PDO $pdo): void
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_exam_student_subjects_exam_student ON exam_student_subjects(exam_id, student_id)');
 
 
+    $pdo->exec('CREATE TABLE IF NOT EXISTS student_exam_subjects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_id INTEGER NOT NULL,
+        student_id INTEGER NOT NULL,
+        subject_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(exam_id, student_id, subject_id)
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_student_exam_subjects_student ON student_exam_subjects(student_id)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_student_exam_subjects_exam ON student_exam_subjects(exam_id)');
+
+
     $pdo->exec('CREATE TABLE IF NOT EXISTS exam_scores (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         exam_id INTEGER NOT NULL,
@@ -236,6 +248,16 @@ function exams_init_schema(PDO $pdo): void
     }
     if (!in_array('exam_mode', $examCols, true)) {
         $pdo->exec('ALTER TABLE exams ADD COLUMN exam_mode INTEGER DEFAULT 1');
+    }
+
+    if (!in_array('is_locked', $examCols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN is_locked INTEGER DEFAULT 0');
+    }
+    if (!in_array('is_score_entry_locked', $examCols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN is_score_entry_locked INTEGER DEFAULT 0');
+    }
+    if (!in_array('is_score_published', $examCols, true)) {
+        $pdo->exec('ALTER TABLE exams ADD COLUMN is_score_published INTEGER DEFAULT 0');
     }
 
     $classCols = array_column($pdo->query('PRAGMA table_info(exam_subject_classes)')->fetchAll(PDO::FETCH_ASSOC), 'name');
