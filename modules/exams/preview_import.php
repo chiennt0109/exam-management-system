@@ -199,7 +199,7 @@ foreach ($subjectMap as $sid => $_meta) {
 $preview = [];
 $validRows = [];
 $existingCount = 0;
-$perPageOptions = [20, 50, 100];
+$perPageOptions = [20, 50, 100, 500];
 $perPage = (int) ($_GET['per_page'] ?? 20);
 if (!in_array($perPage, $perPageOptions, true)) { $perPage = 20; }
 $page = max(1, (int) ($_GET['page'] ?? 1));
@@ -330,11 +330,31 @@ require_once BASE_PATH . '/layout/header.php';
                         </select>
                         <input type="hidden" name="page" value="1">
                     </form>
-                    <div class="btn-group">
-                        <?php $prevQuery = ['page'=>max(1,$page-1),'per_page'=>$perPage]; ?>
-                        <a class="btn btn-sm btn-outline-secondary <?= $page <= 1 ? 'disabled' : '' ?>" href="<?= BASE_URL ?>/modules/exams/preview_import.php?<?= http_build_query($prevQuery) ?>">Trước</a>
-                        <?php $nextQuery = ['page'=>min($totalPages,$page+1),'per_page'=>$perPage]; ?>
-                        <a class="btn btn-sm btn-outline-secondary <?= $page >= $totalPages ? 'disabled' : '' ?>" href="<?= BASE_URL ?>/modules/exams/preview_import.php?<?= http_build_query($nextQuery) ?>">Sau</a>
+                    <div class="d-flex flex-wrap align-items-center gap-1">
+                        <?php
+                        $buildPageUrl = static fn(int $targetPage): string => BASE_URL . '/modules/exams/preview_import.php?' . http_build_query([
+                            'page' => $targetPage,
+                            'per_page' => $perPage,
+                        ]);
+                        $windowSize = 2;
+                        $startPage = max(1, $page - $windowSize);
+                        $endPage = min($totalPages, $page + $windowSize);
+                        ?>
+                        <a class="btn btn-sm btn-outline-secondary <?= $page <= 1 ? 'disabled' : '' ?>" href="<?= $buildPageUrl(1) ?>">Trang đầu</a>
+                        <a class="btn btn-sm btn-outline-secondary <?= $page <= 1 ? 'disabled' : '' ?>" href="<?= $buildPageUrl(max(1, $page - 1)) ?>">Trang trước</a>
+                        <?php if ($startPage > 1): ?>
+                            <a class="btn btn-sm btn-outline-secondary" href="<?= $buildPageUrl(1) ?>">1</a>
+                            <?php if ($startPage > 2): ?><span class="px-1">...</span><?php endif; ?>
+                        <?php endif; ?>
+                        <?php for ($p = $startPage; $p <= $endPage; $p++): ?>
+                            <a class="btn btn-sm <?= $p === $page ? 'btn-primary' : 'btn-outline-secondary' ?>" href="<?= $buildPageUrl($p) ?>"><?= $p ?></a>
+                        <?php endfor; ?>
+                        <?php if ($endPage < $totalPages): ?>
+                            <?php if ($endPage < $totalPages - 1): ?><span class="px-1">...</span><?php endif; ?>
+                            <a class="btn btn-sm btn-outline-secondary" href="<?= $buildPageUrl($totalPages) ?>"><?= $totalPages ?></a>
+                        <?php endif; ?>
+                        <a class="btn btn-sm btn-outline-secondary <?= $page >= $totalPages ? 'disabled' : '' ?>" href="<?= $buildPageUrl(min($totalPages, $page + 1)) ?>">Trang sau</a>
+                        <a class="btn btn-sm btn-outline-secondary <?= $page >= $totalPages ? 'disabled' : '' ?>" href="<?= $buildPageUrl($totalPages) ?>">Trang cuối</a>
                     </div>
                 </div>
             <?php endif; ?>

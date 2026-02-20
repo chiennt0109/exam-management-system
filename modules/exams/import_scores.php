@@ -23,6 +23,35 @@ $errors = [];
 $role = normalize_role((string) ($_SESSION['user']['role'] ?? ''));
 $userId = (int) ($_SESSION['user']['id'] ?? 0);
 $isAdmin = $role === 'admin';
+$isScorer = $role === 'scorer';
+
+$assignedSubjectIds = [];
+$assignedRoomIdsBySubject = [];
+$assignedKhoisBySubject = [];
+if ($isScorer) {
+    $assignmentStmt = $pdo->prepare('SELECT subject_id, room_id, khoi
+        FROM score_assignments
+        WHERE exam_id = :exam_id AND user_id = :user_id');
+    $assignmentStmt->execute([':exam_id' => $examId, ':user_id' => $userId]);
+    foreach ($assignmentStmt->fetchAll(PDO::FETCH_ASSOC) as $assignment) {
+        $sid = (int) ($assignment['subject_id'] ?? 0);
+        if ($sid <= 0) {
+            continue;
+        }
+        $assignedSubjectIds[$sid] = true;
+
+        $rid = (int) ($assignment['room_id'] ?? 0);
+        if ($rid > 0) {
+            $assignedRoomIdsBySubject[$sid][$rid] = true;
+            continue;
+        }
+
+        $khoi = trim((string) ($assignment['khoi'] ?? ''));
+        if ($khoi !== '') {
+            $assignedKhoisBySubject[$sid][$khoi] = true;
+        }
+    }
+}
 
 $roomsStmt = $pdo->prepare('SELECT r.id, r.ten_phong, r.khoi, s.ten_mon, r.subject_id
     FROM rooms r
@@ -31,6 +60,13 @@ $roomsStmt = $pdo->prepare('SELECT r.id, r.ten_phong, r.khoi, s.ten_mon, r.subje
     ORDER BY s.ten_mon, r.ten_phong');
 $roomsStmt->execute([':exam_id' => $examId]);
 $rooms = $roomsStmt->fetchAll(PDO::FETCH_ASSOC);
+if ($isScorer) {
+    $rooms = array_values(array_filter($rooms, static function (array $room) use ($assignedRoomIdsBySubject): bool {
+        $sid = (int) ($room['subject_id'] ?? 0);
+        $rid = (int) ($room['id'] ?? 0);
+        return isset($assignedRoomIdsBySubject[$sid][$rid]);
+    }));
+}
 
 $subjectsStmt = $pdo->prepare('SELECT DISTINCT s.id, s.ma_mon, s.ten_mon
     FROM exam_students es
@@ -39,14 +75,11 @@ $subjectsStmt = $pdo->prepare('SELECT DISTINCT s.id, s.ma_mon, s.ten_mon
     ORDER BY s.ten_mon');
 $subjectsStmt->execute([':exam_id' => $examId]);
 $subjects = $subjectsStmt->fetchAll(PDO::FETCH_ASSOC);
-
-$khoiOptions = $pdo->prepare('SELECT DISTINCT khoi FROM exam_students WHERE exam_id = :exam_id AND khoi IS NOT NULL AND khoi <> "" ORDER BY khoi');
-$khoiOptions->execute([':exam_id' => $examId]);
-$khois = $khoiOptions->fetchAll(PDO::FETCH_COLUMN);
-
-$lopOptions = $pdo->prepare('SELECT DISTINCT lop FROM exam_students WHERE exam_id = :exam_id AND lop IS NOT NULL AND lop <> "" ORDER BY lop');
-$lopOptions->execute([':exam_id' => $examId]);
-$lops = $lopOptions->fetchAll(PDO::FETCH_COLUMN);
+if ($isScorer) {
+    $subjects = array_values(array_filter($subjects, static function (array $subject) use ($assignedSubjectIds): bool {
+        return isset($assignedSubjectIds[(int) ($subject['id'] ?? 0)]);
+    }));
+}
 
 $importProfile = (string) ($_POST['import_profile'] ?? 'assigned_scope');
 if (!in_array($importProfile, ['assigned_scope', 'all_exam'], true)) {
@@ -68,20 +101,90 @@ if (!in_array($scopeType, ['khoi', 'lop'], true)) {
 }
 $scopeValue = trim((string) ($_POST['scope_value'] ?? ''));
 
+if ($isScorer && $subjectId > 0 && !isset($assignedSubjectIds[$subjectId])) {
+    $subjectId = 0;
+}
+
+$availableRoomIds = [];
+if ($subjectId > 0) {
+    if ($isScorer) {
+        $availableRoomIds = array_map('intval', array_keys($assignedRoomIdsBySubject[$subjectId] ?? []));
+    } else {
+        foreach ($rooms as $room) {
+            if ((int) ($room['subject_id'] ?? 0) === $subjectId) {
+                $availableRoomIds[] = (int) ($room['id'] ?? 0);
+            }
+        }
+    }
+} else {
+    $availableRoomIds = array_map(static fn(array $room): int => (int) ($room['id'] ?? 0), $rooms);
+}
+$availableRoomIds = array_values(array_unique(array_filter($availableRoomIds, static fn(int $id): bool => $id > 0)));
+
+$khois = [];
+if ($subjectId > 0) {
+    if ($isScorer) {
+        $khois = array_values(array_keys($assignedKhoisBySubject[$subjectId] ?? []));
+    } else {
+        $khoiOptions = $pdo->prepare('SELECT DISTINCT khoi FROM exam_students WHERE exam_id = :exam_id AND subject_id = :subject_id AND khoi IS NOT NULL AND khoi <> "" ORDER BY khoi');
+        $khoiOptions->execute([':exam_id' => $examId, ':subject_id' => $subjectId]);
+        $khois = $khoiOptions->fetchAll(PDO::FETCH_COLUMN);
+    }
+}
+
+$lops = [];
+if ($subjectId > 0) {
+    $lopSql = 'SELECT DISTINCT lop FROM exam_students
+        WHERE exam_id = :exam_id AND subject_id = :subject_id AND lop IS NOT NULL AND lop <> ""';
+    $lopParams = [':exam_id' => $examId, ':subject_id' => $subjectId];
+    if ($isScorer && !empty($khois)) {
+        $placeholders = [];
+        foreach ($khois as $idx => $khoi) {
+            $key = ':khoi_' . $idx;
+            $placeholders[] = $key;
+            $lopParams[$key] = $khoi;
+        }
+        $lopSql .= ' AND khoi IN (' . implode(', ', $placeholders) . ')';
+    }
+    $lopSql .= ' ORDER BY lop';
+    $lopOptions = $pdo->prepare($lopSql);
+    $lopOptions->execute($lopParams);
+    $lops = $lopOptions->fetchAll(PDO::FETCH_COLUMN);
+}
+
+if ($mode === 'subject_room' && !in_array($roomId, $availableRoomIds, true)) {
+    $roomId = 0;
+}
+if ($mode === 'subject_grade') {
+    $allowedScopeValues = $scopeType === 'khoi' ? $khois : $lops;
+    if (!in_array($scopeValue, $allowedScopeValues, true)) {
+        $scopeValue = '';
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         $errors[] = 'CSRF token không hợp lệ.';
     }
 
     if ($importProfile === 'assigned_scope') {
+        if ($isScorer && $subjectId > 0 && !isset($assignedSubjectIds[$subjectId])) {
+            $errors[] = 'Bạn chỉ có thể import các môn được phân công.';
+        }
         if ($subjectId <= 0) {
             $errors[] = 'Vui lòng chọn môn thi.';
         }
-        if ($mode === 'subject_room' && $roomId <= 0) {
+        if ($mode === 'subject_room' && ($roomId <= 0 || !in_array($roomId, $availableRoomIds, true))) {
             $errors[] = 'Vui lòng chọn phòng thi.';
         }
         if ($mode === 'subject_grade' && $scopeValue === '') {
             $errors[] = 'Vui lòng chọn khối/lớp.';
+        }
+        if ($mode === 'subject_grade' && $scopeType === 'khoi' && !in_array($scopeValue, $khois, true)) {
+            $errors[] = 'Khối đã chọn không thuộc phạm vi được phân công.';
+        }
+        if ($mode === 'subject_grade' && $scopeType === 'lop' && !in_array($scopeValue, $lops, true)) {
+            $errors[] = 'Lớp đã chọn không thuộc phạm vi được phân công.';
         }
     }
 
@@ -207,6 +310,7 @@ require_once BASE_PATH . '/layout/header.php';
                         <select id="room_id" name="room_id" class="form-select">
                             <option value="0">-- Chọn phòng --</option>
                             <?php foreach ($rooms as $room): ?>
+                                <?php if ($subjectId > 0 && (int) ($room['subject_id'] ?? 0) !== $subjectId) { continue; } ?>
                                 <option value="<?= (int) $room['id'] ?>" <?= $roomId === (int) $room['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string) $room['ten_mon'] . ' | ' . $room['ten_phong'] . ' | Khối ' . $room['khoi'], ENT_QUOTES, 'UTF-8') ?></option>
                             <?php endforeach; ?>
                         </select>
