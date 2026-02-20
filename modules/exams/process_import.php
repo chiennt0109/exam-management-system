@@ -68,6 +68,11 @@ try {
             $skipped++;
             continue;
         }
+        if ($parsedScore === null || $parsedScore === '') {
+            // Ô điểm để trống sẽ giữ nguyên dữ liệu hiện có, không ghi NULL/0 đè lên.
+            $skipped++;
+            continue;
+        }
 
         $selectExisting->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':student_id' => $studentId]);
         $exists = (bool) $selectExisting->fetchColumn();

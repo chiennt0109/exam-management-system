@@ -217,23 +217,27 @@ $perPageOptions = [20, 50, 100, 500];
 $perPage = (int) ($_GET['per_page'] ?? 20);
 if (!in_array($perPage, $perPageOptions, true)) { $perPage = 20; }
 $page = max(1, (int) ($_GET['page'] ?? 1));
+$statusFilter = (string) ($_GET['status_filter'] ?? 'all');
+if (!in_array($statusFilter, ['all', 'valid', 'warning'], true)) {
+    $statusFilter = 'all';
+}
 
 foreach ($rows as $idx => $row) {
     $sbd = trim((string) ($row[$selectedSbd] ?? ''));
     $name = '';
     $studentId = 0;
-    $status = '✅ Hợp lệ';
+    $statusMessages = [];
+    $scorePreview = [];
 
     if ($sbd === '') {
-        $status = '⚠ Thiếu SBD';
+        $statusMessages[] = 'Thiếu SBD';
     } elseif (!isset($baseBySbd[$sbd])) {
-        $status = '⚠ Không tìm thấy SBD';
+        $statusMessages[] = 'Không tìm thấy SBD';
     } else {
         $student = $baseBySbd[$sbd];
         $studentId = (int) ($student['student_id'] ?? 0);
         $name = (string) ($student['hoten'] ?? '');
 
-        $scorePreview = [];
         foreach ($targets as $target) {
             $sid = (int) $target['subject_id'];
             $comp = (string) $target['component'];
@@ -242,42 +246,59 @@ foreach ($rows as $idx => $row) {
             $parsed = parseSmartScore($raw, $maxScore);
 
             if (!isset($registered[$studentId][$sid])) {
-                $status = '⚠ Không đăng ký môn ' . ($subjectMap[$sid]['name'] ?? ('#'.$sid));
+                $statusMessages[] = 'Không đăng ký môn ' . ($subjectMap[$sid]['name'] ?? ('#'.$sid));
+                $scorePreview[$target['label']] = '—';
                 continue;
             }
             if ($importProfile === 'assigned_scope') {
                 if ($mode === 'subject_room' && empty($roomMembersBySubject[$sid][$studentId])) {
-                    $status = '⚠ Không thuộc phòng import';
+                    $statusMessages[] = 'Không thuộc phòng import';
+                    $scorePreview[$target['label']] = '—';
                     continue;
                 }
                 if ($mode === 'subject_grade' && !isset($scopeMembers[$studentId])) {
-                    $status = '⚠ Không thuộc phạm vi khối/lớp';
+                    $statusMessages[] = 'Không thuộc phạm vi khối/lớp';
+                    $scorePreview[$target['label']] = '—';
                     continue;
                 }
             }
-            if ($raw !== '' && $parsed === null) {
-                $status = '⚠ Điểm không hợp lệ ở ' . $target['label'];
+
+            if ($raw === '') {
+                $statusMessages[] = 'Chưa nhập điểm ở ' . $target['label'];
+                $scorePreview[$target['label']] = 'trống → giữ nguyên';
+                continue;
+            }
+
+            if ($parsed === null) {
+                $statusMessages[] = 'Điểm không hợp lệ ở ' . $target['label'];
                 $scorePreview[$target['label']] = $raw . ' → lỗi';
                 continue;
             }
 
-            $scorePreview[$target['label']] = $raw === '' ? '' : ($raw . ' → ' . ($parsed === null ? '' : (string) $parsed));
-
+            $scorePreview[$target['label']] = $raw . ' → ' . (string) $parsed;
             $validRows[] = [
                 'student_id' => $studentId,
                 'subject_id' => $sid,
                 'component_name' => $comp,
                 'parsed_score' => $parsed,
+                'raw_score' => $raw,
             ];
         }
     }
+
+    $statusMessages = array_values(array_unique($statusMessages));
+    $status = empty($statusMessages) ? '✅ Hợp lệ' : ('⚠ ' . implode('; ', $statusMessages));
+    $statusType = empty($statusMessages) ? 'valid' : 'warning';
 
     $preview[] = [
         'line' => $idx + 2,
         'sbd' => $sbd,
         'name' => $name,
+        'student_id' => $studentId,
         'status' => $status,
-        'score_preview' => $scorePreview ?? [],
+        'status_type' => $statusType,
+        'status_details' => $statusMessages,
+        'score_preview' => $scorePreview,
     ];
 }
 
@@ -289,16 +310,56 @@ foreach ($validRows as $v) {
     }
 }
 
-$totalRows = count($preview);
+$filteredPreview = array_values(array_filter($preview, static function (array $row) use ($statusFilter): bool {
+    if ($statusFilter === 'all') {
+        return true;
+    }
+    return (string) ($row['status_type'] ?? '') === $statusFilter;
+}));
+
+if ((string) ($_GET['action'] ?? '') === 'export_csv') {
+    $filename = 'import_preview_' . date('Ymd_His') . '.csv';
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+    $out = fopen('php://output', 'wb');
+    fwrite($out, "\xEF\xBB\xBF");
+
+    $csvHeader = ['Dong', 'SBD', 'Ho ten', 'Student ID', 'Trang thai'];
+    foreach ($targets as $t) {
+        $label = (string) ($t['label'] ?? '');
+        $csvHeader[] = $label . ' (Raw->Parsed)';
+    }
+    fputcsv($out, $csvHeader);
+
+    foreach ($preview as $r) {
+        $line = [
+            (string) ($r['line'] ?? ''),
+            (string) ($r['sbd'] ?? ''),
+            (string) ($r['name'] ?? ''),
+            (string) ($r['student_id'] ?? ''),
+            (string) ($r['status'] ?? ''),
+        ];
+        foreach ($targets as $t) {
+            $line[] = (string) (($r['score_preview'][(string) $t['label']] ?? ''));
+        }
+        fputcsv($out, $line);
+    }
+    fclose($out);
+    exit;
+}
+
+$totalRows = count($filteredPreview);
 $totalPages = max(1, (int) ceil($totalRows / max(1, $perPage)));
 if ($page > $totalPages) { $page = $totalPages; }
 $offset = ($page - 1) * $perPage;
-$previewPageRows = array_slice($preview, $offset, $perPage);
+$previewPageRows = array_slice($filteredPreview, $offset, $perPage);
 
 $_SESSION['score_import_preview'] = [
     'exam_id' => $examId,
     'valid_rows' => $validRows,
     'import_profile' => $importProfile,
+    'status_filter' => $statusFilter,
 ];
 
 function colLabel(string $col, array $headers): string
@@ -335,6 +396,20 @@ require_once BASE_PATH . '/layout/header.php';
 
             <?php if ($existingCount > 0): ?><div class="alert alert-warning">⚠ Có <?= $existingCount ?> bản ghi đã có điểm, hãy chọn chiến lược import cẩn thận.</div><?php endif; ?>
 
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+                <form method="get" action="<?= BASE_URL ?>/modules/exams/preview_import.php" class="d-flex align-items-center gap-2">
+                    <label class="small text-muted" for="statusFilter">Lọc trạng thái</label>
+                    <select id="statusFilter" name="status_filter" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="all" <?= $statusFilter === 'all' ? 'selected' : '' ?>>Tất cả</option>
+                        <option value="valid" <?= $statusFilter === 'valid' ? 'selected' : '' ?>>Hợp lệ</option>
+                        <option value="warning" <?= $statusFilter === 'warning' ? 'selected' : '' ?>>Cảnh báo</option>
+                    </select>
+                    <input type="hidden" name="per_page" value="<?= $perPage ?>">
+                    <input type="hidden" name="page" value="1">
+                </form>
+                <a class="btn btn-sm btn-outline-success" href="<?= BASE_URL ?>/modules/exams/preview_import.php?<?= http_build_query(['action' => 'export_csv', 'status_filter' => $statusFilter, 'per_page' => $perPage, 'page' => $page]) ?>">Xuất toàn bộ kết quả (Excel CSV)</a>
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-sm table-bordered align-middle">
                     <thead><tr><th>Dòng</th><th>SBD</th><th>Họ tên</th><?php foreach ($targets as $t): ?><th><?= htmlspecialchars((string) $t['label'], ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?><th>Trạng thái</th></tr></thead>
@@ -343,7 +418,7 @@ require_once BASE_PATH . '/layout/header.php';
             </div>
             <?php if ($totalRows > 0): ?>
                 <div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2">
-                    <div class="small text-muted">Hiển thị <?= count($previewPageRows) ?> / <?= $totalRows ?> dòng (Trang <?= $page ?>/<?= $totalPages ?>)</div>
+                    <div class="small text-muted">Hiển thị <?= count($previewPageRows) ?> / <?= $totalRows ?> dòng (lọc từ tổng <?= count($preview) ?> dòng, Trang <?= $page ?>/<?= $totalPages ?>)</div>
                     <form method="get" action="<?= BASE_URL ?>/modules/exams/preview_import.php" class="d-flex align-items-center gap-2">
                         <label class="small text-muted" for="perPageSelect">Mỗi trang</label>
                         <select id="perPageSelect" name="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -352,12 +427,14 @@ require_once BASE_PATH . '/layout/header.php';
                             <?php endforeach; ?>
                         </select>
                         <input type="hidden" name="page" value="1">
+                        <input type="hidden" name="status_filter" value="<?= htmlspecialchars($statusFilter, ENT_QUOTES, 'UTF-8') ?>">
                     </form>
                     <div class="d-flex flex-wrap align-items-center gap-1">
                         <?php
                         $buildPageUrl = static fn(int $targetPage): string => BASE_URL . '/modules/exams/preview_import.php?' . http_build_query([
                             'page' => $targetPage,
                             'per_page' => $perPage,
+                            'status_filter' => $statusFilter,
                         ]);
                         $windowSize = 2;
                         $startPage = max(1, $page - $windowSize);
