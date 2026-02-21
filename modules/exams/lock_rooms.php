@@ -23,7 +23,12 @@ if ($examId <= 0) {
 try {
     exams_assert_exam_unlocked_for_write($pdo, $examId);
     $pdo->beginTransaction();
-    $pdo->prepare('UPDATE exams SET distribution_locked = 1, rooms_locked = 1, exam_locked = 1 WHERE id = :id')->execute([':id' => $examId]);
+    // Khoá phân phòng chỉ khoá giai đoạn phân phòng, KHÔNG khoá toàn bộ kỳ thi.
+    $pdo->prepare('UPDATE exams
+        SET distribution_locked = 1,
+            rooms_locked = 1,
+            is_locked = 1
+        WHERE id = :id')->execute([':id' => $examId]);
     $pdo->commit();
     exams_set_flash('success', 'Đã khoá phân phòng thành công.');
 } catch (Throwable $e) {
