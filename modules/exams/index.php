@@ -269,23 +269,35 @@ require_once BASE_PATH . '/layout/header.php';
                                         <a class="btn btn-sm btn-outline-primary" href="print_rooms.php">B6</a>
                                     </div>
                                     <div class="d-flex flex-wrap gap-1">
-                                        <?php foreach ([
-                                            ['label'=>'Khoá phân phòng','flag'=>'distribution_locked','on'=>1,'active'=>(int)$exam['distribution_locked']===1],
-                                            ['label'=>'Mở phân phòng','flag'=>'distribution_locked','on'=>0,'active'=>(int)$exam['distribution_locked']===0],
-                                            ['label'=>'Khoá kỳ thi','flag'=>'exam_locked','on'=>1,'active'=>(int)$exam['exam_locked']===1],
-                                            ['label'=>'Mở kỳ thi','flag'=>'exam_locked','on'=>0,'active'=>(int)$exam['exam_locked']===0],
-                                            ['label'=>'Khoá nhập điểm','flag'=>'is_score_entry_locked','on'=>1,'active'=>(int)$exam['is_score_entry_locked']===1],
-                                            ['label'=>'Mở nhập điểm','flag'=>'is_score_entry_locked','on'=>0,'active'=>(int)$exam['is_score_entry_locked']===0],
-                                        ] as $wf): ?>
-                                            <form method="post" class="d-inline">
-                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                                                <input type="hidden" name="action" value="toggle_workflow_flag">
-                                                <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
-                                                <input type="hidden" name="flag" value="<?= htmlspecialchars($wf['flag'], ENT_QUOTES, 'UTF-8') ?>">
-                                                <input type="hidden" name="value" value="<?= (int) $wf['on'] ?>">
-                                                <button class="btn btn-sm <?= $wf['active'] ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit"><?= htmlspecialchars($wf['label'], ENT_QUOTES, 'UTF-8') ?></button>
-                                            </form>
-                                        <?php endforeach; ?>
+                                        <?php $distributionLocked = (int) ($exam['distribution_locked'] ?? 0) === 1; ?>
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="action" value="toggle_workflow_flag">
+                                            <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                            <input type="hidden" name="flag" value="distribution_locked">
+                                            <input type="hidden" name="value" value="<?= $distributionLocked ? 0 : 1 ?>">
+                                            <button class="btn btn-sm <?= $distributionLocked ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit">Phân phòng: <?= $distributionLocked ? 'Đang khoá' : 'Đang mở' ?></button>
+                                        </form>
+
+                                        <?php $examLockedRow = (int) ($exam['exam_locked'] ?? 0) === 1; ?>
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="action" value="toggle_workflow_flag">
+                                            <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                            <input type="hidden" name="flag" value="exam_locked">
+                                            <input type="hidden" name="value" value="<?= $examLockedRow ? 0 : 1 ?>">
+                                            <button class="btn btn-sm <?= $examLockedRow ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit">Kỳ thi: <?= $examLockedRow ? 'Đang khoá' : 'Đang mở' ?></button>
+                                        </form>
+
+                                        <?php $scoreEntryLocked = (int) ($exam['is_score_entry_locked'] ?? 0) === 1; ?>
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="action" value="toggle_workflow_flag">
+                                            <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                            <input type="hidden" name="flag" value="is_score_entry_locked">
+                                            <input type="hidden" name="value" value="<?= $scoreEntryLocked ? 0 : 1 ?>">
+                                            <button class="btn btn-sm <?= $scoreEntryLocked ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit">Nhập điểm: <?= $scoreEntryLocked ? 'Đang khoá' : 'Đang mở' ?></button>
+                                        </form>
                                     </div>
                                 </td>
                                 <td>
