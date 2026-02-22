@@ -110,9 +110,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $token = $_POST['csrf_token'] ?? null;
     if (!student_portal_verify_csrf(is_string($token) ? $token : null)) {
         $error = 'Phiên làm việc hết hạn, vui lòng thử lại.';
-    } elseif (!$canRegisterRecheck) {
-        $error = 'Chỉ được đăng ký phúc tra sau khi đã khoá nhập điểm.';
     } else {
+        // Re-check lock state at submit time to prevent bypass if exam state changed after page render.
+        $latestExam = student_portal_get_exam($pdo, (int) $student['exam_id']);
+        $latestCanRegisterRecheck = $latestExam
+            ? (
+                (int) ($latestExam['is_score_entry_locked'] ?? 0) === 1
+                || (int) ($latestExam['scoring_closed'] ?? 0) === 1
+                || (int) ($latestExam['exam_locked'] ?? 0) === 1
+            )
+            : false;
+
+        if (!$latestCanRegisterRecheck) {
+            $error = 'Chỉ được đăng ký phúc tra sau khi đã khoá nhập điểm.';
+        } else {
         try {
             $pdo->beginTransaction();
             foreach ($subjectMap as $subjectId => $_name) {
@@ -161,6 +172,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             foreach ($rqStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $existingRequests[(int) ($row['subject_id'] ?? 0)] = $row;
             }
+        }
         }
     }
 }
