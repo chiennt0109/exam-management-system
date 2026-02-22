@@ -190,6 +190,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             try {
                 $pdo->beginTransaction();
+
+                if (!$isAdmin && in_array($action, ['hard_delete', 'restore'], true)) {
+                    throw new RuntimeException('Bạn không có quyền thực hiện thao tác này.');
+                }
                 if ($action === 'soft_delete') {
                     if ($hasTrangThai) {
                         $stmt = $pdo->prepare('UPDATE exams SET deleted_at = :deleted_at, trang_thai = "deleted" WHERE id = :id');
@@ -230,6 +234,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $selectTrangThai = $hasTrangThai ? ', trang_thai' : '';
+$currentExamId = getCurrentExamId();
+$isAdmin = current_user_role() === 'admin';
+$examWhere = $isAdmin ? '' : ' WHERE deleted_at IS NULL';
 $exams = $pdo->query('SELECT id, ten_ky_thi, nam, ngay_thi, deleted_at, is_default,
     COALESCE(distribution_locked,0) AS distribution_locked,
     COALESCE(rooms_locked,0) AS rooms_locked,
@@ -237,9 +244,7 @@ $exams = $pdo->query('SELECT id, ten_ky_thi, nam, ngay_thi, deleted_at, is_defau
     COALESCE(exam_locked,0) AS exam_locked,
     COALESCE(is_score_entry_locked,0) AS is_score_entry_locked,
     COALESCE(scoring_closed,0) AS scoring_closed,
-    COALESCE(is_score_published,0) AS is_score_published' . $selectTrangThai . ' FROM exams ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
-$currentExamId = getCurrentExamId();
-$isAdmin = current_user_role() === 'admin';
+    COALESCE(is_score_published,0) AS is_score_published' . $selectTrangThai . ' FROM exams' . $examWhere . ' ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
 
 require_once BASE_PATH . '/layout/header.php';
 ?>
@@ -362,27 +367,26 @@ require_once BASE_PATH . '/layout/header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <?php if ($isAdmin): ?>
-                                        <div class="d-flex flex-column gap-1">
-                                            <?php if (!$isDeleted): ?>
-                                                <form method="post" onsubmit="return confirm('Bạn chắc chắn muốn XÓA kỳ thi này? Dữ liệu vẫn có thể khôi phục.')">
-                                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="soft_delete"><input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
-                                                    <button class="btn btn-sm btn-outline-warning">Xóa</button>
-                                                </form>
-                                            <?php else: ?>
-                                                <form method="post" onsubmit="return confirm('Khôi phục kỳ thi này?')">
-                                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="restore"><input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
-                                                    <button class="btn btn-sm btn-outline-success">Khôi phục</button>
-                                                </form>
-                                            <?php endif; ?>
+                                    <div class="d-flex flex-column gap-1">
+                                        <?php if (!$isDeleted): ?>
+                                            <form method="post" onsubmit="return confirm('Bạn chắc chắn muốn xóa kỳ thi này?')">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="soft_delete"><input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                                <button class="btn btn-sm btn-outline-warning"><?= $isAdmin ? 'Xóa tạm' : 'Xóa' ?></button>
+                                            </form>
+                                        <?php elseif ($isAdmin): ?>
+                                            <form method="post" onsubmit="return confirm('Khôi phục kỳ thi này?')">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="restore"><input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                                <button class="btn btn-sm btn-outline-success">Khôi phục</button>
+                                            </form>
+                                        <?php endif; ?>
+
+                                        <?php if ($isAdmin): ?>
                                             <form method="post" onsubmit="return confirm('XÓA THẬT kỳ thi và toàn bộ dữ liệu liên quan?')">
                                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="hard_delete"><input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
                                                 <button class="btn btn-sm btn-danger">Xóa thật</button>
                                             </form>
-                                        </div>
-                                    <?php else: ?>
-                                        <span class="badge bg-secondary">Không có quyền</span>
-                                    <?php endif; ?>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; endif; ?>
