@@ -84,26 +84,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($examId <= 0 || !in_array($flag, $allowedFlags, true)) {
             $errors[] = 'Thao tác workflow không hợp lệ.';
         } else {
-            $updates = [$flag => $value];
+            $stateStmt = $pdo->prepare('SELECT
+                    COALESCE(distribution_locked,0) AS distribution_locked,
+                    COALESCE(exam_locked,0) AS exam_locked,
+                    COALESCE(is_score_entry_locked,0) AS is_score_entry_locked
+                FROM exams WHERE id = :id LIMIT 1');
+            $stateStmt->execute([':id' => $examId]);
+            $state = $stateStmt->fetch(PDO::FETCH_ASSOC) ?: ['distribution_locked' => 0, 'exam_locked' => 0, 'is_score_entry_locked' => 0];
+
+            $distributionLocked = (int) ($state['distribution_locked'] ?? 0) === 1;
+            $examLocked = (int) ($state['exam_locked'] ?? 0) === 1;
+            $scoreLocked = (int) ($state['is_score_entry_locked'] ?? 0) === 1;
+
             if ($flag === 'distribution_locked') {
-                $updates['rooms_locked'] = $value;
-                $updates['is_locked'] = $value;
+                if ($value === 0 && ($examLocked || $scoreLocked)) {
+                    $errors[] = 'Phải mở khoá nhập điểm và mở khoá kỳ thi trước khi mở khoá phân phòng.';
+                }
             }
-            if ($flag === 'is_score_entry_locked') {
-                $updates['scoring_closed'] = $value;
+            if ($flag === 'exam_locked') {
+                if ($value === 1 && !$distributionLocked) {
+                    $errors[] = 'Chỉ được khoá kỳ thi sau khi đã khoá phân phòng.';
+                }
+                if ($value === 0 && $scoreLocked) {
+                    $errors[] = 'Phải mở khoá nhập điểm trước khi mở khoá kỳ thi.';
+                }
+            }
+            if ($flag === 'is_score_entry_locked' && $value === 1 && !$examLocked) {
+                $errors[] = 'Chỉ được khoá nhập điểm sau khi đã khoá kỳ thi.';
             }
 
-            $setParts = [];
-            $params = [':id' => $examId];
-            foreach ($updates as $k => $v) {
-                $setParts[] = $k . ' = :' . $k;
-                $params[':' . $k] = (int) $v;
+            if (empty($errors)) {
+                $updates = [$flag => $value];
+                if ($flag === 'distribution_locked') {
+                    $updates['rooms_locked'] = $value;
+                    $updates['is_locked'] = $value;
+                }
+                if ($flag === 'is_score_entry_locked') {
+                    $updates['scoring_closed'] = $value;
+                }
+
+                $setParts = [];
+                $params = [':id' => $examId];
+                foreach ($updates as $k => $v) {
+                    $setParts[] = $k . ' = :' . $k;
+                    $params[':' . $k] = (int) $v;
+                }
+                $stmt = $pdo->prepare('UPDATE exams SET ' . implode(', ', $setParts) . ' WHERE id = :id');
+                $stmt->execute($params);
+                exams_set_flash('success', 'Đã cập nhật trạng thái workflow.');
+                header('Location: ' . BASE_URL . '/modules/exams/index.php');
+                exit;
             }
-            $stmt = $pdo->prepare('UPDATE exams SET ' . implode(', ', $setParts) . ' WHERE id = :id');
-            $stmt->execute($params);
-            exams_set_flash('success', 'Đã cập nhật trạng thái workflow.');
-            header('Location: ' . BASE_URL . '/modules/exams/index.php');
-            exit;
         }
     }
 
@@ -278,33 +309,36 @@ require_once BASE_PATH . '/layout/header.php';
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
                                         <?php $distributionLocked = (int) ($exam['distribution_locked'] ?? 0) === 1; ?>
+                                        <?php $examLockedRow = (int) ($exam['exam_locked'] ?? 0) === 1; ?>
+                                        <?php $scoreEntryLocked = (int) ($exam['is_score_entry_locked'] ?? 0) === 1; ?>
+                                        <?php $distributionCanToggle = !(!$distributionLocked && ($examLockedRow || $scoreEntryLocked)); ?>
+                                        <?php $examCanToggle = ($examLockedRow && !$scoreEntryLocked) || (!$examLockedRow && $distributionLocked); ?>
+                                        <?php $scoreCanToggle = ($scoreEntryLocked || $examLockedRow); ?>
                                         <form method="post" class="d-inline">
                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                                             <input type="hidden" name="action" value="toggle_workflow_flag">
                                             <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
                                             <input type="hidden" name="flag" value="distribution_locked">
                                             <input type="hidden" name="value" value="<?= $distributionLocked ? 0 : 1 ?>">
-                                            <button class="btn btn-sm <?= $distributionLocked ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit">Phân phòng: <?= $distributionLocked ? 'Đang khoá' : 'Đang mở' ?></button>
+                                            <button class="btn btn-sm <?= $distributionLocked ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit" <?= $distributionCanToggle ? '' : 'disabled title="Mở khoá theo thứ tự: Nhập điểm -> Kỳ thi -> Phân phòng"' ?>>Phân phòng: <?= $distributionLocked ? 'Đang khoá' : 'Đang mở' ?></button>
                                         </form>
 
-                                        <?php $examLockedRow = (int) ($exam['exam_locked'] ?? 0) === 1; ?>
                                         <form method="post" class="d-inline">
                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                                             <input type="hidden" name="action" value="toggle_workflow_flag">
                                             <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
                                             <input type="hidden" name="flag" value="exam_locked">
                                             <input type="hidden" name="value" value="<?= $examLockedRow ? 0 : 1 ?>">
-                                            <button class="btn btn-sm <?= $examLockedRow ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit">Kỳ thi: <?= $examLockedRow ? 'Đang khoá' : 'Đang mở' ?></button>
+                                            <button class="btn btn-sm <?= $examLockedRow ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit" <?= $examCanToggle ? '' : 'disabled title="Khoá theo thứ tự: Phân phòng -> Kỳ thi"' ?>>Kỳ thi: <?= $examLockedRow ? 'Đang khoá' : 'Đang mở' ?></button>
                                         </form>
 
-                                        <?php $scoreEntryLocked = (int) ($exam['is_score_entry_locked'] ?? 0) === 1; ?>
                                         <form method="post" class="d-inline">
                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                                             <input type="hidden" name="action" value="toggle_workflow_flag">
                                             <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
                                             <input type="hidden" name="flag" value="is_score_entry_locked">
                                             <input type="hidden" name="value" value="<?= $scoreEntryLocked ? 0 : 1 ?>">
-                                            <button class="btn btn-sm <?= $scoreEntryLocked ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit">Nhập điểm: <?= $scoreEntryLocked ? 'Đang khoá' : 'Đang mở' ?></button>
+                                            <button class="btn btn-sm <?= $scoreEntryLocked ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit" <?= $scoreCanToggle ? '' : 'disabled title="Khoá theo thứ tự: Kỳ thi -> Nhập điểm"' ?>>Nhập điểm: <?= $scoreEntryLocked ? 'Đang khoá' : 'Đang mở' ?></button>
                                         </form>
                                     </div>
                                 </td>
