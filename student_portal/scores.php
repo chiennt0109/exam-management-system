@@ -6,6 +6,13 @@ student_require_login();
 $student = student_portal_student();
 $exam = student_portal_get_exam($pdo, $student['exam_id']);
 $canViewScores = $exam ? student_portal_can_view_scores($exam) : false;
+$canRegisterRecheck = $exam
+    ? (
+        (int) ($exam['is_score_entry_locked'] ?? 0) === 1
+        || (int) ($exam['scoring_closed'] ?? 0) === 1
+        || (int) ($exam['exam_locked'] ?? 0) === 1
+    )
+    : false;
 $csrf = student_portal_csrf_token();
 
 $subjectStmt = $pdo->prepare('SELECT DISTINCT s.id AS subject_id, s.ten_mon
@@ -16,12 +23,14 @@ $subjectStmt = $pdo->prepare('SELECT DISTINCT s.id AS subject_id, s.ten_mon
     ORDER BY es.sort_order ASC, s.ten_mon ASC');
 $subjectStmt->execute([':exam_id' => $student['exam_id'], ':student_id' => $student['id']]);
 $subjects = $subjectStmt->fetchAll(PDO::FETCH_ASSOC);
+
 if (empty($subjects)) {
-    $fallbackStmt = $pdo->prepare('SELECT DISTINCT s.id AS subject_id, s.ten_mon
-        FROM exam_students es
-        INNER JOIN subjects s ON s.id = es.subject_id
-        WHERE es.exam_id = :exam_id AND es.student_id = :student_id AND es.subject_id IS NOT NULL
-        ORDER BY s.ten_mon ASC');
+    $fallbackStmt = $pdo->prepare('SELECT DISTINCT s.id AS subject_id, s.ten_mon, esub.sort_order
+        FROM exam_subjects esub
+        INNER JOIN subjects s ON s.id = esub.subject_id
+        INNER JOIN exam_students est ON est.exam_id = esub.exam_id AND est.subject_id = esub.subject_id
+        WHERE esub.exam_id = :exam_id AND est.student_id = :student_id
+        ORDER BY esub.sort_order ASC, s.ten_mon ASC');
     $fallbackStmt->execute([':exam_id' => $student['exam_id'], ':student_id' => $student['id']]);
     $subjects = $fallbackStmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -82,11 +91,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $token = $_POST['csrf_token'] ?? null;
     if (!student_portal_verify_csrf(is_string($token) ? $token : null)) {
         $error = 'Phiên làm việc hết hạn, vui lòng thử lại.';
+    } elseif (!$canRegisterRecheck) {
+        $error = 'Chỉ được đăng ký phúc tra sau khi đã khoá nhập điểm.';
     } else {
         try {
             $pdo->beginTransaction();
             foreach ($subjectMap as $subjectId => $_name) {
-                $cc = max(1, min(3, (int) (($configRows[$subjectId]['component_count'] ?? 1))));
+                $cc = max(1, min(3, (int) ($configRows[$subjectId]['component_count'] ?? 1)));
                 $vals = [1 => null, 2 => null, 3 => null];
                 $selectedAny = false;
                 for ($i = 1; $i <= $cc; $i++) {
@@ -196,6 +207,9 @@ student_portal_render_header('Xem điểm và phúc tra');
         <?php endif; ?>
 
         <h3 class="form-section-title">Đăng ký phúc tra (ma trận môn × thành phần)</h3>
+        <?php if (!$canRegisterRecheck): ?>
+            <div class="alert-info">Chỉ được đăng ký phúc tra sau khi đã khoá nhập điểm.</div>
+        <?php else: ?>
         <form method="post">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
             <div class="table-responsive">
@@ -228,6 +242,7 @@ student_portal_render_header('Xem điểm và phúc tra');
             <?php if (empty($subjectMap)): ?><div class="alert-info">Không có môn trong phạm vi đăng ký phúc tra.</div><?php endif; ?>
             <div class="actions"><button type="submit" class="btn primary">Lưu đăng ký phúc tra</button></div>
         </form>
+        <?php endif; ?>
 
         <p><a href="<?= BASE_URL ?>/student_portal/dashboard.php">← Quay lại dashboard</a></p>
     </section>
