@@ -20,6 +20,23 @@ function student_portal_init_schema(PDO $pdo): void
         $pdo->exec('ALTER TABLE exams ADD COLUMN is_score_published INTEGER DEFAULT 0');
     }
 
+    $pdo->exec('CREATE TABLE IF NOT EXISTS student_recheck_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        exam_id INTEGER NOT NULL,
+        student_id INTEGER NOT NULL,
+        subject_id INTEGER NOT NULL,
+        room_id INTEGER,
+        component_1 REAL,
+        component_2 REAL,
+        component_3 REAL,
+        note TEXT,
+        status TEXT DEFAULT "pending",
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(exam_id, student_id, subject_id)
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_recheck_exam_subject_room ON student_recheck_requests(exam_id, subject_id, room_id)');
+
 }
 
 function student_portal_default_exam(PDO $pdo): ?array

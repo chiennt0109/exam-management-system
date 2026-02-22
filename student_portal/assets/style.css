@@ -65,3 +65,9 @@ body {
 .actions { margin-top: 10px; }
 
 .student-info-card p { margin: 6px 0; }
+
+.portal-header-brand { display:flex; align-items:center; gap:14px; }
+.portal-logo { width:56px; height:56px; object-fit:contain; border-radius:8px; border:1px solid #d1d5db; background:#fff; padding:4px; }
+.form-section-title { margin: 16px 0 8px; color: var(--primary); font-weight: 700; }
+.portal-table .form-control { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+.portal-table .component-meta { color:#6b7280; font-size:13px; }

@@ -171,7 +171,11 @@ require_once BASE_PATH . '/layout/header.php';
                                                 </button>
                                             </form>
 
-                                            <a class="btn btn-sm btn-danger" href="<?= BASE_URL ?>/modules/users/delete.php?id=<?= (int) $user['id'] ?>">Delete</a>
+                                            <?php if ((string) ($user['role'] ?? '') !== 'admin'): ?>
+                                                <a class="btn btn-sm btn-danger" href="<?= BASE_URL ?>/modules/users/delete.php?id=<?= (int) $user['id'] ?>">Delete</a>
+                                            <?php else: ?>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" disabled title="Không được phép xóa tài khoản admin">Delete</button>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

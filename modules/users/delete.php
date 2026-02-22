@@ -22,6 +22,9 @@ if (!$user) {
 }
 
 $csrf = users_get_csrf_token();
+$isCurrentUser = (int) $_SESSION['user']['id'] === (int) $user['id'];
+
+$isAdminUser = (string) ($user['role'] ?? '') === 'admin';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? null;
@@ -31,8 +34,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    if ((int) $_SESSION['user']['id'] === (int) $user['id']) {
+    if ($isCurrentUser) {
         set_flash('error', 'Không thể xóa tài khoản đang đăng nhập.');
+        header('Location: ' . BASE_URL . '/modules/users/index.php');
+        exit;
+    }
+
+    if ($isAdminUser) {
+        set_flash('error', 'Không được phép xóa tài khoản admin.');
         header('Location: ' . BASE_URL . '/modules/users/index.php');
         exit;
     }
@@ -61,8 +70,11 @@ require_once BASE_PATH . '/layout/header.php';
         <div class="card border-danger shadow-sm" style="max-width:700px;">
             <div class="card-header bg-danger text-white"><strong>Xóa người dùng</strong></div>
             <div class="card-body">
-                <?php if ((int) $_SESSION['user']['id'] === (int) $user['id']): ?>
+                <?php if ($isCurrentUser): ?>
                     <div class="alert alert-warning">Bạn không thể xóa tài khoản đang đăng nhập.</div>
+                    <a href="<?= BASE_URL ?>/modules/users/index.php" class="btn btn-secondary">Quay lại</a>
+                <?php elseif ($isAdminUser): ?>
+                    <div class="alert alert-warning">Không được phép xóa tài khoản admin.</div>
                     <a href="<?= BASE_URL ?>/modules/users/index.php" class="btn btn-secondary">Quay lại</a>
                 <?php else: ?>
                     <p>Bạn có chắc muốn xóa người dùng này?</p>
