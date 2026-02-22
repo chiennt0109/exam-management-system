@@ -229,10 +229,6 @@ require_once BASE_PATH . '/layout/header.php';
                         <span class="icon">📥</span>
                         <span class="label">Import Excel</span>
                     </a>
-                    <a class="tool-icon" href="<?= BASE_URL ?>/modules/exams/recheck_stats.php" title="Thống kê phúc tra">
-                        <span class="icon">📝</span>
-                        <span class="label">Thống kê phúc tra</span>
-                    </a>
                     <button type="submit" form="bulkForm" name="action" value="bulk_delete_selected" class="tool-icon" style="cursor:pointer;" onclick="return confirm('Bạn có chắc muốn xóa các học sinh đã chọn?');" title="Xóa đã chọn">
                         <span class="icon">🗑️</span>
                         <span class="label">Xóa đã chọn</span>

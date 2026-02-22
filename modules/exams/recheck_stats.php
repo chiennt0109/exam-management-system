@@ -75,7 +75,14 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $groups = [1 => [], 2 => [], 3 => []];
 foreach ($rows as $row) {
     $count = max(1, min(3, (int) ($row['component_count'] ?? 1)));
-    $groups[$count][] = $row;
+    $roomKey = trim((string) ($row['ten_phong'] ?? ''));
+    if ($roomKey === '') {
+        $roomKey = 'Chưa phân phòng';
+    }
+    if (!isset($groups[$count][$roomKey])) {
+        $groups[$count][$roomKey] = [];
+    }
+    $groups[$count][$roomKey][] = $row;
 }
 
 $renderHtml = static function() use ($groups, $examName, $examId): string {
@@ -85,42 +92,44 @@ $renderHtml = static function() use ($groups, $examName, $examId): string {
     <html lang="vi"><head><meta charset="UTF-8"><title>Thống kê phúc tra</title>
     <style>
         body{font-family:"Times New Roman",serif;font-size:14px}
-        h1,h2{text-align:center}
+        h1,h2,h3{text-align:center}
         .meta{text-align:center;margin-bottom:10px}
-        table{width:100%;border-collapse:collapse;margin:12px 0}
+        table{width:100%;border-collapse:collapse;margin:10px 0}
         th,td{border:1px solid #222;padding:6px}
         th{background:#f2f2f2}
+        .room-title{margin-top:10px;font-weight:bold}
     </style></head><body>
     <h1>DANH SÁCH HỌC SINH PHÚC TRA</h1>
     <div class="meta">Kỳ thi #<?= (int) $examId ?> - <?= htmlspecialchars($examName, ENT_QUOTES, 'UTF-8') ?></div>
     <?php foreach ([1,2,3] as $c): if (empty($groups[$c])) { continue; } ?>
         <h2>Danh sách thành phần điểm: <?= $c ?></h2>
-        <table><thead><tr>
-            <th>STT</th><th>SBD</th><th>Họ tên</th><th>Lớp</th><th>Môn</th><th>Phòng</th>
-            <th>Điểm TP1</th><?php if ($c>=2): ?><th>Điểm TP2</th><?php endif; ?><?php if ($c>=3): ?><th>Điểm TP3</th><?php endif; ?>
-            <th>Tổng điểm</th>
-            <th>Phúc tra TP1</th><?php if ($c>=2): ?><th>Phúc tra TP2</th><?php endif; ?><?php if ($c>=3): ?><th>Phúc tra TP3</th><?php endif; ?>
-            <th>Ghi chú</th>
-        </tr></thead><tbody>
-        <?php $i=1; foreach ($groups[$c] as $r): ?>
-            <tr>
-                <td><?= $i++ ?></td>
-                <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string) ($r['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string) ($r['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string) ($r['ten_phong'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= number_format((float) ($r['score_component_1'] ?? 0),2) ?></td>
-                <?php if ($c>=2): ?><td><?= isset($r['score_component_2']) && $r['score_component_2'] !== null ? number_format((float)$r['score_component_2'],2) : '-' ?></td><?php endif; ?>
-                <?php if ($c>=3): ?><td><?= isset($r['score_component_3']) && $r['score_component_3'] !== null ? number_format((float)$r['score_component_3'],2) : '-' ?></td><?php endif; ?>
-                <td><?= number_format((float) ($r['total_score'] ?? 0),2) ?></td>
-                <td><?= isset($r['component_1']) && $r['component_1'] !== null ? number_format((float)$r['component_1'],2) : '-' ?></td>
-                <?php if ($c>=2): ?><td><?= isset($r['component_2']) && $r['component_2'] !== null ? number_format((float)$r['component_2'],2) : '-' ?></td><?php endif; ?>
-                <?php if ($c>=3): ?><td><?= isset($r['component_3']) && $r['component_3'] !== null ? number_format((float)$r['component_3'],2) : '-' ?></td><?php endif; ?>
-                <td><?= htmlspecialchars((string) ($r['note'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-            </tr>
+        <?php foreach ($groups[$c] as $roomName => $roomRows): ?>
+            <div class="room-title">Phòng: <?= htmlspecialchars((string) $roomName, ENT_QUOTES, 'UTF-8') ?></div>
+            <table><thead><tr>
+                <th>STT</th><th>SBD</th><th>Họ tên</th><th>Lớp</th><th>Môn</th><th>Phòng</th>
+                <th>Điểm TP1</th><?php if ($c>=2): ?><th>Điểm TP2</th><?php endif; ?><?php if ($c>=3): ?><th>Điểm TP3</th><?php endif; ?>
+                <th>Tổng điểm</th>
+                <th>Phúc tra TP1</th><?php if ($c>=2): ?><th>Phúc tra TP2</th><?php endif; ?><?php if ($c>=3): ?><th>Phúc tra TP3</th><?php endif; ?>
+            </tr></thead><tbody>
+            <?php $i=1; foreach ($roomRows as $r): ?>
+                <tr>
+                    <td><?= $i++ ?></td>
+                    <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                    <td><?= htmlspecialchars((string) ($r['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                    <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                    <td><?= htmlspecialchars((string) ($r['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                    <td><?= htmlspecialchars((string) ($r['ten_phong'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                    <td><?= isset($r['score_component_1']) && $r['score_component_1'] !== null ? number_format((float)$r['score_component_1'],2) : '-' ?></td>
+                    <?php if ($c>=2): ?><td><?= isset($r['score_component_2']) && $r['score_component_2'] !== null ? number_format((float)$r['score_component_2'],2) : '-' ?></td><?php endif; ?>
+                    <?php if ($c>=3): ?><td><?= isset($r['score_component_3']) && $r['score_component_3'] !== null ? number_format((float)$r['score_component_3'],2) : '-' ?></td><?php endif; ?>
+                    <td><?= isset($r['total_score']) && $r['total_score'] !== null ? number_format((float)$r['total_score'],2) : '-' ?></td>
+                    <td><?= isset($r['component_1']) && $r['component_1'] !== null ? number_format((float)$r['component_1'],2) : '-' ?></td>
+                    <?php if ($c>=2): ?><td><?= isset($r['component_2']) && $r['component_2'] !== null ? number_format((float)$r['component_2'],2) : '-' ?></td><?php endif; ?>
+                    <?php if ($c>=3): ?><td><?= isset($r['component_3']) && $r['component_3'] !== null ? number_format((float)$r['component_3'],2) : '-' ?></td><?php endif; ?>
+                </tr>
+            <?php endforeach; ?>
+            </tbody></table>
         <?php endforeach; ?>
-        </tbody></table>
     <?php endforeach; ?>
     </body></html>
     <?php
@@ -176,6 +185,8 @@ require_once BASE_PATH . '/layout/header.php';
 
                 <?php foreach ([1,2,3] as $c): if (empty($groups[$c])) { continue; } ?>
                     <h5 class="mt-3">Danh sách thành phần điểm: <?= $c ?></h5>
+                    <?php foreach ($groups[$c] as $roomName => $roomRows): ?>
+                    <h6>Phòng: <?= htmlspecialchars((string) $roomName, ENT_QUOTES, 'UTF-8') ?></h6>
                     <div class="table-responsive">
                         <table class="table table-bordered table-sm align-middle">
                             <thead class="table-light"><tr>
@@ -183,9 +194,9 @@ require_once BASE_PATH . '/layout/header.php';
                                 <th>Điểm TP1</th><?php if ($c>=2): ?><th>Điểm TP2</th><?php endif; ?><?php if ($c>=3): ?><th>Điểm TP3</th><?php endif; ?>
                                 <th>Tổng điểm</th>
                                 <th>Phúc tra TP1</th><?php if ($c>=2): ?><th>Phúc tra TP2</th><?php endif; ?><?php if ($c>=3): ?><th>Phúc tra TP3</th><?php endif; ?>
-                                <th>Ghi chú</th>
+                                
                             </tr></thead><tbody>
-                            <?php $i=1; foreach ($groups[$c] as $r): ?>
+                            <?php $i=1; foreach ($roomRows as $r): ?>
                                 <tr>
                                     <td><?= $i++ ?></td>
                                     <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
@@ -200,11 +211,12 @@ require_once BASE_PATH . '/layout/header.php';
                                     <td><?= isset($r['component_1']) && $r['component_1'] !== null ? number_format((float)$r['component_1'],2) : '-' ?></td>
                                     <?php if ($c>=2): ?><td><?= isset($r['component_2']) && $r['component_2'] !== null ? number_format((float)$r['component_2'],2) : '-' ?></td><?php endif; ?>
                                     <?php if ($c>=3): ?><td><?= isset($r['component_3']) && $r['component_3'] !== null ? number_format((float)$r['component_3'],2) : '-' ?></td><?php endif; ?>
-                                    <td><?= htmlspecialchars((string) ($r['note'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                    
                                 </tr>
                             <?php endforeach; ?>
                             </tbody></table>
                     </div>
+                    <?php endforeach; ?>
                 <?php endforeach; ?>
                 <?php if (empty($rows)): ?><div class="alert alert-info">Chưa có đăng ký phúc tra cho kỳ thi mặc định.</div><?php endif; ?>
             </div>
