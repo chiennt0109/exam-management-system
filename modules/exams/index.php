@@ -8,6 +8,7 @@ require_role(['admin', 'organizer']);
 $csrf = exams_get_csrf_token();
 $errors = [];
 $currentExamId = getCurrentExamId();
+$isAdmin = current_user_role() === 'admin';
 
 $columns = $pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::FETCH_ASSOC);
 $hasTrangThai = false;
@@ -74,6 +75,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+
+    if (empty($errors) && $action === 'toggle_workflow_flag') {
+        $examId = max(0, (int) ($_POST['exam_id'] ?? 0));
+        $flag = (string) ($_POST['flag'] ?? '');
+        $value = (int) ($_POST['value'] ?? 0) === 1 ? 1 : 0;
+        $allowedFlags = ['distribution_locked', 'rooms_locked', 'is_locked', 'exam_locked', 'is_score_entry_locked', 'scoring_closed'];
+
+        if ($examId <= 0 || !in_array($flag, $allowedFlags, true)) {
+            $errors[] = 'Thao tác workflow không hợp lệ.';
+        } else {
+            $stateStmt = $pdo->prepare('SELECT
+                    COALESCE(distribution_locked,0) AS distribution_locked,
+                    COALESCE(exam_locked,0) AS exam_locked,
+                    COALESCE(is_score_entry_locked,0) AS is_score_entry_locked
+                FROM exams WHERE id = :id LIMIT 1');
+            $stateStmt->execute([':id' => $examId]);
+            $state = $stateStmt->fetch(PDO::FETCH_ASSOC) ?: ['distribution_locked' => 0, 'exam_locked' => 0, 'is_score_entry_locked' => 0];
+
+            $distributionLocked = (int) ($state['distribution_locked'] ?? 0) === 1;
+            $examLocked = (int) ($state['exam_locked'] ?? 0) === 1;
+            $scoreLocked = (int) ($state['is_score_entry_locked'] ?? 0) === 1;
+
+            if ($flag === 'distribution_locked') {
+                if ($value === 0 && ($examLocked || $scoreLocked)) {
+                    $errors[] = 'Phải mở khoá nhập điểm và mở khoá kỳ thi trước khi mở khoá phân phòng.';
+                }
+            }
+            if ($flag === 'exam_locked') {
+                if ($value === 1 && !$distributionLocked) {
+                    $errors[] = 'Chỉ được khoá kỳ thi sau khi đã khoá phân phòng.';
+                }
+                if ($value === 0 && $scoreLocked) {
+                    $errors[] = 'Phải mở khoá nhập điểm trước khi mở khoá kỳ thi.';
+                }
+            }
+            if ($flag === 'is_score_entry_locked' && $value === 1 && !$examLocked) {
+                $errors[] = 'Chỉ được khoá nhập điểm sau khi đã khoá kỳ thi.';
+            }
+
+            if (empty($errors)) {
+                $updates = [$flag => $value];
+                if ($flag === 'distribution_locked') {
+                    $updates['rooms_locked'] = $value;
+                    $updates['is_locked'] = $value;
+                }
+                if ($flag === 'is_score_entry_locked') {
+                    $updates['scoring_closed'] = $value;
+                }
+
+                $setParts = [];
+                $params = [':id' => $examId];
+                foreach ($updates as $k => $v) {
+                    $setParts[] = $k . ' = :' . $k;
+                    $params[':' . $k] = (int) $v;
+                }
+                $stmt = $pdo->prepare('UPDATE exams SET ' . implode(', ', $setParts) . ' WHERE id = :id');
+                $stmt->execute($params);
+                exams_set_flash('success', 'Đã cập nhật trạng thái workflow.');
+                header('Location: ' . BASE_URL . '/modules/exams/index.php');
+                exit;
+            }
+        }
+    }
+
     if (empty($errors) && $action === 'create') {
         $tenKyThi = trim((string) ($_POST['ten_ky_thi'] ?? ''));
         $nam = (int) ($_POST['nam'] ?? 0);
@@ -125,6 +190,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             try {
                 $pdo->beginTransaction();
+
+                if (!$isAdmin && in_array($action, ['hard_delete', 'restore'], true)) {
+                    throw new RuntimeException('Bạn không có quyền thực hiện thao tác này.');
+                }
                 if ($action === 'soft_delete') {
                     if ($hasTrangThai) {
                         $stmt = $pdo->prepare('UPDATE exams SET deleted_at = :deleted_at, trang_thai = "deleted" WHERE id = :id');
@@ -165,8 +234,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $selectTrangThai = $hasTrangThai ? ', trang_thai' : '';
-$exams = $pdo->query('SELECT id, ten_ky_thi, nam, ngay_thi, deleted_at, is_default' . $selectTrangThai . ' FROM exams ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
 $currentExamId = getCurrentExamId();
+$isAdmin = current_user_role() === 'admin';
+$examWhere = $isAdmin ? '' : ' WHERE deleted_at IS NULL';
+$exams = $pdo->query('SELECT id, ten_ky_thi, nam, ngay_thi, deleted_at, is_default,
+    COALESCE(distribution_locked,0) AS distribution_locked,
+    COALESCE(rooms_locked,0) AS rooms_locked,
+    COALESCE(is_locked,0) AS is_locked,
+    COALESCE(exam_locked,0) AS exam_locked,
+    COALESCE(is_score_entry_locked,0) AS is_score_entry_locked,
+    COALESCE(scoring_closed,0) AS scoring_closed,
+    COALESCE(is_score_published,0) AS is_score_published' . $selectTrangThai . ' FROM exams' . $examWhere . ' ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
 
 require_once BASE_PATH . '/layout/header.php';
 ?>
@@ -175,51 +253,42 @@ require_once BASE_PATH . '/layout/header.php';
 <div style="display:flex;min-height:calc(100vh - 44px);">
     <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
     <div style="flex:1;padding:20px;min-width:0;">
-        <div class="card shadow-sm mb-3">
-            <div class="card-header bg-primary text-white"><strong>Bước 1: Tạo kỳ thi mới</strong></div>
+        <div class="card shadow-sm">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <strong>Danh sách kỳ thi & điều hướng workflow</strong>
+                <button class="btn btn-success btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#createExamPanel" aria-expanded="false" aria-controls="createExamPanel">+ Tạo kỳ thi mới</button>
+            </div>
             <div class="card-body">
                 <?= exams_display_flash(); ?>
                 <?php if (!empty($errors)): ?>
                     <div class="alert alert-danger"><ul class="mb-0"><?php foreach ($errors as $e): ?><li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div>
                 <?php endif; ?>
 
-                <form method="post" class="row g-2 mb-3">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="action" value="set_default_exam">
-                    <div class="col-md-8">
-                        <label class="form-label">Chọn kỳ thi mặc định</label>
-                        <select class="form-select" name="exam_id" required>
-                            <option value="">-- Chọn kỳ thi --</option>
-                            <?php foreach ($exams as $exam): ?>
-                                <?php if (!empty($exam['deleted_at'])) { continue; } ?>
-                                <option value="<?= (int) $exam['id'] ?>" <?= $currentExamId === (int) $exam['id'] ? 'selected' : '' ?>>#<?= (int) $exam['id'] ?> - <?= htmlspecialchars((string) $exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                <div class="collapse mb-3" id="createExamPanel">
+                    <div class="card card-body bg-light">
+                        <form method="post" class="row g-2">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="action" value="create">
+                            <div class="col-md-4"><label class="form-label">Tên kỳ thi</label><input class="form-control" name="ten_ky_thi" required></div>
+                            <div class="col-md-2"><label class="form-label">Năm</label><input class="form-control" type="number" name="nam" min="2000" max="2100" value="<?= date('Y') ?>" required></div>
+                            <div class="col-md-3"><label class="form-label">Ngày thi</label><input class="form-control" type="date" name="ngay_thi"></div>
+                            <?php if ($hasTrangThai): ?><div class="col-md-3"><label class="form-label">Trạng thái</label><select class="form-select" name="trang_thai"><option value="draft">draft</option><option value="open">open</option><option value="closed">closed</option></select></div><?php endif; ?>
+                            <div class="col-12 d-flex gap-2">
+                                <button class="btn btn-success" type="submit">Lưu kỳ thi</button>
+                                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#createExamPanel">Huỷ</button>
+                            </div>
+                        </form>
                     </div>
-                    <div class="col-md-4 align-self-end"><button class="btn btn-primary" type="submit">Lưu kỳ thi mặc định</button></div>
-                </form>
+                </div>
 
-                <form method="post" class="row g-2">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="action" value="create">
-                    <div class="col-md-4"><label class="form-label">Tên kỳ thi *</label><input class="form-control" name="ten_ky_thi" required></div>
-                    <div class="col-md-2"><label class="form-label">Năm *</label><input class="form-control" type="number" name="nam" min="2000" max="2100" value="<?= date('Y') ?>" required></div>
-                    <div class="col-md-3"><label class="form-label">Ngày thi</label><input class="form-control" type="date" name="ngay_thi"></div>
-                    <?php if ($hasTrangThai): ?><div class="col-md-3"><label class="form-label">Trạng thái</label><select class="form-select" name="trang_thai"><option value="draft">draft</option><option value="open">open</option><option value="closed">closed</option></select></div><?php endif; ?>
-                    <div class="col-12"><button class="btn btn-success" type="submit">Tạo kỳ thi</button></div>
-                </form>
-            </div>
-        </div>
-
-        <div class="card shadow-sm">
-            <div class="card-header bg-light"><strong>Danh sách kỳ thi & điều hướng workflow</strong></div>
-            <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-bordered table-sm align-middle">
-                        <thead><tr><th>ID</th><th>Tên kỳ thi</th><th>Năm</th><th>Ngày thi</th><th>Trạng thái</th><th>Mặc định</th><th>Workflow</th><th>Công bố điểm</th><th>Xóa</th></tr></thead>
+                        <thead>
+                        <tr><th>ID</th><th>Tên kỳ thi</th><th>Năm</th><th>Ngày thi</th><th>Trạng thái</th><th>Mặc định</th><?php if ($isAdmin): ?><th>Workflow</th><?php endif; ?><th>Công bố điểm</th><th>Xóa</th></tr>
+                        </thead>
                         <tbody>
                         <?php if (empty($exams)): ?>
-                            <tr><td colspan="9" class="text-center">Chưa có kỳ thi.</td></tr>
+                            <tr><td colspan="<?= $isAdmin ? 9 : 8 ?>" class="text-center">Chưa có kỳ thi.</td></tr>
                         <?php else: foreach ($exams as $exam): ?>
                             <?php $isDeleted = !empty($exam['deleted_at']); ?>
                             <tr class="<?= $isDeleted ? 'table-warning' : '' ?>">
@@ -230,31 +299,67 @@ require_once BASE_PATH . '/layout/header.php';
                                 <td>
                                     <?= $hasTrangThai ? htmlspecialchars((string) ($exam['trang_thai'] ?? ''), ENT_QUOTES, 'UTF-8') : '<em>N/A</em>' ?>
                                     <?php if ($isDeleted): ?><span class="badge bg-warning text-dark ms-1">đã xóa tạm</span><?php endif; ?>
+                                    <div class="small mt-1 d-flex flex-wrap gap-1">
+                                        <span class="badge <?= (int)$exam['distribution_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Phân phòng: <?= (int)$exam['distribution_locked']===1 ? 'Khoá' : 'Mở' ?></span>
+                                        <span class="badge <?= (int)$exam['exam_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Kỳ thi: <?= (int)$exam['exam_locked']===1 ? 'Khoá' : 'Mở' ?></span>
+                                        <span class="badge <?= (int)$exam['is_score_entry_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Nhập điểm: <?= (int)$exam['is_score_entry_locked']===1 ? 'Khoá' : 'Mở' ?></span>
+                                    </div>
                                 </td>
-                                <td class="d-flex flex-wrap gap-1">
+                                <td>
                                     <form method="post" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                                         <input type="hidden" name="action" value="set_default_exam">
                                         <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
-                                        <button class="btn btn-sm <?= $currentExamId === (int) $exam['id'] ? 'btn-success' : 'btn-outline-success' ?>" type="submit">Đặt mặc định</button>
+                                        <button class="btn btn-sm <?= $currentExamId === (int) $exam['id'] ? 'btn-success' : 'btn-outline-success' ?>" type="submit"><?= $currentExamId === (int)$exam['id'] ? 'Đang mặc định' : 'Đặt mặc định' ?></button>
                                     </form>
-                                    <?php if ($currentExamId === (int) $exam['id']): ?>
-                                        <a class="btn btn-sm btn-outline-primary" href="assign_students.php">B2</a>
-                                        <a class="btn btn-sm btn-outline-primary" href="generate_sbd.php">B3</a>
-                                        <a class="btn btn-sm btn-outline-primary" href="configure_subjects.php">B4</a>
-                                        <a class="btn btn-sm btn-outline-primary" href="distribute_rooms.php">B5</a>
-                                        <a class="btn btn-sm btn-outline-primary" href="print_rooms.php">B6</a>
-                                    <?php endif; ?>
                                 </td>
+                                <?php if ($isAdmin): ?>
                                 <td>
-                                    <?php if (current_user_role() === 'admin'): ?>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <?php $distributionLocked = (int) ($exam['distribution_locked'] ?? 0) === 1; ?>
+                                        <?php $examLockedRow = (int) ($exam['exam_locked'] ?? 0) === 1; ?>
+                                        <?php $scoreEntryLocked = (int) ($exam['is_score_entry_locked'] ?? 0) === 1; ?>
+                                        <?php $distributionCanToggle = !(!$distributionLocked && ($examLockedRow || $scoreEntryLocked)); ?>
+                                        <?php $examCanToggle = ($examLockedRow && !$scoreEntryLocked) || (!$examLockedRow && $distributionLocked); ?>
+                                        <?php $scoreCanToggle = ($scoreEntryLocked || $examLockedRow); ?>
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="action" value="toggle_workflow_flag">
+                                            <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                            <input type="hidden" name="flag" value="distribution_locked">
+                                            <input type="hidden" name="value" value="<?= $distributionLocked ? 0 : 1 ?>">
+                                            <button class="btn btn-sm <?= $distributionLocked ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit" <?= $distributionCanToggle ? '' : 'disabled title="Mở khoá theo thứ tự: Nhập điểm -> Kỳ thi -> Phân phòng"' ?>>Phân phòng: <?= $distributionLocked ? 'Đang khoá' : 'Đang mở' ?></button>
+                                        </form>
+
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="action" value="toggle_workflow_flag">
+                                            <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                            <input type="hidden" name="flag" value="exam_locked">
+                                            <input type="hidden" name="value" value="<?= $examLockedRow ? 0 : 1 ?>">
+                                            <button class="btn btn-sm <?= $examLockedRow ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit" <?= $examCanToggle ? '' : 'disabled title="Khoá theo thứ tự: Phân phòng -> Kỳ thi"' ?>>Kỳ thi: <?= $examLockedRow ? 'Đang khoá' : 'Đang mở' ?></button>
+                                        </form>
+
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="action" value="toggle_workflow_flag">
+                                            <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                            <input type="hidden" name="flag" value="is_score_entry_locked">
+                                            <input type="hidden" name="value" value="<?= $scoreEntryLocked ? 0 : 1 ?>">
+                                            <button class="btn btn-sm <?= $scoreEntryLocked ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit" <?= $scoreCanToggle ? '' : 'disabled title="Khoá theo thứ tự: Kỳ thi -> Nhập điểm"' ?>>Nhập điểm: <?= $scoreEntryLocked ? 'Đang khoá' : 'Đang mở' ?></button>
+                                        </form>
+                                    </div>
+                                </td>
+                                <?php endif; ?>
+                                <td>
+                                    <?php if ($isAdmin): ?>
                                         <form method="post" class="d-inline">
                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                                             <input type="hidden" name="action" value="toggle_score_publish">
                                             <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
                                             <input type="hidden" name="publish" value="<?= ((int) ($exam['is_score_published'] ?? 0) === 1) ? 0 : 1 ?>">
                                             <button class="btn btn-sm <?= ((int) ($exam['is_score_published'] ?? 0) === 1) ? 'btn-danger' : 'btn-outline-danger' ?>" type="submit">
-                                                <?= ((int) ($exam['is_score_published'] ?? 0) === 1) ? 'Ẩn điểm' : 'CÔNG BỐ ĐIỂM' ?>
+                                                <?= ((int) ($exam['is_score_published'] ?? 0) === 1) ? 'Tắt công bố điểm' : 'Bật công bố điểm' ?>
                                             </button>
                                         </form>
                                     <?php else: ?>
@@ -264,20 +369,23 @@ require_once BASE_PATH . '/layout/header.php';
                                 <td>
                                     <div class="d-flex flex-column gap-1">
                                         <?php if (!$isDeleted): ?>
-                                            <form method="post" onsubmit="return confirm('Xóa tạm kỳ thi này?')">
+                                            <form method="post" onsubmit="return confirm('Bạn chắc chắn muốn xóa kỳ thi này?')">
                                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="soft_delete"><input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
-                                                <button class="btn btn-sm btn-outline-warning">Xóa tạm</button>
+                                                <button class="btn btn-sm btn-outline-warning"><?= $isAdmin ? 'Xóa tạm' : 'Xóa' ?></button>
                                             </form>
-                                        <?php else: ?>
+                                        <?php elseif ($isAdmin): ?>
                                             <form method="post" onsubmit="return confirm('Khôi phục kỳ thi này?')">
                                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="restore"><input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
                                                 <button class="btn btn-sm btn-outline-success">Khôi phục</button>
                                             </form>
                                         <?php endif; ?>
-                                        <form method="post" onsubmit="return confirm('XÓA THẬT kỳ thi và toàn bộ dữ liệu liên quan?')">
-                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="hard_delete"><input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
-                                            <button class="btn btn-sm btn-danger">Xóa thật</button>
-                                        </form>
+
+                                        <?php if ($isAdmin): ?>
+                                            <form method="post" onsubmit="return confirm('XÓA THẬT kỳ thi và toàn bộ dữ liệu liên quan?')">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="hard_delete"><input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                                <button class="btn btn-sm btn-danger">Xóa thật</button>
+                                            </form>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
