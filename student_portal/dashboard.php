@@ -21,7 +21,7 @@ student_portal_render_header('Trang chủ học sinh');
     <section class="card-grid">
         <a class="menu-card" href="<?= BASE_URL ?>/student_portal/register_subjects.php"><i class="fa-solid fa-list-check"></i><span>Đăng ký môn thi</span></a>
         <a class="menu-card" href="<?= BASE_URL ?>/student_portal/rooms.php"><i class="fa-solid fa-door-open"></i><span>Xem phòng thi</span></a>
-        <a class="menu-card" href="<?= BASE_URL ?>/student_portal/scores.php"><i class="fa-solid fa-chart-column"></i><span>Xem điểm</span></a>
+        <a class="menu-card" href="<?= BASE_URL ?>/student_portal/scores.php"><i class="fa-solid fa-chart-column"></i><span>Xem điểm/Phúc tra</span></a>
         <a class="menu-card" href="<?= BASE_URL ?>/student_portal/logout.php"><i class="fa-solid fa-right-from-bracket"></i><span>Đăng xuất</span></a>
     </section>
 </main>

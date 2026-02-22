@@ -43,14 +43,14 @@ $existingRequests = [];
 if (!empty($subjectIds)) {
     $ph = implode(',', array_fill(0, count($subjectIds), '?'));
 
-    $scoreStmt = $pdo->prepare('SELECT subject_id, COALESCE(total_score, diem, 0) AS total_score, component_1, component_2, component_3
+    $scoreStmt = $pdo->prepare('SELECT subject_id, total_score, diem, component_1, component_2, component_3
         FROM scores WHERE exam_id = ? AND student_id = ? AND subject_id IN (' . $ph . ')');
     $scoreStmt->execute(array_merge([$student['exam_id'], $student['id']], $subjectIds));
     foreach ($scoreStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $scoreRows[(int) $r['subject_id']] = $r;
     }
 
-    $cfgStmt = $pdo->prepare('SELECT subject_id, component_count, diem_tu_luan, diem_trac_nghiem, diem_noi
+    $cfgStmt = $pdo->prepare('SELECT subject_id, component_count
         FROM exam_subject_config WHERE exam_id = ? AND subject_id IN (' . $ph . ')');
     $cfgStmt->execute(array_merge([$student['exam_id']], $subjectIds));
     foreach ($cfgStmt->fetchAll(PDO::FETCH_ASSOC) as $cfg) {
@@ -60,14 +60,13 @@ if (!empty($subjectIds)) {
         }
     }
 
-    $roomStmt = $pdo->prepare('SELECT subject_id, room_id FROM exam_students
-        WHERE exam_id = ? AND student_id = ? AND subject_id IN (' . $ph . ')');
+    $roomStmt = $pdo->prepare('SELECT subject_id, room_id FROM exam_students WHERE exam_id = ? AND student_id = ? AND subject_id IN (' . $ph . ')');
     $roomStmt->execute(array_merge([$student['exam_id'], $student['id']], $subjectIds));
     foreach ($roomStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $roomBySubject[(int) $r['subject_id']] = (int) ($r['room_id'] ?? 0);
     }
 
-    $rqStmt = $pdo->prepare('SELECT subject_id, component_1, component_2, component_3, note
+    $rqStmt = $pdo->prepare('SELECT subject_id, component_1, component_2, component_3
         FROM student_recheck_requests WHERE exam_id = ? AND student_id = ? AND subject_id IN (' . $ph . ')');
     $rqStmt->execute(array_merge([$student['exam_id'], $student['id']], $subjectIds));
     foreach ($rqStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -87,34 +86,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         try {
             $pdo->beginTransaction();
             foreach ($subjectMap as $subjectId => $_name) {
-                $cfg = $configRows[$subjectId] ?? ['component_count' => 1, 'diem_tu_luan' => 10, 'diem_trac_nghiem' => 0, 'diem_noi' => 0];
-                $cc = max(1, min(3, (int) ($cfg['component_count'] ?? 1)));
-                $maxima = [
-                    1 => (float) ($cfg['diem_tu_luan'] ?? 10),
-                    2 => (float) ($cfg['diem_trac_nghiem'] ?? 0),
-                    3 => (float) ($cfg['diem_noi'] ?? 0),
-                ];
-
+                $cc = max(1, min(3, (int) (($configRows[$subjectId]['component_count'] ?? 1))));
                 $vals = [1 => null, 2 => null, 3 => null];
                 $selectedAny = false;
                 for ($i = 1; $i <= $cc; $i++) {
-                    $checked = isset($_POST['select'][$i][$subjectId]);
-                    $raw = trim((string) ($_POST['component'][$i][$subjectId] ?? ''));
-                    if ($checked || $raw !== '') {
+                    if (isset($_POST['select'][$i][$subjectId])) {
+                        $vals[$i] = 1.0;
                         $selectedAny = true;
                     }
-                    if ($raw !== '') {
-                        $num = (float) str_replace(',', '.', $raw);
-                        if ($num < 0 || $num > $maxima[$i]) {
-                            throw new RuntimeException('Điểm phúc tra môn ' . ($subjectMap[$subjectId] ?? '') . ' - ' . $componentLabels[$i] . ' vượt giới hạn.');
-                        }
-                        $vals[$i] = $num;
-                    }
-                }
-
-                $note = trim((string) ($_POST['note'][$subjectId] ?? ''));
-                if ($note !== '') {
-                    $selectedAny = true;
                 }
 
                 if (!$selectedAny) {
@@ -124,24 +103,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 }
 
                 $roomId = (int) ($roomBySubject[$subjectId] ?? 0);
-                $pdo->prepare('INSERT INTO student_recheck_requests(exam_id, student_id, subject_id, room_id, component_1, component_2, component_3, note, status, created_at, updated_at)
-                    VALUES(:exam_id,:student_id,:subject_id,:room_id,:c1,:c2,:c3,:note,"pending",datetime("now"),datetime("now"))
+                $pdo->prepare('INSERT INTO student_recheck_requests(exam_id, student_id, subject_id, room_id, component_1, component_2, component_3, status, created_at, updated_at)
+                    VALUES(:exam_id,:student_id,:subject_id,:room_id,:c1,:c2,:c3,"pending",datetime("now"),datetime("now"))
                     ON CONFLICT(exam_id, student_id, subject_id) DO UPDATE SET
                         room_id=excluded.room_id, component_1=excluded.component_1, component_2=excluded.component_2, component_3=excluded.component_3,
-                        note=excluded.note, updated_at=datetime("now")')
+                        updated_at=datetime("now")')
                     ->execute([
-                        ':exam_id' => $student['exam_id'],
-                        ':student_id' => $student['id'],
-                        ':subject_id' => $subjectId,
-                        ':room_id' => $roomId > 0 ? $roomId : null,
-                        ':c1' => $vals[1],
-                        ':c2' => $vals[2],
-                        ':c3' => $vals[3],
-                        ':note' => $note,
+                        ':exam_id' => $student['exam_id'], ':student_id' => $student['id'], ':subject_id' => $subjectId, ':room_id' => $roomId > 0 ? $roomId : null,
+                        ':c1' => $vals[1], ':c2' => $vals[2], ':c3' => $vals[3],
                     ]);
             }
             $pdo->commit();
-            $success = 'Đã lưu đăng ký phúc tra theo ma trận môn/thành phần.';
+            $success = 'Đã lưu đăng ký phúc tra.';
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
@@ -149,11 +122,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $error = $e->getMessage();
         }
 
-        // reload requests
         $existingRequests = [];
         if (!empty($subjectIds)) {
             $ph = implode(',', array_fill(0, count($subjectIds), '?'));
-            $rqStmt = $pdo->prepare('SELECT subject_id, component_1, component_2, component_3, note
+            $rqStmt = $pdo->prepare('SELECT subject_id, component_1, component_2, component_3
                 FROM student_recheck_requests WHERE exam_id = ? AND student_id = ? AND subject_id IN (' . $ph . ')');
             $rqStmt->execute(array_merge([$student['exam_id'], $student['id']], $subjectIds));
             foreach ($rqStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -163,14 +135,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 }
 
+$scoreDisplay = static function(array $row, string $key): string {
+    if (!array_key_exists($key, $row) || $row[$key] === null || $row[$key] === '') {
+        return '-';
+    }
+    return number_format((float) $row[$key], 2);
+};
+
 $total = 0.0;
 $avg = 0.0;
 $classify = '';
 if ($canViewScores && !empty($scoreRows)) {
-    $vals = array_map(static fn(array $r): float => (float) ($r['total_score'] ?? 0), $scoreRows);
-    $total = array_sum($vals);
-    $avg = count($vals) > 0 ? $total / count($vals) : 0;
-    $classify = $avg >= 8.0 ? 'Giỏi' : ($avg >= 6.5 ? 'Khá' : ($avg >= 5.0 ? 'Trung bình' : 'Yếu'));
+    $vals = [];
+    foreach ($scoreRows as $r) {
+        if (array_key_exists('total_score', $r) && $r['total_score'] !== null && $r['total_score'] !== '') {
+            $vals[] = (float) $r['total_score'];
+        } elseif (array_key_exists('diem', $r) && $r['diem'] !== null && $r['diem'] !== '') {
+            $vals[] = (float) $r['diem'];
+        }
+    }
+    if (!empty($vals)) {
+        $total = array_sum($vals);
+        $avg = $total / count($vals);
+        $classify = $avg >= 8.0 ? 'Giỏi' : ($avg >= 6.5 ? 'Khá' : ($avg >= 5.0 ? 'Trung bình' : 'Yếu'));
+    }
 }
 
 student_portal_render_header('Xem điểm và phúc tra');
@@ -191,10 +179,10 @@ student_portal_render_header('Xem điểm và phúc tra');
                 <?php foreach ($subjectMap as $sid => $name): $sc = $scoreRows[$sid] ?? []; ?>
                     <tr>
                         <td><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></td>
-                        <td><?= number_format((float) ($sc['total_score'] ?? 0), 2) ?></td>
-                        <td><?= isset($sc['component_1']) && $sc['component_1'] !== null ? number_format((float) $sc['component_1'], 2) : '-' ?></td>
-                        <td><?= isset($sc['component_2']) && $sc['component_2'] !== null ? number_format((float) $sc['component_2'], 2) : '-' ?></td>
-                        <td><?= isset($sc['component_3']) && $sc['component_3'] !== null ? number_format((float) $sc['component_3'], 2) : '-' ?></td>
+                        <td><?= $scoreDisplay($sc, 'total_score') !== '-' ? $scoreDisplay($sc, 'total_score') : $scoreDisplay($sc, 'diem') ?></td>
+                        <td><?= $scoreDisplay($sc, 'component_1') ?></td>
+                        <td><?= $scoreDisplay($sc, 'component_2') ?></td>
+                        <td><?= $scoreDisplay($sc, 'component_3') ?></td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if (empty($subjectMap)): ?><tr><td colspan="5">Chưa có môn thi.</td></tr><?php endif; ?>
@@ -207,49 +195,32 @@ student_portal_render_header('Xem điểm và phúc tra');
             </div>
         <?php endif; ?>
 
-        <h3 class="form-section-title">Đăng ký phúc tra (ma trận thành phần x môn)</h3>
+        <h3 class="form-section-title">Đăng ký phúc tra (ma trận thành phần × môn)</h3>
         <form method="post">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
             <div class="table-responsive">
                 <table class="portal-table">
                     <thead>
-                        <tr>
-                            <th>Thành phần</th>
-                            <?php foreach ($subjectMap as $sid => $name): ?><th><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?>
-                        </tr>
+                        <tr><th>Thành phần</th><?php foreach ($subjectMap as $sid => $name): ?><th><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?></tr>
                     </thead>
                     <tbody>
                         <?php for ($c = 1; $c <= 3; $c++): ?>
                             <tr>
                                 <td><strong><?= htmlspecialchars($componentLabels[$c], ENT_QUOTES, 'UTF-8') ?></strong></td>
-                                <?php foreach ($subjectMap as $sid => $name):
-                                    $cfg = $configRows[$sid] ?? ['component_count' => 1, 'diem_tu_luan' => 10, 'diem_trac_nghiem' => 0, 'diem_noi' => 0];
-                                    $cc = max(1, min(3, (int) ($cfg['component_count'] ?? 1)));
-                                    $maxima = [1 => (float) ($cfg['diem_tu_luan'] ?? 10), 2 => (float) ($cfg['diem_trac_nghiem'] ?? 0), 3 => (float) ($cfg['diem_noi'] ?? 0)];
-                                    $req = $existingRequests[$sid] ?? [];
-                                ?>
+                                <?php foreach ($subjectMap as $sid => $name): $cc = max(1, min(3, (int) (($configRows[$sid]['component_count'] ?? 1)))); $req = $existingRequests[$sid] ?? []; ?>
                                     <td>
                                         <?php if ($c <= $cc): ?>
-                                            <label style="display:block;margin-bottom:4px;"><input type="checkbox" name="select[<?= $c ?>][<?= (int) $sid ?>]" value="1" <?= isset($req['component_' . $c]) && $req['component_' . $c] !== null ? 'checked' : '' ?>> Chọn</label>
-                                            <input class="form-control" type="number" step="0.01" min="0" max="<?= htmlspecialchars((string) $maxima[$c], ENT_QUOTES, 'UTF-8') ?>" name="component[<?= $c ?>][<?= (int) $sid ?>]" value="<?= htmlspecialchars((string) ($req['component_' . $c] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                                            <div class="component-meta">max <?= number_format($maxima[$c], 2) ?></div>
-                                        <?php else: ?>
-                                            -
+                                            <input type="checkbox" name="select[<?= $c ?>][<?= (int) $sid ?>]" value="1" <?= isset($req['component_' . $c]) && $req['component_' . $c] !== null ? 'checked' : '' ?>>
+                                        <?php else: ?>-
                                         <?php endif; ?>
                                     </td>
                                 <?php endforeach; ?>
                             </tr>
                         <?php endfor; ?>
-                        <tr>
-                            <td><strong>Ghi chú</strong></td>
-                            <?php foreach ($subjectMap as $sid => $name): $req = $existingRequests[$sid] ?? []; ?>
-                                <td><input class="form-control" type="text" name="note[<?= (int) $sid ?>]" value="<?= htmlspecialchars((string) ($req['note'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></td>
-                            <?php endforeach; ?>
-                        </tr>
                     </tbody>
                 </table>
             </div>
-            <?php if (empty($subjectMap)): ?><div class="alert-info">Không có môn tham gia thi để đăng ký phúc tra.</div><?php endif; ?>
+            <?php if (empty($subjectMap)): ?><div class="alert-info">Không có môn trong phạm vi đăng ký phúc tra.</div><?php endif; ?>
             <div class="actions"><button type="submit" class="btn primary">Lưu đăng ký phúc tra</button></div>
         </form>
 
