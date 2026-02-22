@@ -1,0 +1,67 @@
+:root {
+  --primary: #003366;
+  --accent: #cc0000;
+  --bg: #f2f2f2;
+  --text: #1f2937;
+}
+body {
+  margin: 0;
+  font-family: 'Roboto', 'Times New Roman', serif;
+  color: var(--text);
+  background: var(--bg);
+  font-size: 16px;
+}
+.portal-shell { min-height: 100vh; }
+.portal-header {
+  background: #fff;
+  border-bottom: 4px solid var(--primary);
+  padding: 16px 24px;
+}
+.portal-title { font-size: 22px; font-weight: 700; color: var(--primary); }
+.portal-subtitle { color: var(--accent); margin-top: 4px; }
+.portal-main { max-width: 980px; margin: 24px auto; padding: 0 12px; }
+.portal-main.narrow { max-width: 560px; }
+.card {
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.card h1 { font-size: 22px; margin: 0 0 14px; color: var(--primary); }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.menu-card {
+  background: #fff;
+  border: 1px solid #d4d4d4;
+  border-left: 4px solid var(--primary);
+  padding: 16px;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+.menu-card:hover { border-left-color: var(--accent); }
+.form-grid { display: grid; gap: 10px; }
+.form-grid input { padding: 10px; font-size: 16px; border: 1px solid #c7c7c7; border-radius: 6px; }
+.inline-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.btn {
+  border: 1px solid var(--primary);
+  background: #fff;
+  padding: 10px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+}
+.btn.primary { background: var(--primary); color: #fff; }
+.portal-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.portal-table th, .portal-table td { border: 1px solid #d6d6d6; padding: 8px; }
+.portal-table th { background: #f8f8f8; }
+.alert-error, .alert-info { padding: 10px; border-radius: 6px; margin-bottom: 12px; }
+.alert-error { background: #fdecec; color: #7f1d1d; border: 1px solid #f5bcbc; }
+.alert-info { background: #eef6ff; color: #1e3a8a; border: 1px solid #bfdbfe; }
+.summary p { margin: 6px 0; }
+.actions { margin-top: 10px; }
+
+.student-info-card p { margin: 6px 0; }
