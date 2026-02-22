@@ -41,6 +41,8 @@ if ($canViewScores) {
 student_portal_render_header('Xem điểm');
 ?>
 <main class="portal-main">
+    <?php student_portal_render_student_info($pdo); ?>
+
     <section class="card">
         <h1><i class="fa-solid fa-chart-column"></i> Kết quả thi</h1>
         <?php if (!$canViewScores): ?>

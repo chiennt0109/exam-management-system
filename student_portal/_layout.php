@@ -37,3 +37,27 @@ function student_portal_render_footer(): void
 </html>
 <?php
 }
+
+
+function student_portal_render_student_info(PDO $pdo): void
+{
+    if (!isset($_SESSION['student_id'])) {
+        return;
+    }
+
+    $student = student_portal_student();
+    $profile = student_portal_student_profile($pdo, (int) $student['id']);
+    $birth = student_portal_format_date((string) ($student['ngaysinh'] !== '' ? $student['ngaysinh'] : $profile['ngaysinh']));
+    $lop = (string) ($student['lop'] !== '' ? $student['lop'] : $profile['lop']);
+
+    ?>
+    <section class="card student-info-card">
+        <h1>Thông tin học sinh</h1>
+        <p><strong>Họ và tên:</strong> <?= htmlspecialchars((string) $student['name'], ENT_QUOTES, 'UTF-8') ?></p>
+        <p><strong>Số định danh:</strong> <?= htmlspecialchars((string) $student['identifier'], ENT_QUOTES, 'UTF-8') ?></p>
+        <p><strong>Ngày sinh:</strong> <?= htmlspecialchars($birth, ENT_QUOTES, 'UTF-8') ?></p>
+        <p><strong>Lớp:</strong> <?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?></p>
+    </section>
+    <?php
+}
+

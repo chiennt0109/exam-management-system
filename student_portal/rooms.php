@@ -30,6 +30,8 @@ if ($canViewRooms) {
 student_portal_render_header('Xem phòng thi');
 ?>
 <main class="portal-main">
+    <?php student_portal_render_student_info($pdo); ?>
+
     <section class="card">
         <h1><i class="fa-solid fa-door-open"></i> Xem phòng thi</h1>
         <?php if (!$canViewRooms): ?>

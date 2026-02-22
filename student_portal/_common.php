@@ -98,6 +98,39 @@ function student_portal_can_view_scores(array $exam): bool
     return $published && $scoreEntryLocked;
 }
 
+
+function student_portal_format_date(string $date): string
+{
+    $date = trim($date);
+    if ($date === '') {
+        return '';
+    }
+
+    $dt = DateTime::createFromFormat('Y-m-d', $date);
+    if ($dt instanceof DateTime) {
+        return $dt->format('d/m/Y');
+    }
+
+    $ts = strtotime($date);
+    return $ts ? date('d/m/Y', $ts) : $date;
+}
+
+function student_portal_student_profile(PDO $pdo, int $studentId): array
+{
+    if ($studentId <= 0) {
+        return ['ngaysinh' => '', 'lop' => ''];
+    }
+
+    $stmt = $pdo->prepare('SELECT COALESCE(ngaysinh, "") AS ngaysinh, COALESCE(lop, "") AS lop FROM students WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $studentId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['ngaysinh' => '', 'lop' => ''];
+
+    return [
+        'ngaysinh' => (string) ($row['ngaysinh'] ?? ''),
+        'lop' => (string) ($row['lop'] ?? ''),
+    ];
+}
+
 function student_portal_student(): array
 {
     return [
@@ -105,6 +138,8 @@ function student_portal_student(): array
         'name' => (string) ($_SESSION['student_name'] ?? ''),
         'identifier' => (string) ($_SESSION['student_identifier'] ?? ''),
         'exam_id' => (int) ($_SESSION['student_exam_default'] ?? 0),
+        'ngaysinh' => (string) ($_SESSION['student_birthdate'] ?? ''),
+        'lop' => (string) ($_SESSION['student_class'] ?? ''),
     ];
 }
 

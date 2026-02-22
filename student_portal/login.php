@@ -26,6 +26,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $_SESSION['student_name'] = (string) ($student['hoten'] ?? '');
         $_SESSION['student_identifier'] = (string) (($student['sbd'] ?? '') !== '' ? $student['sbd'] : $student['id']);
         $_SESSION['student_exam_default'] = (int) ($exam['id'] ?? 0);
+        $_SESSION['student_birthdate'] = (string) ($student['ngaysinh'] ?? '');
+        $_SESSION['student_class'] = (string) ($student['lop'] ?? '');
         header('Location: ' . BASE_URL . '/student_portal/dashboard.php');
         exit;
     }

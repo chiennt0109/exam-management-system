@@ -460,8 +460,8 @@ require_once BASE_PATH . '/layout/header.php';
                     <div class="col-md-4">
                         <label class="form-label">Chế độ kỳ thi</label>
                         <select class="form-select" name="exam_mode">
-                            <option value="1" <?= $examMode === 1 ? 'selected' : '' ?>>1 - Cấu hình cũ theo khối</option>
-                            <option value="2" <?= $examMode === 2 ? 'selected' : '' ?>>2 - Tốt nghiệp THPT (ma trận theo học sinh)</option>
+                            <option value="1" <?= $examMode === 1 ? 'selected' : '' ?>>1 - Kiểm tra định kỳ</option>
+                            <option value="2" <?= $examMode === 2 ? 'selected' : '' ?>>2 - Tốt nghiệp THPT</option>
                         </select>
                     </div>
                     <div class="col-md-3 align-self-end"><button class="btn btn-outline-primary" type="submit">Lưu chế độ</button></div>

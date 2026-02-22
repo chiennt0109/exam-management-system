@@ -63,3 +63,5 @@ body {
 .alert-info { background: #eef6ff; color: #1e3a8a; border: 1px solid #bfdbfe; }
 .summary p { margin: 6px 0; }
 .actions { margin-top: 10px; }
+
+.student-info-card p { margin: 6px 0; }
