@@ -63,6 +63,10 @@ if (function_exists('getCurrentExamId')) {
 <?php endif; ?>
 
 <?php if (in_array($role, ['admin', 'organizer'], true)): ?>
+    <li><a href="<?= BASE_URL ?>/modules/exams/recheck_stats.php">Thống kê phúc tra</a></li>
+<?php endif; ?>
+
+<?php if (in_array($role, ['admin', 'organizer'], true)): ?>
 <li>
     <details>
         <summary>Thống kê</summary>
