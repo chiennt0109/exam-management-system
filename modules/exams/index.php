@@ -84,8 +84,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($examId <= 0 || !in_array($flag, $allowedFlags, true)) {
             $errors[] = 'Thao tác workflow không hợp lệ.';
         } else {
-            $stmt = $pdo->prepare('UPDATE exams SET ' . $flag . ' = :value WHERE id = :id');
-            $stmt->execute([':value' => $value, ':id' => $examId]);
+            $updates = [$flag => $value];
+            if ($flag === 'distribution_locked') {
+                $updates['rooms_locked'] = $value;
+                $updates['is_locked'] = $value;
+            }
+            if ($flag === 'is_score_entry_locked') {
+                $updates['scoring_closed'] = $value;
+            }
+
+            $setParts = [];
+            $params = [':id' => $examId];
+            foreach ($updates as $k => $v) {
+                $setParts[] = $k . ' = :' . $k;
+                $params[':' . $k] = (int) $v;
+            }
+            $stmt = $pdo->prepare('UPDATE exams SET ' . implode(', ', $setParts) . ' WHERE id = :id');
+            $stmt->execute($params);
             exams_set_flash('success', 'Đã cập nhật trạng thái workflow.');
             header('Location: ' . BASE_URL . '/modules/exams/index.php');
             exit;
@@ -249,7 +264,7 @@ require_once BASE_PATH . '/layout/header.php';
                                     <div class="small mt-1 d-flex flex-wrap gap-1">
                                         <span class="badge <?= (int)$exam['distribution_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Phân phòng: <?= (int)$exam['distribution_locked']===1 ? 'Khoá' : 'Mở' ?></span>
                                         <span class="badge <?= (int)$exam['exam_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Kỳ thi: <?= (int)$exam['exam_locked']===1 ? 'Khoá' : 'Mở' ?></span>
-                                        <span class="badge <?= ((int)$exam['is_score_entry_locked']===1 || (int)$exam['scoring_closed']===1) ? 'bg-danger' : 'bg-secondary' ?>">Nhập điểm: <?= ((int)$exam['is_score_entry_locked']===1 || (int)$exam['scoring_closed']===1) ? 'Khoá' : 'Mở' ?></span>
+                                        <span class="badge <?= (int)$exam['is_score_entry_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Nhập điểm: <?= (int)$exam['is_score_entry_locked']===1 ? 'Khoá' : 'Mở' ?></span>
                                     </div>
                                 </td>
                                 <td>
@@ -261,13 +276,6 @@ require_once BASE_PATH . '/layout/header.php';
                                     </form>
                                 </td>
                                 <td>
-                                    <div class="d-flex flex-wrap gap-1 mb-1">
-                                        <a class="btn btn-sm btn-outline-primary" href="assign_students.php">B2</a>
-                                        <a class="btn btn-sm btn-outline-primary" href="generate_sbd.php">B3</a>
-                                        <a class="btn btn-sm btn-outline-primary" href="configure_subjects.php">B4</a>
-                                        <a class="btn btn-sm btn-outline-primary" href="distribute_rooms.php">B5</a>
-                                        <a class="btn btn-sm btn-outline-primary" href="print_rooms.php">B6</a>
-                                    </div>
                                     <div class="d-flex flex-wrap gap-1">
                                         <?php $distributionLocked = (int) ($exam['distribution_locked'] ?? 0) === 1; ?>
                                         <form method="post" class="d-inline">
