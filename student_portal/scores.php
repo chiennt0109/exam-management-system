@@ -195,28 +195,33 @@ student_portal_render_header('Xem điểm và phúc tra');
             </div>
         <?php endif; ?>
 
-        <h3 class="form-section-title">Đăng ký phúc tra (ma trận thành phần × môn)</h3>
+        <h3 class="form-section-title">Đăng ký phúc tra (ma trận môn × thành phần)</h3>
         <form method="post">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
             <div class="table-responsive">
                 <table class="portal-table">
                     <thead>
-                        <tr><th>Thành phần</th><?php foreach ($subjectMap as $sid => $name): ?><th><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?></tr>
+                        <tr>
+                            <th>Môn</th>
+                            <th><?= htmlspecialchars($componentLabels[1], ENT_QUOTES, 'UTF-8') ?></th>
+                            <th><?= htmlspecialchars($componentLabels[2], ENT_QUOTES, 'UTF-8') ?></th>
+                            <th><?= htmlspecialchars($componentLabels[3], ENT_QUOTES, 'UTF-8') ?></th>
+                        </tr>
                     </thead>
                     <tbody>
-                        <?php for ($c = 1; $c <= 3; $c++): ?>
+                        <?php foreach ($subjectMap as $sid => $name): $cc = max(1, min(3, (int) ($configRows[$sid]['component_count'] ?? 1))); $req = $existingRequests[$sid] ?? []; ?>
                             <tr>
-                                <td><strong><?= htmlspecialchars($componentLabels[$c], ENT_QUOTES, 'UTF-8') ?></strong></td>
-                                <?php foreach ($subjectMap as $sid => $name): $cc = max(1, min(3, (int) (($configRows[$sid]['component_count'] ?? 1)))); $req = $existingRequests[$sid] ?? []; ?>
+                                <td><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></td>
+                                <?php for ($c = 1; $c <= 3; $c++): ?>
                                     <td>
                                         <?php if ($c <= $cc): ?>
                                             <input type="checkbox" name="select[<?= $c ?>][<?= (int) $sid ?>]" value="1" <?= isset($req['component_' . $c]) && $req['component_' . $c] !== null ? 'checked' : '' ?>>
                                         <?php else: ?>-
                                         <?php endif; ?>
                                     </td>
-                                <?php endforeach; ?>
+                                <?php endfor; ?>
                             </tr>
-                        <?php endfor; ?>
+                        <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>

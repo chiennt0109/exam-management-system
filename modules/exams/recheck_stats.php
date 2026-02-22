@@ -178,8 +178,8 @@ require_once BASE_PATH . '/layout/header.php';
                     </div>
                     <div class="col-md-4 d-flex gap-2">
                         <button class="btn btn-primary" type="submit">Lọc</button>
-                        <a class="btn btn-outline-success" href="?<?= htmlspecialchars(http_build_query(['subject_id' => $subjectId, 'room_id' => $roomId, 'export' => 'excel']), ENT_QUOTES, 'UTF-8') ?>">Xuất Excel</a>
-                        <a class="btn btn-outline-secondary" href="?<?= htmlspecialchars(http_build_query(['subject_id' => $subjectId, 'room_id' => $roomId, 'export' => 'pdf']), ENT_QUOTES, 'UTF-8') ?>">Xuất PDF</a>
+                        <a class="btn btn-outline-success" href="<?= BASE_URL ?>/modules/exams/recheck_stats.php?<?= htmlspecialchars(http_build_query(['subject_id' => $subjectId, 'room_id' => $roomId, 'export' => 'excel']), ENT_QUOTES, 'UTF-8') ?>">Xuất Excel</a>
+                        <a class="btn btn-outline-secondary" href="<?= BASE_URL ?>/modules/exams/recheck_stats.php?<?= htmlspecialchars(http_build_query(['subject_id' => $subjectId, 'room_id' => $roomId, 'export' => 'pdf']), ENT_QUOTES, 'UTF-8') ?>">Xuất PDF</a>
                     </div>
                 </form>
 
