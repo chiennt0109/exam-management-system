@@ -3,7 +3,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../bootstrap.php';
 require_once BASE_PATH . '/modules/exams/_common.php';
 
-
 $pdo->exec('CREATE TABLE IF NOT EXISTS student_recheck_requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     exam_id INTEGER NOT NULL,
@@ -58,34 +57,50 @@ if ($roomId > 0) {
 }
 
 $sql = 'SELECT rr.*, st.sbd, st.hoten, st.lop, sub.ten_mon, COALESCE(rm.ten_phong, "") AS ten_phong,
-        COALESCE(sc.total_score, sc.diem) AS total_score,
-        sc.component_1 AS score_component_1, sc.component_2 AS score_component_2, sc.component_3 AS score_component_3,
-        COALESCE(cfg.component_count, CASE WHEN rr.component_3 IS NOT NULL THEN 3 WHEN rr.component_2 IS NOT NULL THEN 2 ELSE 1 END) AS component_count
+        sc.component_1 AS score_component_1, sc.component_2 AS score_component_2, sc.component_3 AS score_component_3
     FROM student_recheck_requests rr
     INNER JOIN students st ON st.id = rr.student_id
     INNER JOIN subjects sub ON sub.id = rr.subject_id
     LEFT JOIN rooms rm ON rm.id = rr.room_id
-    LEFT JOIN scores sc ON sc.exam_id = rr.exam_id AND sc.student_id = rr.student_id AND sc.subject_id = rr.subject_id
-    LEFT JOIN exam_subject_config cfg ON cfg.exam_id = rr.exam_id AND cfg.subject_id = rr.subject_id' . $where . '
-    ORDER BY sub.ten_mon ASC, rm.ten_phong ASC, st.sbd ASC';
+    LEFT JOIN scores sc ON sc.exam_id = rr.exam_id AND sc.student_id = rr.student_id AND sc.subject_id = rr.subject_id' . $where . '
+    ORDER BY rm.ten_phong ASC, sub.ten_mon ASC, st.sbd ASC';
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$groups = [1 => [], 2 => [], 3 => []];
+$componentDefs = [
+    1 => ['req' => 'component_1', 'score' => 'score_component_1', 'label' => 'Tự luận'],
+    2 => ['req' => 'component_2', 'score' => 'score_component_2', 'label' => 'Trắc nghiệm'],
+    3 => ['req' => 'component_3', 'score' => 'score_component_3', 'label' => 'Nói'],
+];
+$componentGroups = [1 => [], 2 => [], 3 => []];
 foreach ($rows as $row) {
-    $count = max(1, min(3, (int) ($row['component_count'] ?? 1)));
     $roomKey = trim((string) ($row['ten_phong'] ?? ''));
     if ($roomKey === '') {
         $roomKey = 'Chưa phân phòng';
     }
-    if (!isset($groups[$count][$roomKey])) {
-        $groups[$count][$roomKey] = [];
+
+    foreach ($componentDefs as $componentNo => $def) {
+        $requestVal = $row[$def['req']] ?? null;
+        if ($requestVal === null || $requestVal === '') {
+            continue;
+        }
+
+        if (!isset($componentGroups[$componentNo][$roomKey])) {
+            $componentGroups[$componentNo][$roomKey] = [];
+        }
+        $componentGroups[$componentNo][$roomKey][] = $row;
     }
-    $groups[$count][$roomKey][] = $row;
 }
 
-$renderHtml = static function() use ($groups, $examName, $examId): string {
+$renderValue = static function(array $row, string $key): string {
+    if (!array_key_exists($key, $row) || $row[$key] === null || $row[$key] === '') {
+        return '-';
+    }
+    return number_format((float) $row[$key], 2);
+};
+
+$renderHtml = static function() use ($componentGroups, $componentDefs, $examName, $examId, $renderValue): string {
     ob_start();
     ?>
     <!doctype html>
@@ -101,15 +116,13 @@ $renderHtml = static function() use ($groups, $examName, $examId): string {
     </style></head><body>
     <h1>DANH SÁCH HỌC SINH PHÚC TRA</h1>
     <div class="meta">Kỳ thi #<?= (int) $examId ?> - <?= htmlspecialchars($examName, ENT_QUOTES, 'UTF-8') ?></div>
-    <?php foreach ([1,2,3] as $c): if (empty($groups[$c])) { continue; } ?>
-        <h2>Danh sách thành phần điểm: <?= $c ?></h2>
-        <?php foreach ($groups[$c] as $roomName => $roomRows): ?>
+    <?php foreach ([1, 2, 3] as $componentNo): if (empty($componentGroups[$componentNo])) { continue; } ?>
+        <h2>Thành phần: <?= htmlspecialchars($componentDefs[$componentNo]['label'], ENT_QUOTES, 'UTF-8') ?></h2>
+        <?php foreach ($componentGroups[$componentNo] as $roomName => $roomRows): ?>
             <div class="room-title">Phòng: <?= htmlspecialchars((string) $roomName, ENT_QUOTES, 'UTF-8') ?></div>
             <table><thead><tr>
                 <th>STT</th><th>SBD</th><th>Họ tên</th><th>Lớp</th><th>Môn</th><th>Phòng</th>
-                <th>Điểm TP1</th><?php if ($c>=2): ?><th>Điểm TP2</th><?php endif; ?><?php if ($c>=3): ?><th>Điểm TP3</th><?php endif; ?>
-                <th>Tổng điểm</th>
-                <th>Phúc tra TP1</th><?php if ($c>=2): ?><th>Phúc tra TP2</th><?php endif; ?><?php if ($c>=3): ?><th>Phúc tra TP3</th><?php endif; ?>
+                <th>Điểm hiện tại</th><th>Đăng ký phúc tra</th>
             </tr></thead><tbody>
             <?php $i=1; foreach ($roomRows as $r): ?>
                 <tr>
@@ -119,13 +132,8 @@ $renderHtml = static function() use ($groups, $examName, $examId): string {
                     <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                     <td><?= htmlspecialchars((string) ($r['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                     <td><?= htmlspecialchars((string) ($r['ten_phong'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= isset($r['score_component_1']) && $r['score_component_1'] !== null ? number_format((float)$r['score_component_1'],2) : '-' ?></td>
-                    <?php if ($c>=2): ?><td><?= isset($r['score_component_2']) && $r['score_component_2'] !== null ? number_format((float)$r['score_component_2'],2) : '-' ?></td><?php endif; ?>
-                    <?php if ($c>=3): ?><td><?= isset($r['score_component_3']) && $r['score_component_3'] !== null ? number_format((float)$r['score_component_3'],2) : '-' ?></td><?php endif; ?>
-                    <td><?= isset($r['total_score']) && $r['total_score'] !== null ? number_format((float)$r['total_score'],2) : '-' ?></td>
-                    <td><?= isset($r['component_1']) && $r['component_1'] !== null ? number_format((float)$r['component_1'],2) : '-' ?></td>
-                    <?php if ($c>=2): ?><td><?= isset($r['component_2']) && $r['component_2'] !== null ? number_format((float)$r['component_2'],2) : '-' ?></td><?php endif; ?>
-                    <?php if ($c>=3): ?><td><?= isset($r['component_3']) && $r['component_3'] !== null ? number_format((float)$r['component_3'],2) : '-' ?></td><?php endif; ?>
+                    <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['score']) ?></td>
+                    <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['req']) ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody></table>
@@ -183,20 +191,17 @@ require_once BASE_PATH . '/layout/header.php';
                     </div>
                 </form>
 
-                <?php foreach ([1,2,3] as $c): if (empty($groups[$c])) { continue; } ?>
-                    <h5 class="mt-3">Danh sách thành phần điểm: <?= $c ?></h5>
-                    <?php foreach ($groups[$c] as $roomName => $roomRows): ?>
+                <?php foreach ([1, 2, 3] as $componentNo): if (empty($componentGroups[$componentNo])) { continue; } ?>
+                    <h5 class="mt-3">Thành phần: <?= htmlspecialchars((string) $componentDefs[$componentNo]['label'], ENT_QUOTES, 'UTF-8') ?></h5>
+                    <?php foreach ($componentGroups[$componentNo] as $roomName => $roomRows): ?>
                     <h6>Phòng: <?= htmlspecialchars((string) $roomName, ENT_QUOTES, 'UTF-8') ?></h6>
                     <div class="table-responsive">
                         <table class="table table-bordered table-sm align-middle">
                             <thead class="table-light"><tr>
                                 <th>STT</th><th>SBD</th><th>Họ tên</th><th>Lớp</th><th>Môn</th><th>Phòng</th>
-                                <th>Điểm TP1</th><?php if ($c>=2): ?><th>Điểm TP2</th><?php endif; ?><?php if ($c>=3): ?><th>Điểm TP3</th><?php endif; ?>
-                                <th>Tổng điểm</th>
-                                <th>Phúc tra TP1</th><?php if ($c>=2): ?><th>Phúc tra TP2</th><?php endif; ?><?php if ($c>=3): ?><th>Phúc tra TP3</th><?php endif; ?>
-                                
+                                <th>Điểm hiện tại</th><th>Đăng ký phúc tra</th>
                             </tr></thead><tbody>
-                            <?php $i=1; foreach ($roomRows as $r): ?>
+                            <?php $i = 1; foreach ($roomRows as $r): ?>
                                 <tr>
                                     <td><?= $i++ ?></td>
                                     <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
@@ -204,14 +209,8 @@ require_once BASE_PATH . '/layout/header.php';
                                     <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= htmlspecialchars((string) ($r['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= htmlspecialchars((string) ($r['ten_phong'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                    <td><?= number_format((float) ($r['score_component_1'] ?? 0), 2) ?></td>
-                                    <?php if ($c>=2): ?><td><?= isset($r['score_component_2']) && $r['score_component_2'] !== null ? number_format((float)$r['score_component_2'],2) : '-' ?></td><?php endif; ?>
-                                    <?php if ($c>=3): ?><td><?= isset($r['score_component_3']) && $r['score_component_3'] !== null ? number_format((float)$r['score_component_3'],2) : '-' ?></td><?php endif; ?>
-                                    <td><?= number_format((float) ($r['total_score'] ?? 0), 2) ?></td>
-                                    <td><?= isset($r['component_1']) && $r['component_1'] !== null ? number_format((float)$r['component_1'],2) : '-' ?></td>
-                                    <?php if ($c>=2): ?><td><?= isset($r['component_2']) && $r['component_2'] !== null ? number_format((float)$r['component_2'],2) : '-' ?></td><?php endif; ?>
-                                    <?php if ($c>=3): ?><td><?= isset($r['component_3']) && $r['component_3'] !== null ? number_format((float)$r['component_3'],2) : '-' ?></td><?php endif; ?>
-                                    
+                                    <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['score']) ?></td>
+                                    <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['req']) ?></td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody></table>
