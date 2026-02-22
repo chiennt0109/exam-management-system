@@ -10,13 +10,31 @@ $exam = student_portal_get_exam($pdo, $student['exam_id']);
 $examMode = in_array((int) ($exam['exam_mode'] ?? 1), [1, 2], true) ? (int) $exam['exam_mode'] : 1;
 $canRegister = $exam ? student_portal_can_register_subjects($exam) : false;
 
+$baseInfoStmt = $pdo->prepare('SELECT COALESCE(khoi, "") AS khoi, COALESCE(lop, "") AS lop
+    FROM exam_students
+    WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL
+    LIMIT 1');
+$baseInfoStmt->execute([':exam_id' => $student['exam_id'], ':student_id' => $student['id']]);
+$baseInfo = $baseInfoStmt->fetch(PDO::FETCH_ASSOC) ?: ['khoi' => '', 'lop' => ''];
+$studentKhoi = trim((string) ($baseInfo['khoi'] ?? ''));
+$studentLop = trim((string) ($baseInfo['lop'] ?? ''));
+
 if ($examMode === 1) {
     $subjectsStmt = $pdo->prepare('SELECT DISTINCT s.id, s.ten_mon
         FROM exam_subject_config esc
         INNER JOIN subjects s ON s.id = esc.subject_id
+        LEFT JOIN exam_subject_classes cls ON cls.exam_config_id = esc.id
         WHERE esc.exam_id = :exam_id
+          AND (
+            (esc.scope_mode = "entire_grade" AND esc.khoi = :khoi)
+            OR (esc.scope_mode = "specific_classes" AND cls.lop = :lop)
+          )
         ORDER BY s.ten_mon ASC');
-    $subjectsStmt->execute([':exam_id' => $student['exam_id']]);
+    $subjectsStmt->execute([
+        ':exam_id' => $student['exam_id'],
+        ':khoi' => $studentKhoi,
+        ':lop' => $studentLop,
+    ]);
     $subjects = $subjectsStmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
     $subjectsStmt = $pdo->prepare('SELECT s.id, s.ten_mon FROM exam_subjects es INNER JOIN subjects s ON s.id = es.subject_id WHERE es.exam_id = :exam_id ORDER BY es.sort_order ASC, s.ten_mon ASC');

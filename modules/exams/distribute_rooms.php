@@ -836,7 +836,7 @@ if ($examId > 0) {
         $matrixParams[':khoi'] = $khoi;
     }
 
-    $baseRowsStmt = $pdo->prepare('SELECT es.student_id, es.sbd, es.lop, st.hoten
+    $baseRowsStmt = $pdo->prepare('SELECT es.student_id, es.khoi, es.sbd, es.lop, st.hoten
         FROM exam_students es
         INNER JOIN students st ON st.id = es.student_id
         WHERE es.exam_id = :exam_id AND es.subject_id IS NULL' . $matrixKhoiSql . '
@@ -881,6 +881,50 @@ if ($examId > 0) {
     }
 
     $matrixSelectedMap = [];
+    $scopeEligibleMap = [];
+    if ($examMode === 1) {
+        $scopeRowsStmt = $pdo->prepare('SELECT esc.id, esc.subject_id, esc.khoi, esc.scope_mode, cls.lop
+            FROM exam_subject_config esc
+            LEFT JOIN exam_subject_classes cls ON cls.exam_config_id = esc.id
+            WHERE esc.exam_id = :exam_id');
+        $scopeRowsStmt->execute([':exam_id' => $examId]);
+        $scopeRows = $scopeRowsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $studentBaseMap = [];
+        foreach ($unassignedMatrixRows as $baseRow) {
+            $studentBaseMap[(int) ($baseRow['student_id'] ?? 0)] = [
+                'khoi' => (string) ($baseRow['khoi'] ?? ''),
+                'lop' => (string) ($baseRow['lop'] ?? ''),
+            ];
+        }
+
+        foreach ($scopeRows as $scopeRow) {
+            $subId = (int) ($scopeRow['subject_id'] ?? 0);
+            $cfgKhoi = (string) ($scopeRow['khoi'] ?? '');
+            $scopeMode = (string) ($scopeRow['scope_mode'] ?? 'entire_grade');
+            $cfgLop = (string) ($scopeRow['lop'] ?? '');
+            if ($subId <= 0) {
+                continue;
+            }
+            foreach ($studentBaseMap as $stuId => $stuBase) {
+                if ($stuId <= 0) {
+                    continue;
+                }
+                $stuKhoi = (string) ($stuBase['khoi'] ?? '');
+                $stuLop = (string) ($stuBase['lop'] ?? '');
+                if ($scopeMode === 'entire_grade') {
+                    if ($stuKhoi !== '' && $cfgKhoi !== '' && $stuKhoi === $cfgKhoi) {
+                        $scopeEligibleMap[$stuId][$subId] = true;
+                    }
+                } elseif ($scopeMode === 'specific_classes') {
+                    if ($cfgLop !== '' && $stuLop !== '' && $cfgLop === $stuLop) {
+                        $scopeEligibleMap[$stuId][$subId] = true;
+                    }
+                }
+            }
+        }
+    }
+
     if ($examMode === 2) {
         $selectedStmt = $pdo->prepare('SELECT DISTINCT ess.student_id, ess.subject_id
             FROM exam_student_subjects ess
@@ -925,7 +969,9 @@ if ($examId > 0) {
         $cellsBySubject = [];
         $missingCount = 0;
         foreach ($subjectIds as $subId) {
-            $isSelected = $examMode !== 2 || !empty($matrixSelectedMap[$sid][$subId]);
+            $isSelected = $examMode === 2
+                ? !empty($matrixSelectedMap[$sid][$subId])
+                : !empty($scopeEligibleMap[$sid][$subId]);
             $status = $matrixAssignMap[$sid][$subId] ?? null;
             $roomName = is_array($status) ? (string) ($status['room_name'] ?? '') : '';
             $hasAssignedRoom = $roomName !== '';
@@ -937,9 +983,8 @@ if ($examId > 0) {
 
             if (!$isSelected) {
                 if ($hasAssignedRoom) {
-                    $cell['text'] = 'Chưa chọn môn (chưa đăng ký môn thi này)';
-                    $cell['class'] = 'text-danger fw-semibold';
-                    $missingCount++;
+                    $cell['text'] = 'Ngoài phạm vi môn thi (đã có phòng)';
+                    $cell['class'] = 'text-muted';
                 }
             } elseif (!$hasAssignedRoom) {
                 $cell['text'] = 'Học sinh chưa có phòng thi';
@@ -1092,7 +1137,7 @@ require_once BASE_PATH . '/layout/header.php';
                             <div class="col-md-5 d-flex align-items-end">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="onlyIncomplete" name="only_incomplete" value="1" <?= $onlyIncomplete ? 'checked' : '' ?>>
-                                    <label class="form-check-label" for="onlyIncomplete">Chỉ hiển thị học sinh chưa được phân ít nhất 1 môn</label>
+                                    <label class="form-check-label" for="onlyIncomplete">Học sinh chưa được phân môn thi</label>
                                 </div>
                             </div>
                             <div class="col-md-3 d-flex gap-2 align-items-end">
@@ -1101,7 +1146,7 @@ require_once BASE_PATH . '/layout/header.php';
                             </div>
                         </form>
 
-                        <div class="small text-danger mb-2">Chú thích: "Chưa chọn môn" nghĩa là học sinh chưa đăng ký môn thi này; "Học sinh chưa có phòng thi" nghĩa là đã đăng ký môn nhưng chưa được xếp phòng.</div>
+                        <div class="small text-danger mb-2">Chú thích: chỉ các môn học sinh thuộc phạm vi dự thi mới được tính thiếu phân phòng; ngoài phạm vi sẽ không tính là thiếu.</div>
 
                         <div class="table-responsive">
                             <table class="table table-bordered table-sm">
