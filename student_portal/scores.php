@@ -15,13 +15,32 @@ $canRegisterRecheck = $exam
     : false;
 $csrf = student_portal_csrf_token();
 
-$subjectStmt = $pdo->prepare('SELECT DISTINCT s.id AS subject_id, s.ten_mon
-    FROM exam_subjects es
-    INNER JOIN subjects s ON s.id = es.subject_id
-    INNER JOIN student_exam_subjects ses ON ses.exam_id = es.exam_id AND ses.subject_id = es.subject_id
-    WHERE es.exam_id = :exam_id AND ses.student_id = :student_id
-    ORDER BY es.sort_order ASC, s.ten_mon ASC');
-$subjectStmt->execute([':exam_id' => $student['exam_id'], ':student_id' => $student['id']]);
+$baseInfoStmt = $pdo->prepare('SELECT COALESCE(khoi, "") AS khoi, COALESCE(lop, "") AS lop
+    FROM exam_students
+    WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL
+    LIMIT 1');
+$baseInfoStmt->execute([':exam_id' => $student['exam_id'], ':student_id' => $student['id']]);
+$baseInfo = $baseInfoStmt->fetch(PDO::FETCH_ASSOC) ?: ['khoi' => '', 'lop' => ''];
+$studentKhoi = trim((string) ($baseInfo['khoi'] ?? ''));
+$studentLop = trim((string) ($baseInfo['lop'] ?? ''));
+
+$subjectStmt = $pdo->prepare('SELECT s.id AS subject_id, s.ten_mon, MIN(COALESCE(es.sort_order, 999999)) AS sort_order
+    FROM exam_subject_config esc
+    INNER JOIN subjects s ON s.id = esc.subject_id
+    LEFT JOIN exam_subject_classes cls ON cls.exam_config_id = esc.id
+    LEFT JOIN exam_subjects es ON es.exam_id = esc.exam_id AND es.subject_id = esc.subject_id
+    WHERE esc.exam_id = :exam_id
+      AND (
+        (esc.scope_mode = "entire_grade" AND esc.khoi = :khoi)
+        OR (esc.scope_mode = "specific_classes" AND cls.lop = :lop)
+      )
+    GROUP BY s.id, s.ten_mon
+    ORDER BY sort_order ASC, s.ten_mon ASC');
+$subjectStmt->execute([
+    ':exam_id' => $student['exam_id'],
+    ':khoi' => $studentKhoi,
+    ':lop' => $studentLop,
+]);
 $subjects = $subjectStmt->fetchAll(PDO::FETCH_ASSOC);
 
 if (empty($subjects)) {
