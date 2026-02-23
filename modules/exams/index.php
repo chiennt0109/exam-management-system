@@ -14,6 +14,7 @@ $columns = $pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::FETCH_ASSOC);
 $hasTrangThai = false;
 $hasDeletedAt = false;
 $hasScorePublished = false;
+$hasRecheckOpen = false;
 foreach ($columns as $col) {
     if (($col['name'] ?? '') === 'trang_thai') {
         $hasTrangThai = true;
@@ -24,6 +25,9 @@ foreach ($columns as $col) {
     if (($col['name'] ?? '') === 'is_score_published') {
         $hasScorePublished = true;
     }
+    if (($col['name'] ?? '') === 'is_recheck_open') {
+        $hasRecheckOpen = true;
+    }
 }
 if (!$hasDeletedAt) {
     $pdo->exec('ALTER TABLE exams ADD COLUMN deleted_at TEXT');
@@ -32,6 +36,10 @@ if (!$hasDeletedAt) {
 if (!$hasScorePublished) {
     $pdo->exec('ALTER TABLE exams ADD COLUMN is_score_published INTEGER DEFAULT 0');
     $hasScorePublished = true;
+}
+if (!$hasRecheckOpen) {
+    $pdo->exec('ALTER TABLE exams ADD COLUMN is_recheck_open INTEGER DEFAULT 0');
+    $hasRecheckOpen = true;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -80,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $examId = max(0, (int) ($_POST['exam_id'] ?? 0));
         $flag = (string) ($_POST['flag'] ?? '');
         $value = (int) ($_POST['value'] ?? 0) === 1 ? 1 : 0;
-        $allowedFlags = ['distribution_locked', 'rooms_locked', 'is_locked', 'exam_locked', 'is_score_entry_locked', 'scoring_closed'];
+        $allowedFlags = ['distribution_locked', 'rooms_locked', 'is_locked', 'exam_locked', 'is_score_entry_locked', 'scoring_closed', 'is_recheck_open'];
 
         if ($examId <= 0 || !in_array($flag, $allowedFlags, true)) {
             $errors[] = 'Thao tác workflow không hợp lệ.';
@@ -88,15 +96,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stateStmt = $pdo->prepare('SELECT
                     COALESCE(distribution_locked,0) AS distribution_locked,
                     COALESCE(exam_locked,0) AS exam_locked,
-                    COALESCE(is_score_entry_locked,0) AS is_score_entry_locked
+                    COALESCE(is_score_entry_locked,0) AS is_score_entry_locked,
+                    COALESCE(is_recheck_open,0) AS is_recheck_open
                 FROM exams WHERE id = :id LIMIT 1');
             $stateStmt->execute([':id' => $examId]);
-            $state = $stateStmt->fetch(PDO::FETCH_ASSOC) ?: ['distribution_locked' => 0, 'exam_locked' => 0, 'is_score_entry_locked' => 0];
+            $state = $stateStmt->fetch(PDO::FETCH_ASSOC) ?: ['distribution_locked' => 0, 'exam_locked' => 0, 'is_score_entry_locked' => 0, 'is_recheck_open' => 0];
 
             $distributionLocked = (int) ($state['distribution_locked'] ?? 0) === 1;
             $examLocked = (int) ($state['exam_locked'] ?? 0) === 1;
             $scoreLocked = (int) ($state['is_score_entry_locked'] ?? 0) === 1;
-
             if ($flag === 'distribution_locked') {
                 if ($value === 0 && ($examLocked || $scoreLocked)) {
                     $errors[] = 'Phải mở khoá nhập điểm và mở khoá kỳ thi trước khi mở khoá phân phòng.';
@@ -114,6 +122,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Chỉ được khoá nhập điểm sau khi đã khoá kỳ thi.';
             }
 
+
+            if ($flag === 'is_recheck_open' && !$scoreLocked) {
+                $errors[] = 'Chỉ được mở/khóa phúc tra sau khi đã khóa nhập điểm.';
+            }
+
             if (empty($errors)) {
                 $updates = [$flag => $value];
                 if ($flag === 'distribution_locked') {
@@ -122,6 +135,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 if ($flag === 'is_score_entry_locked') {
                     $updates['scoring_closed'] = $value;
+                    if ($value === 0) {
+                        $updates['is_recheck_open'] = 0;
+                    }
                 }
 
                 $setParts = [];
@@ -243,6 +259,7 @@ $exams = $pdo->query('SELECT id, ten_ky_thi, nam, ngay_thi, deleted_at, is_defau
     COALESCE(is_locked,0) AS is_locked,
     COALESCE(exam_locked,0) AS exam_locked,
     COALESCE(is_score_entry_locked,0) AS is_score_entry_locked,
+    COALESCE(is_recheck_open,0) AS is_recheck_open,
     COALESCE(scoring_closed,0) AS scoring_closed,
     COALESCE(is_score_published,0) AS is_score_published' . $selectTrangThai . ' FROM exams' . $examWhere . ' ORDER BY id DESC')->fetchAll(PDO::FETCH_ASSOC);
 
@@ -303,6 +320,7 @@ require_once BASE_PATH . '/layout/header.php';
                                         <span class="badge <?= (int)$exam['distribution_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Phân phòng: <?= (int)$exam['distribution_locked']===1 ? 'Khoá' : 'Mở' ?></span>
                                         <span class="badge <?= (int)$exam['exam_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Kỳ thi: <?= (int)$exam['exam_locked']===1 ? 'Khoá' : 'Mở' ?></span>
                                         <span class="badge <?= (int)$exam['is_score_entry_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Nhập điểm: <?= (int)$exam['is_score_entry_locked']===1 ? 'Khoá' : 'Mở' ?></span>
+                                        <span class="badge <?= (int)$exam['is_recheck_open']===1 ? 'bg-success' : 'bg-secondary' ?>">Phúc tra: <?= (int)$exam['is_recheck_open']===1 ? 'Mở' : 'Khoá' ?></span>
                                     </div>
                                 </td>
                                 <td>
@@ -347,6 +365,17 @@ require_once BASE_PATH . '/layout/header.php';
                                             <input type="hidden" name="flag" value="is_score_entry_locked">
                                             <input type="hidden" name="value" value="<?= $scoreEntryLocked ? 0 : 1 ?>">
                                             <button class="btn btn-sm <?= $scoreEntryLocked ? 'btn-dark' : 'btn-outline-dark' ?>" type="submit" <?= $scoreCanToggle ? '' : 'disabled title="Khoá theo thứ tự: Kỳ thi -> Nhập điểm"' ?>>Nhập điểm: <?= $scoreEntryLocked ? 'Đang khoá' : 'Đang mở' ?></button>
+                                        </form>
+
+
+                                        <?php $recheckOpen = (int) ($exam['is_recheck_open'] ?? 0) === 1; ?>
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="action" value="toggle_workflow_flag">
+                                            <input type="hidden" name="exam_id" value="<?= (int) $exam['id'] ?>">
+                                            <input type="hidden" name="flag" value="is_recheck_open">
+                                            <input type="hidden" name="value" value="<?= $recheckOpen ? 0 : 1 ?>">
+                                            <button class="btn btn-sm <?= $recheckOpen ? 'btn-success' : 'btn-outline-success' ?>" type="submit" <?= $scoreEntryLocked ? '' : 'disabled title="Chỉ mở/khóa phúc tra sau khi đã khóa nhập điểm"' ?>>Phúc tra: <?= $recheckOpen ? 'Đang mở' : 'Đang khoá' ?></button>
                                         </form>
                                     </div>
                                 </td>
@@ -397,4 +426,5 @@ require_once BASE_PATH . '/layout/header.php';
         </div>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>
