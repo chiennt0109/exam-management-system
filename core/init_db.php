@@ -37,10 +37,20 @@ CREATE TABLE IF NOT EXISTS exams (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   ten_ky_thi TEXT,
   nam INTEGER,
-  ngay_thi TEXT
+  ngay_thi TEXT,
+  distribution_locked INTEGER DEFAULT 0,
+  rooms_locked INTEGER DEFAULT 0,
+  exam_locked INTEGER DEFAULT 0
 )");
 
 /* ====== SCORES ====== */
+
+
+$examColumns = array_column($pdo->query("PRAGMA table_info(exams)")->fetchAll(PDO::FETCH_ASSOC), 'name');
+if (!in_array('is_default', $examColumns, true)) {
+    $pdo->exec("ALTER TABLE exams ADD COLUMN is_default INTEGER DEFAULT 0");
+}
+
 $pdo->exec("
 CREATE TABLE IF NOT EXISTS scores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,3 +96,14 @@ importXML("../xml/MON.xml", function($m) use ($pdo) {
 });
 
 echo "✅ XML imported";
+
+
+$pdo->exec("
+CREATE TABLE IF NOT EXISTS score_assignments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  exam_id INTEGER,
+  subject_id INTEGER,
+  khoi TEXT,
+  room_id INTEGER NULL,
+  user_id INTEGER
+)");
