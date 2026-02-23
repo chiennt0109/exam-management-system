@@ -8,11 +8,13 @@ $examStmt = $pdo->prepare('SELECT ten_ky_thi FROM exams WHERE id = :id LIMIT 1')
 $examStmt->execute([':id' => $examId]);
 $examName = trim((string) ($examStmt->fetchColumn() ?: 'KỲ THI HIỆN TẠI'));
 
-$subjectStmt = $pdo->prepare('SELECT es.subject_id, sub.ten_mon
-    FROM exam_subjects es
-    INNER JOIN subjects sub ON sub.id = es.subject_id
-    WHERE es.exam_id = :exam_id
-    ORDER BY es.sort_order ASC, sub.ten_mon ASC');
+$subjectStmt = $pdo->prepare('SELECT cfg.subject_id, sub.ten_mon, MIN(COALESCE(es.sort_order, 999999)) AS sort_order
+    FROM exam_subject_config cfg
+    INNER JOIN subjects sub ON sub.id = cfg.subject_id
+    LEFT JOIN exam_subjects es ON es.exam_id = cfg.exam_id AND es.subject_id = cfg.subject_id
+    WHERE cfg.exam_id = :exam_id
+    GROUP BY cfg.subject_id, sub.ten_mon
+    ORDER BY sort_order ASC, sub.ten_mon ASC');
 $subjectStmt->execute([':exam_id' => $examId]);
 $subjects = $subjectStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -166,10 +168,10 @@ if ($export === '1') {
         foreach ($classesToExport as $lop) {
             $rows = $allRowsByClass[$lop] ?? [];
             $sheetName = substr((string) (preg_replace('/[\\\/*\[\]:\?]+/', '_', $lop) ?: 'Lop'), 0, 31);
-            $columnCount = 5 + count($subjects);
+            $columnCount = 4 + count($subjects);
 
             echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table ss:ExpandedColumnCount="' . $columnCount . '">';
-            echo '<Column ss:Width="40"/><Column ss:Width="80"/><Column ss:Width="200"/><Column ss:Width="90"/><Column ss:Width="80"/>';
+            echo '<Column ss:Width="40"/><Column ss:Width="80"/><Column ss:Width="220"/><Column ss:Width="90"/>';
             foreach ($subjects as $_) {
                 echo '<Column ss:Width="110"/>';
             }
@@ -183,7 +185,6 @@ if ($export === '1') {
             echo '<Cell ss:StyleID="TH"><Data ss:Type="String">SBD</Data></Cell>';
             echo '<Cell ss:StyleID="TH"><Data ss:Type="String">Họ tên</Data></Cell>';
             echo '<Cell ss:StyleID="TH"><Data ss:Type="String">Ngày sinh</Data></Cell>';
-            echo '<Cell ss:StyleID="TH"><Data ss:Type="String">Lớp</Data></Cell>';
             foreach ($subjects as $sub) {
                 echo '<Cell ss:StyleID="TH"><Data ss:Type="String">' . $xmlEscape((string) ($sub['ten_mon'] ?? '')) . '</Data></Cell>';
             }
@@ -200,7 +201,6 @@ if ($export === '1') {
                 echo '<Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape((string) ($row['sbd'] ?? '')) . '</Data></Cell>';
                 echo '<Cell ss:StyleID="L"><Data ss:Type="String">' . $xmlEscape((string) ($row['hoten'] ?? '')) . '</Data></Cell>';
                 echo '<Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape($dobFmt) . '</Data></Cell>';
-                echo '<Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape((string) ($row['lop'] ?? $lop)) . '</Data></Cell>';
                 foreach ($subjects as $sub) {
                     $subId = (int) ($sub['subject_id'] ?? 0);
                     echo '<Cell ss:StyleID="L"><Data ss:Type="String">' . $xmlEscape((string) ($allRoomByStudentSubject[$sid][$subId] ?? '')) . '</Data></Cell>';
@@ -220,11 +220,11 @@ if ($export === '1') {
     }
 
     header('Content-Type: text/html; charset=UTF-8');
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>DANH SÁCH PHÒNG THI TỪNG HỌC SINH THEO LỚP</title><style>@page{size:A4 landscape;margin:14mm 10mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.page{page-break-after:always}.page:last-child{page-break-after:auto}.header{text-align:center;line-height:1.35}.title{font-size:18px;font-weight:700}.sub{font-size:14px;font-weight:700}.meta{font-size:13px;margin-top:6px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:center}.center{text-align:center}</style></head><body>';
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>DANH SÁCH PHÒNG THI TỪNG HỌC SINH THEO LỚP</title><style>@page{size:A4 landscape;margin:14mm 10mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.page{page-break-before:always}.page:first-of-type{page-break-before:auto}.header{text-align:center;line-height:1.35}.title{font-size:18px;font-weight:700}.sub{font-size:14px;font-weight:700}.meta{font-size:13px;margin-top:6px}table{width:100%;border-collapse:collapse;margin-top:8px}thead{display:table-header-group}tr{page-break-inside:avoid}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:center}.center{text-align:center}</style></head><body>';
     foreach ($classesToExport as $lop) {
         $rows = $allRowsByClass[$lop] ?? [];
         echo '<section class="page"><div class="header"><div class="sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="sub">' . htmlspecialchars($examName, ENT_QUOTES, 'UTF-8') . '</div><div class="title">DANH SÁCH PHÒNG THI TỪNG HỌC SINH THEO LỚP</div><div class="meta">Lớp: <strong>' . htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') . '</strong></div></div>';
-        echo '<table><thead><tr><th style="width:5%">STT</th><th style="width:9%">SBD</th><th style="width:21%">Họ tên</th><th style="width:10%">Ngày sinh</th><th style="width:8%">Lớp</th>';
+        echo '<table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th style="width:24%">Họ tên</th><th style="width:12%">Ngày sinh</th>';
         foreach ($subjects as $sub) {
             echo '<th>' . htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') . '</th>';
         }
@@ -234,7 +234,7 @@ if ($export === '1') {
             $dob = (string) ($row['ngaysinh'] ?? '');
             $ts = strtotime($dob);
             $dobFmt = $ts ? date('d/m/Y', $ts) : $dob;
-            echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars($dobFmt, ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars((string) ($row['lop'] ?? $lop), ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars($dobFmt, ENT_QUOTES, 'UTF-8') . '</td>';
             foreach ($subjects as $sub) {
                 $subId = (int) ($sub['subject_id'] ?? 0);
                 echo '<td>' . htmlspecialchars((string) ($allRoomByStudentSubject[$sid][$subId] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
@@ -242,7 +242,7 @@ if ($export === '1') {
             echo '</tr>';
         }
         if (empty($rows)) {
-            echo '<tr><td class="center" colspan="' . (5 + count($subjects)) . '">Không có dữ liệu.</td></tr>';
+            echo '<tr><td class="center" colspan="' . (4 + count($subjects)) . '">Không có dữ liệu.</td></tr>';
         }
         echo '</tbody></table></section>';
     }
