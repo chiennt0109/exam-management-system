@@ -149,15 +149,15 @@ if ($export === '1') {
 
     if ($exportFile === 'excel') {
         header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
-        header('Content-Disposition: attachment; filename="danh_sach_niem_yet_theo_lop_exam_' . $examId . '.xls"');
+        header('Content-Disposition: attachment; filename="danh_sach_phong_thi_theo_lop_exam_' . $examId . '.xls"');
+
         $xmlEscape = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_XML1, 'UTF-8');
         echo '<?xml version="1.0" encoding="UTF-8"?>';
+        echo '<?mso-application progid="Excel.Sheet"?>';
         echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">';
         echo '<Styles>';
         echo '<Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Times New Roman" ss:Size="12"/></Style>';
-        echo '<Style ss:ID="HeadL"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="14"/></Style>';
-        echo '<Style ss:ID="HeadR"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="16"/></Style>';
-        echo '<Style ss:ID="HeadS"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="12"/></Style>';
+        echo '<Style ss:ID="Head"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:Bold="1" ss:Size="14"/></Style>';
         echo '<Style ss:ID="TH"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders><Font ss:Bold="1"/></Style>';
         echo '<Style ss:ID="C"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>';
         echo '<Style ss:ID="L"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>';
@@ -165,41 +165,66 @@ if ($export === '1') {
 
         foreach ($classesToExport as $lop) {
             $rows = $allRowsByClass[$lop] ?? [];
-            $sheetName = substr(preg_replace('/[^\p{L}\p{N}_-]+/u', '_', $lop) ?: 'Class', 0, 31);
-            echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table ss:ExpandedColumnCount="' . (4 + count($subjects)) . '">';
-            foreach ([5,10,32,13] as $w) echo '<Column ss:Width="' . ($w * 6.5) . '"/>';
-            foreach ($subjects as $_) echo '<Column ss:Width="120"/>';
-            echo '<Row ss:Height="24"><Cell ss:MergeAcross="3" ss:MergeDown="1" ss:StyleID="HeadL"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
-" . $examName) . '</Data></Cell><Cell ss:Index="5" ss:MergeAcross="' . max(0, count($subjects) - 1) . '" ss:StyleID="HeadR"><Data ss:Type="String">DANH SÁCH NIÊM YẾT</Data></Cell></Row>';
-            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="' . max(0, count($subjects) - 1) . '" ss:StyleID="HeadS"><Data ss:Type="String">Lớp: ' . $xmlEscape($lop) . '</Data></Cell></Row>';
-            echo '<Row ss:Height="10"></Row>';
-            echo '<Row><Cell ss:StyleID="TH"><Data ss:Type="String">STT</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">SBD</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Họ tên</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Ngày sinh</Data></Cell>';
-            foreach ($subjects as $sub) echo '<Cell ss:StyleID="TH"><Data ss:Type="String">' . $xmlEscape((string) ($sub['ten_mon'] ?? '')) . '</Data></Cell>';
+            $sheetName = substr((string) (preg_replace('/[\\\/*\[\]:\?]+/', '_', $lop) ?: 'Lop'), 0, 31);
+            $columnCount = 5 + count($subjects);
+
+            echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table ss:ExpandedColumnCount="' . $columnCount . '">';
+            echo '<Column ss:Width="40"/><Column ss:Width="80"/><Column ss:Width="200"/><Column ss:Width="90"/><Column ss:Width="80"/>';
+            foreach ($subjects as $_) {
+                echo '<Column ss:Width="110"/>';
+            }
+
+            echo '<Row><Cell ss:MergeAcross="' . ($columnCount - 1) . '" ss:StyleID="Head"><Data ss:Type="String">DANH SÁCH PHÒNG THI TỪNG HỌC SINH THEO LỚP</Data></Cell></Row>';
+            echo '<Row><Cell ss:MergeAcross="' . ($columnCount - 1) . '" ss:StyleID="C"><Data ss:Type="String">Kỳ thi: ' . $xmlEscape($examName) . ' - Lớp: ' . $xmlEscape((string) $lop) . '</Data></Cell></Row>';
+            echo '<Row></Row>';
+
+            echo '<Row>';
+            echo '<Cell ss:StyleID="TH"><Data ss:Type="String">STT</Data></Cell>';
+            echo '<Cell ss:StyleID="TH"><Data ss:Type="String">SBD</Data></Cell>';
+            echo '<Cell ss:StyleID="TH"><Data ss:Type="String">Họ tên</Data></Cell>';
+            echo '<Cell ss:StyleID="TH"><Data ss:Type="String">Ngày sinh</Data></Cell>';
+            echo '<Cell ss:StyleID="TH"><Data ss:Type="String">Lớp</Data></Cell>';
+            foreach ($subjects as $sub) {
+                echo '<Cell ss:StyleID="TH"><Data ss:Type="String">' . $xmlEscape((string) ($sub['ten_mon'] ?? '')) . '</Data></Cell>';
+            }
             echo '</Row>';
+
             foreach ($rows as $i => $row) {
                 $sid = (int) ($row['student_id'] ?? 0);
                 $dob = (string) ($row['ngaysinh'] ?? '');
                 $ts = strtotime($dob);
                 $dobFmt = $ts ? date('d/m/Y', $ts) : $dob;
-                echo '<Row><Cell ss:StyleID="C"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape((string) ($row['sbd'] ?? '')) . '</Data></Cell><Cell ss:StyleID="L"><Data ss:Type="String">' . $xmlEscape((string) ($row['hoten'] ?? '')) . '</Data></Cell><Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape($dobFmt) . '</Data></Cell>';
+
+                echo '<Row>';
+                echo '<Cell ss:StyleID="C"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell>';
+                echo '<Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape((string) ($row['sbd'] ?? '')) . '</Data></Cell>';
+                echo '<Cell ss:StyleID="L"><Data ss:Type="String">' . $xmlEscape((string) ($row['hoten'] ?? '')) . '</Data></Cell>';
+                echo '<Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape($dobFmt) . '</Data></Cell>';
+                echo '<Cell ss:StyleID="C"><Data ss:Type="String">' . $xmlEscape((string) ($row['lop'] ?? $lop)) . '</Data></Cell>';
                 foreach ($subjects as $sub) {
                     $subId = (int) ($sub['subject_id'] ?? 0);
                     echo '<Cell ss:StyleID="L"><Data ss:Type="String">' . $xmlEscape((string) ($allRoomByStudentSubject[$sid][$subId] ?? '')) . '</Data></Cell>';
                 }
                 echo '</Row>';
             }
-            echo '</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><PageSetup><Layout x:Orientation="Portrait"/><PageMargins x:Top="0.7" x:Bottom="0.7" x:Left="0.7" x:Right="0.7"/></PageSetup><Print><ValidPrinterInfo/><PaperSizeIndex>9</PaperSizeIndex><FitWidth>1</FitWidth><FitHeight>1</FitHeight></Print></WorksheetOptions></Worksheet>';
+
+            if (empty($rows)) {
+                echo '<Row><Cell ss:MergeAcross="' . ($columnCount - 1) . '" ss:StyleID="C"><Data ss:Type="String">Không có dữ liệu.</Data></Cell></Row>';
+            }
+
+            echo '</Table></Worksheet>';
         }
+
         echo '</Workbook>';
         exit;
     }
 
     header('Content-Type: text/html; charset=UTF-8');
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>DANH SÁCH NIÊM YẾT</title><style>@page{size:A4 portrait;margin:20mm 15mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.page{page-break-after:always}.header{display:grid;grid-template-columns:1fr 1fr;column-gap:12px}.left,.right{text-align:center;line-height:1.3}.title{font-size:16px;font-weight:700}.sub{font-size:14px;font-weight:700}.meta{font-size:13px;margin-top:6px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:left}.center{text-align:center}</style></head><body>';
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>DANH SÁCH PHÒNG THI TỪNG HỌC SINH THEO LỚP</title><style>@page{size:A4 landscape;margin:14mm 10mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.page{page-break-after:always}.page:last-child{page-break-after:auto}.header{text-align:center;line-height:1.35}.title{font-size:18px;font-weight:700}.sub{font-size:14px;font-weight:700}.meta{font-size:13px;margin-top:6px}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:center}.center{text-align:center}</style></head><body>';
     foreach ($classesToExport as $lop) {
         $rows = $allRowsByClass[$lop] ?? [];
-        echo '<section class="page"><div class="header"><div class="left"><div class="sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="sub">' . htmlspecialchars($examName) . '</div></div><div class="right"><div class="title">DANH SÁCH NIÊM YẾT</div><div class="meta">Lớp: <strong>' . htmlspecialchars($lop) . '</strong></div></div></div>';
-        echo '<table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th style="width:34%">Họ tên</th><th style="width:14%">Ngày sinh</th>';
+        echo '<section class="page"><div class="header"><div class="sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="sub">' . htmlspecialchars($examName, ENT_QUOTES, 'UTF-8') . '</div><div class="title">DANH SÁCH PHÒNG THI TỪNG HỌC SINH THEO LỚP</div><div class="meta">Lớp: <strong>' . htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') . '</strong></div></div>';
+        echo '<table><thead><tr><th style="width:5%">STT</th><th style="width:9%">SBD</th><th style="width:21%">Họ tên</th><th style="width:10%">Ngày sinh</th><th style="width:8%">Lớp</th>';
         foreach ($subjects as $sub) {
             echo '<th>' . htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') . '</th>';
         }
@@ -209,7 +234,7 @@ if ($export === '1') {
             $dob = (string) ($row['ngaysinh'] ?? '');
             $ts = strtotime($dob);
             $dobFmt = $ts ? date('d/m/Y', $ts) : $dob;
-            echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars($dobFmt, ENT_QUOTES, 'UTF-8') . '</td>';
+            echo '<tr><td class="center">' . ($i + 1) . '</td><td class="center">' . htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td>' . htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars($dobFmt, ENT_QUOTES, 'UTF-8') . '</td><td class="center">' . htmlspecialchars((string) ($row['lop'] ?? $lop), ENT_QUOTES, 'UTF-8') . '</td>';
             foreach ($subjects as $sub) {
                 $subId = (int) ($sub['subject_id'] ?? 0);
                 echo '<td>' . htmlspecialchars((string) ($allRoomByStudentSubject[$sid][$subId] ?? ''), ENT_QUOTES, 'UTF-8') . '</td>';
@@ -217,7 +242,7 @@ if ($export === '1') {
             echo '</tr>';
         }
         if (empty($rows)) {
-            echo '<tr><td class="center" colspan="' . (4 + count($subjects)) . '">Không có dữ liệu.</td></tr>';
+            echo '<tr><td class="center" colspan="' . (5 + count($subjects)) . '">Không có dữ liệu.</td></tr>';
         }
         echo '</tbody></table></section>';
     }
