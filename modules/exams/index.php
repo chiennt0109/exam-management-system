@@ -95,16 +95,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $stateStmt = $pdo->prepare('SELECT
                     COALESCE(distribution_locked,0) AS distribution_locked,
+                    COALESCE(rooms_locked,0) AS rooms_locked,
+                    COALESCE(is_locked,0) AS is_locked,
                     COALESCE(exam_locked,0) AS exam_locked,
                     COALESCE(is_score_entry_locked,0) AS is_score_entry_locked,
+                    COALESCE(scoring_closed,0) AS scoring_closed,
                     COALESCE(is_recheck_open,0) AS is_recheck_open
                 FROM exams WHERE id = :id LIMIT 1');
             $stateStmt->execute([':id' => $examId]);
-            $state = $stateStmt->fetch(PDO::FETCH_ASSOC) ?: ['distribution_locked' => 0, 'exam_locked' => 0, 'is_score_entry_locked' => 0, 'is_recheck_open' => 0];
+            $state = $stateStmt->fetch(PDO::FETCH_ASSOC) ?: ['distribution_locked' => 0, 'rooms_locked' => 0, 'is_locked' => 0, 'exam_locked' => 0, 'is_score_entry_locked' => 0, 'scoring_closed' => 0, 'is_recheck_open' => 0];
 
-            $distributionLocked = (int) ($state['distribution_locked'] ?? 0) === 1;
+            $distributionLocked = (int) ($state['distribution_locked'] ?? 0) === 1
+                || (int) ($state['rooms_locked'] ?? 0) === 1
+                || (int) ($state['is_locked'] ?? 0) === 1;
             $examLocked = (int) ($state['exam_locked'] ?? 0) === 1;
-            $scoreLocked = (int) ($state['is_score_entry_locked'] ?? 0) === 1;
+            $scoreLocked = (int) ($state['is_score_entry_locked'] ?? 0) === 1
+                || (int) ($state['scoring_closed'] ?? 0) === 1;
             if ($flag === 'distribution_locked') {
                 if ($value === 0 && ($examLocked || $scoreLocked)) {
                     $errors[] = 'Phải mở khoá nhập điểm và mở khoá kỳ thi trước khi mở khoá phân phòng.';
@@ -129,11 +135,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (empty($errors)) {
                 $updates = [$flag => $value];
-                if ($flag === 'distribution_locked') {
+                if ($flag === 'distribution_locked' || $flag === 'rooms_locked' || $flag === 'is_locked') {
+                    $updates['distribution_locked'] = $value;
                     $updates['rooms_locked'] = $value;
                     $updates['is_locked'] = $value;
                 }
-                if ($flag === 'is_score_entry_locked') {
+                if ($flag === 'is_score_entry_locked' || $flag === 'scoring_closed') {
+                    $updates['is_score_entry_locked'] = $value;
                     $updates['scoring_closed'] = $value;
                     if ($value === 0) {
                         $updates['is_recheck_open'] = 0;
@@ -316,11 +324,20 @@ require_once BASE_PATH . '/layout/header.php';
                                 <td>
                                     <?= $hasTrangThai ? htmlspecialchars((string) ($exam['trang_thai'] ?? ''), ENT_QUOTES, 'UTF-8') : '<em>N/A</em>' ?>
                                     <?php if ($isDeleted): ?><span class="badge bg-warning text-dark ms-1">đã xóa tạm</span><?php endif; ?>
+                                    <?php
+                                        $distributionLocked = (int) ($exam['distribution_locked'] ?? 0) === 1
+                                            || (int) ($exam['rooms_locked'] ?? 0) === 1
+                                            || (int) ($exam['is_locked'] ?? 0) === 1;
+                                        $examLockedRow = (int) ($exam['exam_locked'] ?? 0) === 1;
+                                        $scoreEntryLocked = (int) ($exam['is_score_entry_locked'] ?? 0) === 1
+                                            || (int) ($exam['scoring_closed'] ?? 0) === 1;
+                                        $recheckOpen = (int) ($exam['is_recheck_open'] ?? 0) === 1;
+                                    ?>
                                     <div class="small mt-1 d-flex flex-wrap gap-1">
-                                        <span class="badge <?= (int)$exam['distribution_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Phân phòng: <?= (int)$exam['distribution_locked']===1 ? 'Khoá' : 'Mở' ?></span>
-                                        <span class="badge <?= (int)$exam['exam_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Kỳ thi: <?= (int)$exam['exam_locked']===1 ? 'Khoá' : 'Mở' ?></span>
-                                        <span class="badge <?= (int)$exam['is_score_entry_locked']===1 ? 'bg-danger' : 'bg-secondary' ?>">Nhập điểm: <?= (int)$exam['is_score_entry_locked']===1 ? 'Khoá' : 'Mở' ?></span>
-                                        <span class="badge <?= (int)$exam['is_recheck_open']===1 ? 'bg-success' : 'bg-secondary' ?>">Phúc tra: <?= (int)$exam['is_recheck_open']===1 ? 'Mở' : 'Khoá' ?></span>
+                                        <span class="badge <?= $distributionLocked ? 'bg-danger' : 'bg-secondary' ?>">Phân phòng: <?= $distributionLocked ? 'Khoá' : 'Mở' ?></span>
+                                        <span class="badge <?= $examLockedRow ? 'bg-danger' : 'bg-secondary' ?>">Kỳ thi: <?= $examLockedRow ? 'Khoá' : 'Mở' ?></span>
+                                        <span class="badge <?= $scoreEntryLocked ? 'bg-danger' : 'bg-secondary' ?>">Nhập điểm: <?= $scoreEntryLocked ? 'Khoá' : 'Mở' ?></span>
+                                        <span class="badge <?= $recheckOpen ? 'bg-success' : 'bg-secondary' ?>">Phúc tra: <?= $recheckOpen ? 'Mở' : 'Khoá' ?></span>
                                     </div>
                                 </td>
                                 <td>
@@ -334,9 +351,6 @@ require_once BASE_PATH . '/layout/header.php';
                                 <?php if ($isAdmin): ?>
                                 <td>
                                     <div class="d-flex flex-wrap gap-1">
-                                        <?php $distributionLocked = (int) ($exam['distribution_locked'] ?? 0) === 1; ?>
-                                        <?php $examLockedRow = (int) ($exam['exam_locked'] ?? 0) === 1; ?>
-                                        <?php $scoreEntryLocked = (int) ($exam['is_score_entry_locked'] ?? 0) === 1; ?>
                                         <?php $distributionCanToggle = !(!$distributionLocked && ($examLockedRow || $scoreEntryLocked)); ?>
                                         <?php $examCanToggle = ($examLockedRow && !$scoreEntryLocked) || (!$examLockedRow && $distributionLocked); ?>
                                         <?php $scoreCanToggle = ($scoreEntryLocked || $examLockedRow); ?>
@@ -368,7 +382,6 @@ require_once BASE_PATH . '/layout/header.php';
                                         </form>
 
 
-                                        <?php $recheckOpen = (int) ($exam['is_recheck_open'] ?? 0) === 1; ?>
                                         <form method="post" class="d-inline">
                                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                                             <input type="hidden" name="action" value="toggle_workflow_flag">
