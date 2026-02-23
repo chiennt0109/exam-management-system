@@ -8,9 +8,9 @@ $exam = student_portal_get_exam($pdo, $student['exam_id']);
 $canViewScores = $exam ? student_portal_can_view_scores($exam) : false;
 $canRegisterRecheck = $exam
     ? (
-        (int) ($exam['is_score_entry_locked'] ?? 0) === 1
-        || (int) ($exam['scoring_closed'] ?? 0) === 1
-        || (int) ($exam['exam_locked'] ?? 0) === 1
+        ((int) ($exam['is_score_entry_locked'] ?? 0) === 1
+        || (int) ($exam['scoring_closed'] ?? 0) === 1)
+        && (int) ($exam['is_recheck_open'] ?? 0) === 1
     )
     : false;
 $csrf = student_portal_csrf_token();
@@ -115,17 +115,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $latestExam = student_portal_get_exam($pdo, (int) $student['exam_id']);
         $latestCanRegisterRecheck = $latestExam
             ? (
-                (int) ($latestExam['is_score_entry_locked'] ?? 0) === 1
-                || (int) ($latestExam['scoring_closed'] ?? 0) === 1
-                || (int) ($latestExam['exam_locked'] ?? 0) === 1
+                ((int) ($latestExam['is_score_entry_locked'] ?? 0) === 1
+                || (int) ($latestExam['scoring_closed'] ?? 0) === 1)
+                && (int) ($latestExam['is_recheck_open'] ?? 0) === 1
             )
             : false;
 
         if (!$latestCanRegisterRecheck) {
-            $error = 'Chỉ được đăng ký phúc tra sau khi đã khoá nhập điểm.';
+            $error = 'Chỉ được đăng ký phúc tra khi đã khoá nhập điểm và đang mở phúc tra.';
         } else {
         try {
             $pdo->beginTransaction();
+            $nowHanoi = (new DateTimeImmutable('now', new DateTimeZone('Asia/Ho_Chi_Minh')))->format('Y-m-d H:i:s');
             foreach ($subjectMap as $subjectId => $_name) {
                 $cc = max(1, min(3, (int) ($configRows[$subjectId]['component_count'] ?? 1)));
                 $vals = [1 => null, 2 => null, 3 => null];
@@ -145,13 +146,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
                 $roomId = (int) ($roomBySubject[$subjectId] ?? 0);
                 $pdo->prepare('INSERT INTO student_recheck_requests(exam_id, student_id, subject_id, room_id, component_1, component_2, component_3, status, created_at, updated_at)
-                    VALUES(:exam_id,:student_id,:subject_id,:room_id,:c1,:c2,:c3,"pending",datetime("now"),datetime("now"))
+                    VALUES(:exam_id,:student_id,:subject_id,:room_id,:c1,:c2,:c3,"pending",:created_at,:updated_at)
                     ON CONFLICT(exam_id, student_id, subject_id) DO UPDATE SET
                         room_id=excluded.room_id, component_1=excluded.component_1, component_2=excluded.component_2, component_3=excluded.component_3,
-                        updated_at=datetime("now")')
+                        updated_at=:updated_at')
                     ->execute([
                         ':exam_id' => $student['exam_id'], ':student_id' => $student['id'], ':subject_id' => $subjectId, ':room_id' => $roomId > 0 ? $roomId : null,
                         ':c1' => $vals[1], ':c2' => $vals[2], ':c3' => $vals[3],
+                        ':created_at' => $nowHanoi, ':updated_at' => $nowHanoi,
                     ]);
             }
             $pdo->commit();
@@ -239,7 +241,7 @@ student_portal_render_header('Xem điểm và phúc tra');
 
         <h3 class="form-section-title">Đăng ký phúc tra (ma trận môn × thành phần)</h3>
         <?php if (!$canRegisterRecheck): ?>
-            <div class="alert-info">Chỉ được đăng ký phúc tra sau khi đã khoá nhập điểm.</div>
+            <div class="alert-info">Chỉ được đăng ký phúc tra khi đã khoá nhập điểm và đang mở phúc tra.</div>
         <?php else: ?>
         <form method="post">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
