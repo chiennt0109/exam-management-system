@@ -8,8 +8,9 @@ $exam = student_portal_get_exam($pdo, $student['exam_id']);
 $canViewScores = $exam ? student_portal_can_view_scores($exam) : false;
 $canRegisterRecheck = $exam
     ? (
-        (int) ($exam['is_score_entry_locked'] ?? 0) === 1
-        || (int) ($exam['scoring_closed'] ?? 0) === 1
+        ((int) ($exam['is_score_entry_locked'] ?? 0) === 1
+        || (int) ($exam['scoring_closed'] ?? 0) === 1)
+        && (int) ($exam['is_recheck_open'] ?? 0) === 1
     )
     : false;
 $csrf = student_portal_csrf_token();
@@ -114,13 +115,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $latestExam = student_portal_get_exam($pdo, (int) $student['exam_id']);
         $latestCanRegisterRecheck = $latestExam
             ? (
-                (int) ($latestExam['is_score_entry_locked'] ?? 0) === 1
-                || (int) ($latestExam['scoring_closed'] ?? 0) === 1
+                ((int) ($latestExam['is_score_entry_locked'] ?? 0) === 1
+                || (int) ($latestExam['scoring_closed'] ?? 0) === 1)
+                && (int) ($latestExam['is_recheck_open'] ?? 0) === 1
             )
             : false;
 
         if (!$latestCanRegisterRecheck) {
-            $error = 'Chỉ được đăng ký phúc tra sau khi đã khoá nhập điểm.';
+            $error = 'Chỉ được đăng ký phúc tra khi đã khoá nhập điểm và đang mở phúc tra.';
         } else {
         try {
             $pdo->beginTransaction();
@@ -239,7 +241,7 @@ student_portal_render_header('Xem điểm và phúc tra');
 
         <h3 class="form-section-title">Đăng ký phúc tra (ma trận môn × thành phần)</h3>
         <?php if (!$canRegisterRecheck): ?>
-            <div class="alert-info">Chỉ được đăng ký phúc tra sau khi đã khoá nhập điểm.</div>
+            <div class="alert-info">Chỉ được đăng ký phúc tra khi đã khoá nhập điểm và đang mở phúc tra.</div>
         <?php else: ?>
         <form method="post">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
