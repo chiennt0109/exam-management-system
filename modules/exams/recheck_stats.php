@@ -57,7 +57,7 @@ if ($roomId > 0) {
 }
 
 $sql = 'SELECT rr.*, st.sbd, st.hoten, st.lop, sub.ten_mon, COALESCE(rm.ten_phong, "") AS ten_phong,
-        sc.component_1 AS score_component_1, sc.component_2 AS score_component_2, sc.component_3 AS score_component_3
+        sc.component_1 AS score_component_1, sc.component_2 AS score_component_2, sc.component_3 AS score_component_3, rr.created_at
     FROM student_recheck_requests rr
     INNER JOIN students st ON st.id = rr.student_id
     INNER JOIN subjects sub ON sub.id = rr.subject_id
@@ -100,7 +100,19 @@ $renderValue = static function(array $row, string $key): string {
     return number_format((float) $row[$key], 2);
 };
 
-$renderHtml = static function() use ($componentGroups, $componentDefs, $examName, $examId, $renderValue): string {
+$formatHanoi = static function(?string $raw): string {
+    $v = trim((string) $raw);
+    if ($v === "") {
+        return "-";
+    }
+    $dt = DateTimeImmutable::createFromFormat("Y-m-d H:i:s", $v, new DateTimeZone("Asia/Ho_Chi_Minh"));
+    if ($dt instanceof DateTimeImmutable) {
+        return $dt->format("d/m/Y H:i:s");
+    }
+    return $v;
+};
+
+$renderHtml = static function() use ($componentGroups, $componentDefs, $examName, $examId, $renderValue, $formatHanoi): string {
     ob_start();
     ?>
     <!doctype html>
@@ -122,7 +134,7 @@ $renderHtml = static function() use ($componentGroups, $componentDefs, $examName
             <div class="room-title">Phòng: <?= htmlspecialchars((string) $roomName, ENT_QUOTES, 'UTF-8') ?></div>
             <table><thead><tr>
                 <th>STT</th><th>SBD</th><th>Họ tên</th><th>Lớp</th><th>Môn</th><th>Phòng</th>
-                <th>Điểm hiện tại</th><th>Đăng ký phúc tra</th>
+                <th>Điểm hiện tại</th><th>Đăng ký phúc tra</th><th>Ngày giờ đăng ký (Hà Nội)</th>
             </tr></thead><tbody>
             <?php $i=1; foreach ($roomRows as $r): ?>
                 <tr>
@@ -134,6 +146,7 @@ $renderHtml = static function() use ($componentGroups, $componentDefs, $examName
                     <td><?= htmlspecialchars((string) ($r['ten_phong'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                     <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['score']) ?></td>
                     <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['req']) ?></td>
+                    <td><?= $formatHanoi((string) ($r['created_at'] ?? '')) ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody></table>
@@ -199,7 +212,7 @@ require_once BASE_PATH . '/layout/header.php';
                         <table class="table table-bordered table-sm align-middle">
                             <thead class="table-light"><tr>
                                 <th>STT</th><th>SBD</th><th>Họ tên</th><th>Lớp</th><th>Môn</th><th>Phòng</th>
-                                <th>Điểm hiện tại</th><th>Đăng ký phúc tra</th>
+                                <th>Điểm hiện tại</th><th>Đăng ký phúc tra</th><th>Ngày giờ đăng ký (Hà Nội)</th>
                             </tr></thead><tbody>
                             <?php $i = 1; foreach ($roomRows as $r): ?>
                                 <tr>
@@ -211,6 +224,7 @@ require_once BASE_PATH . '/layout/header.php';
                                     <td><?= htmlspecialchars((string) ($r['ten_phong'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['score']) ?></td>
                                     <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['req']) ?></td>
+                                    <td><?= $formatHanoi((string) ($r['created_at'] ?? '')) ?></td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody></table>
