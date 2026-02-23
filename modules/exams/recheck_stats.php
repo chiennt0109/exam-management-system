@@ -112,7 +112,7 @@ $formatHanoi = static function(?string $raw): string {
     return $v;
 };
 
-$renderHtml = static function() use ($componentGroups, $componentDefs, $examName, $examId, $renderValue, $formatHanoi): string {
+$renderHtml = static function(bool $forPdf = false) use ($componentGroups, $componentDefs, $examName, $examId, $renderValue, $formatHanoi): string {
     ob_start();
     ?>
     <!doctype html>
@@ -125,48 +125,126 @@ $renderHtml = static function() use ($componentGroups, $componentDefs, $examName
         th,td{border:1px solid #222;padding:6px}
         th{background:#f2f2f2}
         .room-title{margin-top:10px;font-weight:bold}
+        .component-section{margin-top:16px}
+        <?php if ($forPdf): ?>
+        .component-section{page-break-before:always}
+        .component-section:first-of-type{page-break-before:auto}
+        <?php endif; ?>
     </style></head><body>
     <h1>DANH SÁCH HỌC SINH PHÚC TRA</h1>
     <div class="meta">Kỳ thi #<?= (int) $examId ?> - <?= htmlspecialchars($examName, ENT_QUOTES, 'UTF-8') ?></div>
     <?php foreach ([1, 2, 3] as $componentNo): if (empty($componentGroups[$componentNo])) { continue; } ?>
-        <h2>Thành phần: <?= htmlspecialchars($componentDefs[$componentNo]['label'], ENT_QUOTES, 'UTF-8') ?></h2>
-        <?php foreach ($componentGroups[$componentNo] as $roomName => $roomRows): ?>
-            <div class="room-title">Phòng: <?= htmlspecialchars((string) $roomName, ENT_QUOTES, 'UTF-8') ?></div>
-            <table><thead><tr>
-                <th>STT</th><th>SBD</th><th>Họ tên</th><th>Lớp</th><th>Môn</th><th>Phòng</th>
-                <th>Điểm hiện tại</th><th>Đăng ký phúc tra</th><th>Ngày giờ đăng ký (Hà Nội)</th>
-            </tr></thead><tbody>
-            <?php $i=1; foreach ($roomRows as $r): ?>
-                <tr>
-                    <td><?= $i++ ?></td>
-                    <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= htmlspecialchars((string) ($r['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= htmlspecialchars((string) ($r['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= htmlspecialchars((string) ($r['ten_phong'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['score']) ?></td>
-                    <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['req']) ?></td>
-                    <td><?= $formatHanoi((string) ($r['created_at'] ?? '')) ?></td>
-                </tr>
+        <section class="component-section">
+            <h2>Thành phần: <?= htmlspecialchars($componentDefs[$componentNo]['label'], ENT_QUOTES, 'UTF-8') ?></h2>
+            <?php foreach ($componentGroups[$componentNo] as $roomName => $roomRows): ?>
+                <div class="room-title">Phòng: <?= htmlspecialchars((string) $roomName, ENT_QUOTES, 'UTF-8') ?></div>
+                <table><thead><tr>
+                    <th>STT</th><th>SBD</th><th>Họ tên</th><th>Lớp</th><th>Môn</th><th>Phòng</th>
+                    <th>Điểm hiện tại</th><th>Đăng ký phúc tra</th><th>Ngày giờ đăng ký (Hà Nội)</th>
+                </tr></thead><tbody>
+                <?php $i=1; foreach ($roomRows as $r): ?>
+                    <tr>
+                        <td><?= $i++ ?></td>
+                        <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td><?= htmlspecialchars((string) ($r['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td><?= htmlspecialchars((string) ($r['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td><?= htmlspecialchars((string) ($r['ten_phong'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                        <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['score']) ?></td>
+                        <td><?= $renderValue($r, (string) $componentDefs[$componentNo]['req']) ?></td>
+                        <td><?= $formatHanoi((string) ($r['created_at'] ?? '')) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody></table>
             <?php endforeach; ?>
-            </tbody></table>
-        <?php endforeach; ?>
+        </section>
     <?php endforeach; ?>
     </body></html>
     <?php
     return (string) ob_get_clean();
 };
 
+$buildExcelXml = static function() use ($componentGroups, $componentDefs, $examName, $examId, $renderValue, $formatHanoi): string {
+    $xmlEscape = static function(string $value): string {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
+    };
+
+    $sheetTitleBase = 'Thống kê phúc tra - #' . $examId . ' - ' . $examName;
+    $sheetXmlParts = [];
+
+    foreach ([1, 2, 3] as $componentNo) {
+        if (empty($componentGroups[$componentNo])) {
+            continue;
+        }
+
+        $sheetName = $componentDefs[$componentNo]['label'];
+        $rowsXml = [];
+        $rowsXml[] = '<Row>'
+            . '<Cell><Data ss:Type="String">STT</Data></Cell>'
+            . '<Cell><Data ss:Type="String">SBD</Data></Cell>'
+            . '<Cell><Data ss:Type="String">Họ tên</Data></Cell>'
+            . '<Cell><Data ss:Type="String">Lớp</Data></Cell>'
+            . '<Cell><Data ss:Type="String">Môn</Data></Cell>'
+            . '<Cell><Data ss:Type="String">Phòng</Data></Cell>'
+            . '<Cell><Data ss:Type="String">Điểm hiện tại</Data></Cell>'
+            . '<Cell><Data ss:Type="String">Đăng ký phúc tra</Data></Cell>'
+            . '<Cell><Data ss:Type="String">Ngày giờ đăng ký (Hà Nội)</Data></Cell>'
+            . '</Row>';
+
+        foreach ($componentGroups[$componentNo] as $roomName => $roomRows) {
+            $rowsXml[] = '<Row>'
+                . '<Cell><Data ss:Type="String">Phòng: ' . $xmlEscape((string) $roomName) . '</Data></Cell>'
+                . '</Row>';
+
+            $i = 1;
+            foreach ($roomRows as $r) {
+                $rowsXml[] = '<Row>'
+                    . '<Cell><Data ss:Type="Number">' . $i++ . '</Data></Cell>'
+                    . '<Cell><Data ss:Type="String">' . $xmlEscape((string) ($r['sbd'] ?? '')) . '</Data></Cell>'
+                    . '<Cell><Data ss:Type="String">' . $xmlEscape((string) ($r['hoten'] ?? '')) . '</Data></Cell>'
+                    . '<Cell><Data ss:Type="String">' . $xmlEscape((string) ($r['lop'] ?? '')) . '</Data></Cell>'
+                    . '<Cell><Data ss:Type="String">' . $xmlEscape((string) ($r['ten_mon'] ?? '')) . '</Data></Cell>'
+                    . '<Cell><Data ss:Type="String">' . $xmlEscape((string) ($r['ten_phong'] ?? '')) . '</Data></Cell>'
+                    . '<Cell><Data ss:Type="String">' . $xmlEscape($renderValue($r, (string) $componentDefs[$componentNo]['score'])) . '</Data></Cell>'
+                    . '<Cell><Data ss:Type="String">' . $xmlEscape($renderValue($r, (string) $componentDefs[$componentNo]['req'])) . '</Data></Cell>'
+                    . '<Cell><Data ss:Type="String">' . $xmlEscape($formatHanoi((string) ($r['created_at'] ?? ''))) . '</Data></Cell>'
+                    . '</Row>';
+            }
+        }
+
+        $sheetXmlParts[] = '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table>' . implode('', $rowsXml) . '</Table></Worksheet>';
+    }
+
+    if (empty($sheetXmlParts)) {
+        $sheetXmlParts[] = '<Worksheet ss:Name="TongHop"><Table>'
+            . '<Row><Cell><Data ss:Type="String">Không có dữ liệu phúc tra cho bộ lọc hiện tại.</Data></Cell></Row>'
+            . '</Table></Worksheet>';
+    }
+
+    return '<?xml version="1.0" encoding="UTF-8"?>'
+        . '<?mso-application progid="Excel.Sheet"?>'
+        . '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"'
+        . ' xmlns:o="urn:schemas-microsoft-com:office:office"'
+        . ' xmlns:x="urn:schemas-microsoft-com:office:excel"'
+        . ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"'
+        . ' xmlns:html="http://www.w3.org/TR/REC-html40">'
+        . '<DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">'
+        . '<Title>' . $xmlEscape($sheetTitleBase) . '</Title>'
+        . '</DocumentProperties>'
+        . implode('', $sheetXmlParts)
+        . '</Workbook>';
+};
+
 if ($export === 'excel') {
     header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
     header('Content-Disposition: attachment; filename="thong_ke_phuc_tra_exam_' . $examId . '.xls"');
-    echo $renderHtml();
+    echo $buildExcelXml();
     exit;
 }
 if ($export === 'pdf') {
     header('Content-Type: text/html; charset=UTF-8');
     header('Content-Disposition: inline; filename="thong_ke_phuc_tra_exam_' . $examId . '.html"');
-    echo $renderHtml();
+    echo $renderHtml(true);
     exit;
 }
 
