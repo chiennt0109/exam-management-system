@@ -94,6 +94,31 @@ if (!empty($studentIds) && !empty($subjects)) {
     }
 }
 
+
+$subjectsForClassFromMap = static function(array $rows, array $roomMap) use ($subjects): array {
+    if (empty($rows) || empty($subjects)) {
+        return [];
+    }
+
+    $result = [];
+    foreach ($subjects as $sub) {
+        $subId = (int) ($sub['subject_id'] ?? 0);
+        if ($subId <= 0) {
+            continue;
+        }
+
+        foreach ($rows as $row) {
+            $sid = (int) ($row['student_id'] ?? 0);
+            if ($sid > 0 && array_key_exists($subId, $roomMap[$sid] ?? [])) {
+                $result[] = $sub;
+                break;
+            }
+        }
+    }
+
+    return $result;
+};
+
 if ($export === '1') {
     $classesToExport = $filterClass !== '' ? [$filterClass] : $classOptions;
     if (empty($classesToExport)) {
@@ -149,30 +174,6 @@ if ($export === '1') {
         }
     }
 
-    $subjectsForClass = static function(array $rows) use ($subjects, $allRoomByStudentSubject): array {
-        if (empty($rows) || empty($subjects)) {
-            return [];
-        }
-
-        $result = [];
-        foreach ($subjects as $sub) {
-            $subId = (int) ($sub['subject_id'] ?? 0);
-            if ($subId <= 0) {
-                continue;
-            }
-
-            foreach ($rows as $row) {
-                $sid = (int) ($row['student_id'] ?? 0);
-                if ($sid > 0 && array_key_exists($subId, $allRoomByStudentSubject[$sid] ?? [])) {
-                    $result[] = $sub;
-                    break;
-                }
-            }
-        }
-
-        return $result;
-    };
-
     if ($exportFile === 'excel') {
         header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
         header('Content-Disposition: attachment; filename="danh_sach_phong_thi_theo_lop_exam_' . $examId . '.xls"');
@@ -191,7 +192,7 @@ if ($export === '1') {
 
         foreach ($classesToExport as $lop) {
             $rows = $allRowsByClass[$lop] ?? [];
-            $classSubjects = $subjectsForClass($rows);
+            $classSubjects = $subjectsForClassFromMap($rows, $allRoomByStudentSubject);
             $sheetName = substr((string) (preg_replace('/[\\\/*\[\]:\?]+/', '_', $lop) ?: 'Lop'), 0, 31);
             $columnCount = 4 + count($classSubjects);
 
@@ -248,7 +249,7 @@ if ($export === '1') {
     echo '<!doctype html><html><head><meta charset="utf-8"><title>DANH SÁCH PHÒNG THI TỪNG HỌC SINH THEO LỚP</title><style>@page{size:A4 landscape;margin:14mm 10mm}body{font-family:"Times New Roman",serif;margin:0;color:#000}.page{page-break-before:always}.page:first-of-type{page-break-before:auto}.header{text-align:center;line-height:1.35}.title{font-size:18px;font-weight:700}.sub{font-size:14px;font-weight:700}.meta{font-size:13px;margin-top:6px}table{width:100%;border-collapse:collapse;margin-top:8px}thead{display:table-header-group}tr{page-break-inside:avoid}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:center}.center{text-align:center}</style></head><body>';
     foreach ($classesToExport as $lop) {
         $rows = $allRowsByClass[$lop] ?? [];
-        $classSubjects = $subjectsForClass($rows);
+        $classSubjects = $subjectsForClassFromMap($rows, $allRoomByStudentSubject);
         echo '<section class="page"><div class="header"><div class="sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="sub">' . htmlspecialchars($examName, ENT_QUOTES, 'UTF-8') . '</div><div class="title">DANH SÁCH PHÒNG THI TỪNG HỌC SINH THEO LỚP</div><div class="meta">Lớp: <strong>' . htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') . '</strong></div></div>';
         echo '<table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th style="width:24%">Họ tên</th><th style="width:12%">Ngày sinh</th>';
         foreach ($classSubjects as $sub) {
@@ -274,6 +275,12 @@ if ($export === '1') {
     }
     echo '<script>window.print();</script></body></html>';
     exit;
+}
+
+
+$displaySubjects = $subjects;
+if ($filterClass !== '') {
+    $displaySubjects = $subjectsForClassFromMap($listRows, $roomByStudentSubject);
 }
 
 $baseQuery = [
@@ -314,11 +321,11 @@ require_once BASE_PATH . '/layout/header.php';
 </form>
 
 <div class="table-responsive">
-<table class="table table-bordered table-sm align-middle"><thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><?php foreach ($subjects as $sub): ?><th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?></tr></thead><tbody>
+<table class="table table-bordered table-sm align-middle"><thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><?php foreach ($displaySubjects as $sub): ?><th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?></tr></thead><tbody>
 <?php if (empty($listRows)): ?>
-<tr><td colspan="<?= 5 + count($subjects) ?>" class="text-center">Không có dữ liệu.</td></tr>
+<tr><td colspan="<?= 5 + count($displaySubjects) ?>" class="text-center">Không có dữ liệu.</td></tr>
 <?php else: foreach ($listRows as $i => $row): $sid=(int)($row['student_id']??0); $dob=(string)($row['ngaysinh']??''); $ts=strtotime($dob); ?>
-<tr><td><?= $offset + $i + 1 ?></td><td><?= htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($ts ? date('d/m/Y',$ts) : $dob, ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($row['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><?php foreach ($subjects as $sub): $subId=(int)($sub['subject_id']??0); ?><td><?= htmlspecialchars((string) ($roomByStudentSubject[$sid][$subId] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><?php endforeach; ?></tr>
+<tr><td><?= $offset + $i + 1 ?></td><td><?= htmlspecialchars((string) ($row['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($row['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($ts ? date('d/m/Y',$ts) : $dob, ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($row['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><?php foreach ($displaySubjects as $sub): $subId=(int)($sub['subject_id']??0); ?><td><?= htmlspecialchars((string) ($roomByStudentSubject[$sid][$subId] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><?php endforeach; ?></tr>
 <?php endforeach; endif; ?>
 </tbody></table></div>
 
