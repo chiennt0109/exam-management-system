@@ -71,9 +71,10 @@ if (function_exists('getCurrentExamId')) {
     <details>
         <summary>Thống kê</summary>
         <ul>
+            <li><a href="<?= BASE_URL ?>/modules/exams/scoreboard.php">Bảng điểm</a></li>
             <li><a href="<?= BASE_URL ?>/modules/exams/stats_score_ranges.php">Phổ điểm theo môn</a></li>
             <li><a href="<?= BASE_URL ?>/modules/exams/stats_subject_rankings.php">Bảng điểm xếp hạng</a></li>
-            <li><a href="<?= BASE_URL ?>/modules/exams/stats_combinations.php">Thống kê theo tổ hợp</a></li>
+            <li><a href="<?= BASE_URL ?>/modules/exams/stats_combinations.php">Thống kê theo tổ hợp</a></li>            
             <?php if ($currentExamMode === 2): ?><li><a href="<?= BASE_URL ?>/modules/exams/report_subject_stats.php">Thống kê mode 2</a></li><?php endif; ?>
         </ul>
     </details>
