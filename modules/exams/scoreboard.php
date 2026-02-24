@@ -8,6 +8,10 @@ $examId = exams_require_current_exam_or_redirect('/modules/exams/index.php');
 $examStmt = $pdo->prepare('SELECT ten_ky_thi FROM exams WHERE id = :id LIMIT 1');
 $examStmt->execute([':id' => $examId]);
 $examName = trim((string) ($examStmt->fetchColumn() ?: 'KỲ THI HIỆN TẠI'));
+$examModeStmt = $pdo->prepare('SELECT COALESCE(exam_mode,1) FROM exams WHERE id = :id LIMIT 1');
+$examModeStmt->execute([':id' => $examId]);
+$examModeRaw = (int) ($examModeStmt->fetchColumn() ?: 1);
+$examMode = in_array($examModeRaw, [1, 2], true) ? $examModeRaw : 1;
 
 $classStmt = $pdo->prepare('SELECT DISTINCT trim(st.lop) AS lop
     FROM exam_students es
@@ -64,6 +68,20 @@ if (!empty($studentIds) && !empty($subjects)) {
         $subId = (int) ($r['subject_id'] ?? 0);
         if ($sid > 0 && $subId > 0) {
             $scoreMap[$sid][$subId] = $r;
+        }
+    }
+}
+
+$examScoreMap = [];
+if (!empty($studentIds) && !empty($subjects)) {
+    $ph = implode(',', array_fill(0, count($studentIds), '?'));
+    $examScoreStmt = $pdo->prepare('SELECT student_id, subject_id, score FROM exam_scores WHERE exam_id = ? AND student_id IN (' . $ph . ')');
+    $examScoreStmt->execute(array_merge([$examId], $studentIds));
+    foreach ($examScoreStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $sid = (int) ($r['student_id'] ?? 0);
+        $subId = (int) ($r['subject_id'] ?? 0);
+        if ($sid > 0 && $subId > 0) {
+            $examScoreMap[$sid][$subId] = (float) ($r['score'] ?? 0);
         }
     }
 }
@@ -159,7 +177,7 @@ if ($export === 'excel') {
             foreach ($sc['columns'] as $c) {
                 $val = '';
                 if ($c['key'] === 'total') {
-                    $val = $formatScore($score['total_score'] ?? ($score['diem'] ?? null));
+                    $val = $formatScore($score['total_score'] ?? ($score['diem'] ?? ($examScoreMap[$sid][$subId] ?? null)));
                 } else {
                     $val = $formatScore($score[$c['key']] ?? null);
                 }
@@ -182,9 +200,9 @@ if ($export === 'pdf') {
     $now = new DateTimeImmutable('now', new DateTimeZone('Asia/Ho_Chi_Minh'));
 
     header('Content-Type: text/html; charset=UTF-8');
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>BẢNG ĐIỂM</title><style>@page{size:' . $paperSize . ' ' . $paperOrientation . ';margin:14mm 10mm}body{font-family:"Times New Roman",serif}.center{text-align:center}.right{text-align:right}.sheet{width:100%}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:center}thead{display:table-header-group}tr{page-break-inside:avoid}.footer{margin-top:24px}.sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}</style></head><body>';
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>BẢNG ĐIỂM</title><style>@page{size:' . $paperSize . ' ' . $paperOrientation . ';margin:14mm 10mm}body{font-family:"Times New Roman",serif}.center{text-align:center}.right{text-align:right}.sheet{width:100%}table{width:100%;border-collapse:collapse;margin-top:8px}.title-table{margin-top:0}.title-table td{border:none !important;padding:2px 6px;font-size:13px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:center}thead{display:table-header-group}tr{page-break-inside:avoid}.footer{margin-top:24px}.sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}</style></head><body>';
     echo '<div class="sheet">';
-    echo '<table><tr><td colspan="3" class="center"><strong>TRƯỜNG THPT CHUYÊN TRẦN PHÚ</strong></td><td colspan="' . (1 + array_sum(array_map(static fn($s) => count($s['columns']), $subjectColumns))) . '" rowspan="2" class="center"><strong>BẢNG ĐIỂM</strong></td></tr>';
+    echo '<table class="title-table"><tr><td colspan="3" class="center"><strong>TRƯỜNG THPT CHUYÊN TRẦN PHÚ</strong></td><td colspan="' . (1 + array_sum(array_map(static fn($s) => count($s['columns']), $subjectColumns))) . '" rowspan="2" class="center"><strong>BẢNG ĐIỂM</strong></td></tr>';
     echo '<tr><td colspan="3" class="center"><strong>' . htmlspecialchars($examName, ENT_QUOTES, 'UTF-8') . '</strong></td></tr></table>';
 
     echo '<table><thead>';
@@ -213,7 +231,7 @@ if ($export === 'pdf') {
             $score = $scoreMap[$sid][$subId] ?? [];
             foreach ($sc['columns'] as $c) {
                 $val = $c['key'] === 'total'
-                    ? $formatScore($score['total_score'] ?? ($score['diem'] ?? null))
+                    ? $formatScore($score['total_score'] ?? ($score['diem'] ?? ($examScoreMap[$sid][$subId] ?? null)))
                     : $formatScore($score[$c['key']] ?? null);
                 echo '<td class="center">' . htmlspecialchars($val, ENT_QUOTES, 'UTF-8') . '</td>';
             }
@@ -239,7 +257,7 @@ require_once BASE_PATH . '/layout/header.php';
 <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
 <div style="flex:1;padding:20px;min-width:0;">
 <div class="card shadow-sm">
-<div class="card-header bg-primary text-white"><strong>Bảng điểm</strong></div>
+<div class="card-header bg-primary text-white"><strong>Bảng điểm (chế độ thi <?= (int) $examMode ?>)</strong></div>
 <div class="card-body">
 <form method="get" class="row g-2 mb-3">
     <div class="col-md-4"><label class="form-label">Lớp</label><select class="form-select" name="class"><option value="">-- Tất cả lớp --</option><?php foreach ($classOptions as $lop): ?><option value="<?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?>" <?= $filterClass === $lop ? 'selected' : '' ?>><?= htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
@@ -255,7 +273,7 @@ require_once BASE_PATH . '/layout/header.php';
 <?php if (empty($students)): ?>
 <tr><td colspan="<?= 4 + array_sum(array_map(static fn($s): int => count($s['columns']), $subjectColumns)) ?>" class="text-center">Không có dữ liệu.</td></tr>
 <?php else: foreach ($students as $i => $st): $sid = (int) ($st['student_id'] ?? 0); ?>
-<tr><td><?= $i + 1 ?></td><td><?= htmlspecialchars((string) ($st['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($st['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($formatDate((string) ($st['ngaysinh'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td><?php foreach ($subjectColumns as $sc): $subId = (int) $sc['subject_id']; $score = $scoreMap[$sid][$subId] ?? []; foreach ($sc['columns'] as $c): $val = $c['key']==='total' ? $formatScore($score['total_score'] ?? ($score['diem'] ?? null)) : $formatScore($score[$c['key']] ?? null); ?><td class="text-center"><?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?></td><?php endforeach; endforeach; ?></tr>
+<tr><td><?= $i + 1 ?></td><td><?= htmlspecialchars((string) ($st['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($st['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($formatDate((string) ($st['ngaysinh'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td><?php foreach ($subjectColumns as $sc): $subId = (int) $sc['subject_id']; $score = $scoreMap[$sid][$subId] ?? []; foreach ($sc['columns'] as $c): $val = $c['key']==='total' ? $formatScore($score['total_score'] ?? ($score['diem'] ?? ($examScoreMap[$sid][$subId] ?? null))) : $formatScore($score[$c['key']] ?? null); ?><td class="text-center"><?= htmlspecialchars($val, ENT_QUOTES, 'UTF-8') ?></td><?php endforeach; endforeach; ?></tr>
 <?php endforeach; endif; ?>
 </tbody></table></div>
 </div></div></div></div>
