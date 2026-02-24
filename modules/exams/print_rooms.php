@@ -266,12 +266,14 @@ if (in_array($export, ['format1', 'format2'], true)) {
             }
 
             echo '<Row ss:Height="24">';
-            echo '<Cell ss:MergeAcross="3" ss:MergeDown="1" ss:StyleID="HeaderLeft"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
-" . $examName) . '</Data></Cell>';
-            echo '<Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightTitle"><Data ss:Type="String">' . $xmlEscape($export === 'format1' ? 'DANH SÁCH NIÊM YẾT' : 'PHIẾU THU BÀI') . '</Data></Cell>';
+            echo '<Cell ss:MergeAcross="2"  ss:StyleID="HeaderLeft"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
+") . '</Data></Cell>';
+            echo '<Cell ss:Index="4" ss:MergeAcross="2" ss:StyleID="HeaderRightTitle"><Data ss:Type="String">' . $xmlEscape($export === 'format1' ? 'DANH SÁCH NIÊM YẾT' : 'PHIẾU THU BÀI') . '</Data></Cell>';
             echo '</Row>';
-            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('PHÒNG: ' . (string) $group['ten_phong']) . '</Data></Cell></Row>';
-            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('Môn: ' . (string) $group['ten_mon']) . '</Data></Cell></Row>';
+            echo '<Row ss:Height="20">';
+            echo '<Cell ss:MergeAcross="2"  ss:StyleID="HeaderLeft"><Data ss:Type="String">' . $xmlEscape("" . $examName) . '</Data></Cell>';
+            echo '<Cell ss:Index="4" ss:MergeAcross="2" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('PHÒNG: ' . (string) $group['ten_phong']) . '</Data></Cell></Row>';
+            echo '<Row ss:Height="20"><Cell ss:Index="4" ss:MergeAcross="2" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('Môn: ' . (string) $group['ten_mon']) . '</Data></Cell></Row>';
             echo '<Row ss:Height="10"></Row>';
 
             if ($export === 'format1') {
@@ -284,8 +286,8 @@ if (in_array($export, ['format1', 'format2'], true)) {
                     echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                 }
                 echo '<Row ss:Height="18"></Row>';
-                echo '<Row><Cell ss:Index="5" ss:MergeAcross="1" ss:StyleID="FooterRight"><Data ss:Type="String">' . $xmlEscape('Hải Phòng, ngày ... tháng ... năm ' . $year) . '</Data></Cell></Row>';
-                echo '<Row><Cell ss:Index="5" ss:MergeAcross="1" ss:StyleID="Sign"><Data ss:Type="String">CHỦ TỊCH HỘI ĐỒNG</Data></Cell></Row>';
+                echo '<Row><Cell ss:Index="4" ss:MergeAcross="2 ss:StyleID="FooterRight"><Data ss:Type="String">' . $xmlEscape('Hải Phòng, ngày ... tháng ... năm ' . $year) . '</Data></Cell></Row>';
+                echo '<Row><Cell ss:Index="2" ss:MergeAcross="2" ss:StyleID="Sign"><Data ss:Type="String">CHỦ TỊCH HỘI ĐỒNG</Data></Cell></Row>';
             } else {
                 echo '<Row>';
                 foreach (['STT','SBD','Họ và tên','Ngày sinh','Lớp','Số tờ','Mã đề','Ghi chú / Ký tên'] as $h) {
@@ -339,7 +341,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">' . htmlspecialchars($examName) . '</div></div>';
             echo '<div class="header-right"><div class="title-main">DANH SÁCH NIÊM YẾT</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
             echo '</div>';
-            echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th class="col-tight">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:13%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
+            echo '<div class="table-wrap"><table><thead><tr><th style="width:7%">STT</th><th style="width:17%">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:13%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
             foreach ($displayStudents as $i => $st) {
                 $nameSize = $fitFontSize((string) ($st['hoten'] ?? ''));
                 $classSize = $fitFontSize((string) ($st['lop'] ?? ''), 11, 8, 10);
@@ -355,7 +357,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">' . htmlspecialchars($examName) . '</div></div>';
             echo '<div class="header-right"><div class="title-main">PHIẾU THU BÀI</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
             echo '</div>';
-            echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th class="col-tight">SBD</th><th style="width:25%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:9%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:18%">Ghi chú / Ký tên</th></tr></thead><tbody>';
+            echo '<div class="table-wrap"><table><thead><tr><th style="width:7%">STT</th><th style="width:17%">SBD</th><th style="width:25%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:9%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:18%">Ghi chú / Ký tên</th></tr></thead><tbody>';
             foreach ($displayStudents as $i => $st) {
                 $nameSize = $fitFontSize((string) ($st['hoten'] ?? ''));
                 $classSize = $fitFontSize((string) ($st['lop'] ?? ''), 11, 8, 10);
