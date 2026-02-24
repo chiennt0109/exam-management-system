@@ -21,6 +21,15 @@ $qManual = trim((string) ($_GET['q_manual'] ?? ''));
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 20;
 
+$getFirstNameKey = static function(string $fullName): string {
+    $name = trim(preg_replace('/\s+/', ' ', $fullName) ?? '');
+    if ($name === '') {
+        return '';
+    }
+    $parts = explode(' ', $name);
+    return mb_strtolower((string) end($parts), 'UTF-8');
+};
+
 function backfillExamKhoi(PDO $pdo, int $examId): void
 {
     if ($examId <= 0) {
@@ -272,19 +281,34 @@ if ($examId > 0) {
     $countStmt->execute($params);
     $totalSelected = (int) $countStmt->fetchColumn();
 
-    $offset = ($page - 1) * $perPage;
     $listStmt = $pdo->prepare('SELECT es.student_id, es.khoi, es.lop, es.sbd, s.hoten
         FROM exam_students es
-        INNER JOIN students s ON s.id = es.student_id' . $where . '
-        ORDER BY es.lop, s.hoten
-        LIMIT :limit OFFSET :offset');
+        INNER JOIN students s ON s.id = es.student_id' . $where);
     foreach ($params as $k => $v) {
         $listStmt->bindValue($k, $v);
     }
-    $listStmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-    $listStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $listStmt->execute();
     $selectedRows = $listStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    usort($selectedRows, static function(array $a, array $b) use ($getFirstNameKey): int {
+        $classCmp = strcmp(trim((string) ($a['lop'] ?? '')), trim((string) ($b['lop'] ?? '')));
+        if ($classCmp !== 0) {
+            return $classCmp;
+        }
+
+        $nameKeyCmp = strcmp(
+            $getFirstNameKey((string) ($a['hoten'] ?? '')),
+            $getFirstNameKey((string) ($b['hoten'] ?? ''))
+        );
+        if ($nameKeyCmp !== 0) {
+            return $nameKeyCmp;
+        }
+
+        return strcmp((string) ($a['hoten'] ?? ''), (string) ($b['hoten'] ?? ''));
+    });
+
+    $offset = ($page - 1) * $perPage;
+    $selectedRows = array_slice($selectedRows, $offset, $perPage);
 }
 
 $totalPages = max(1, (int) ceil($totalSelected / $perPage));
@@ -420,15 +444,21 @@ require_once BASE_PATH . '/layout/header.php';
                                         <tbody>
                                         <?php if (empty($selectedRows)): ?>
                                             <tr><td colspan="5" class="text-center">Chưa có học sinh được gắn.</td></tr>
-                                        <?php else: foreach ($selectedRows as $r): ?>
-                                            <tr>
-                                                <td><input type="checkbox" class="selected-student-checkbox" name="student_ids_remove[]" value="<?= (int) $r['student_id'] ?>"></td>
-                                                <td><?= htmlspecialchars((string) ($r['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                                <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                                <td><?= htmlspecialchars((string) ($r['khoi'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                                <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                            </tr>
-                                        <?php endforeach; endif; ?>
+                                        <?php else: ?>
+                                            <?php $currentClass = null; foreach ($selectedRows as $r): ?>
+                                                <?php $rowClass = trim((string) ($r['lop'] ?? '')); if ($rowClass === '') { $rowClass = 'Chưa phân lớp'; } ?>
+                                                <?php if ($currentClass !== $rowClass): $currentClass = $rowClass; ?>
+                                                    <tr><td colspan="5" style="background:#eef2ff;font-weight:700;color:#1d4ed8;">Lớp: <?= htmlspecialchars($currentClass, ENT_QUOTES, 'UTF-8') ?></td></tr>
+                                                <?php endif; ?>
+                                                <tr>
+                                                    <td><input type="checkbox" class="selected-student-checkbox" name="student_ids_remove[]" value="<?= (int) $r['student_id'] ?>"></td>
+                                                    <td><?= htmlspecialchars((string) ($r['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                    <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                    <td><?= htmlspecialchars((string) ($r['khoi'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                    <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
                                         </tbody>
                                     </table>
                                 </div>
