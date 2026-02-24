@@ -780,6 +780,8 @@ $assignedStudents = [];
 $unassignedStudents = [];
 $unassignedMatrixSubjects = [];
 $unassignedMatrixRows = [];
+$noSubjectStudentsByClass = [];
+$noSubjectStudentsCount = 0;
 $availableStudents = [];
 $hasDistribution = false;
 if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
@@ -971,6 +973,59 @@ if ($examId > 0) {
                 $matrixSelectedMap[$sid][$subId] = true;
             }
         }
+
+        foreach ($unassignedMatrixRows as $baseRow) {
+            $sid = (int) ($baseRow['student_id'] ?? 0);
+            if ($sid <= 0 || !empty($matrixSelectedMap[$sid])) {
+                continue;
+            }
+            $lop = trim((string) ($baseRow['lop'] ?? ''));
+            if ($lop === '') {
+                $lop = '-- Chưa có lớp --';
+            }
+            $noSubjectStudentsByClass[$lop][] = [
+                'sbd' => (string) ($baseRow['sbd'] ?? ''),
+                'hoten' => (string) ($baseRow['hoten'] ?? ''),
+                'lop' => $lop,
+            ];
+            $noSubjectStudentsCount++;
+        }
+
+        if ((string) ($_GET['export'] ?? '') === 'no_subjects_excel') {
+            header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="hoc_sinh_chua_dang_ky_mon_exam_' . $examId . '.xls"');
+
+            $xmlEscape = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_XML1, 'UTF-8');
+            echo '<?xml version="1.0" encoding="UTF-8"?>';
+            echo '<?mso-application progid="Excel.Sheet"?>';
+            echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">';
+            echo '<Styles><Style ss:ID="TH"><Font ss:Bold="1"/></Style></Styles>';
+
+            foreach ($noSubjectStudentsByClass as $lop => $rows) {
+                if (empty($rows)) {
+                    continue;
+                }
+                $sheetName = substr((string) (preg_replace('/[\\\/*\[\]:\?]+/', '_', $lop) ?: 'Lop'), 0, 31);
+                echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table>';
+                echo '<Row><Cell ss:StyleID="TH"><Data ss:Type="String">STT</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">SBD</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Họ tên</Data></Cell><Cell ss:StyleID="TH"><Data ss:Type="String">Lớp</Data></Cell></Row>';
+                foreach ($rows as $i => $r) {
+                    echo '<Row>';
+                    echo '<Cell><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell>';
+                    echo '<Cell><Data ss:Type="String">' . $xmlEscape((string) ($r['sbd'] ?? '')) . '</Data></Cell>';
+                    echo '<Cell><Data ss:Type="String">' . $xmlEscape((string) ($r['hoten'] ?? '')) . '</Data></Cell>';
+                    echo '<Cell><Data ss:Type="String">' . $xmlEscape((string) ($r['lop'] ?? '')) . '</Data></Cell>';
+                    echo '</Row>';
+                }
+                echo '</Table></Worksheet>';
+            }
+
+            if (empty($noSubjectStudentsByClass)) {
+                echo '<Worksheet ss:Name="DanhSachTrong"><Table><Row><Cell><Data ss:Type="String">Không có học sinh chưa đăng ký môn thi.</Data></Cell></Row></Table></Worksheet>';
+            }
+
+            echo '</Workbook>';
+            exit;
+        }
     }
 
     $assignMapStmt = $pdo->prepare('SELECT es.student_id, es.subject_id, r.ten_phong
@@ -1035,16 +1090,7 @@ if ($examId > 0) {
         }
 
         if ($examMode === 2 && $selectedSubjectCount === 0) {
-            $missingCount++;
-            if (!empty($subjectIds)) {
-                $firstSubjectId = (int) $subjectIds[0];
-                if ($firstSubjectId > 0) {
-                    $cellsBySubject[$firstSubjectId] = [
-                        'text' => 'Chưa đăng ký môn thi',
-                        'class' => 'text-warning',
-                    ];
-                }
-            }
+            continue;
         }
 
         if ($onlyIncomplete && $missingCount === 0) {
@@ -1196,7 +1242,12 @@ require_once BASE_PATH . '/layout/header.php';
                             </div>
                         </form>
 
-                        <div class="small text-danger mb-2">Chú thích: chỉ các môn học sinh thuộc phạm vi dự thi mới được tính thiếu phân phòng; ngoài phạm vi sẽ không tính là thiếu.</div>
+                        <?php if ($examMode === 2): ?>
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <div class="small text-muted">Số học sinh đã gắn vào kỳ thi nhưng chưa đăng ký môn thi: <strong><?= (int) $noSubjectStudentsCount ?></strong></div>
+                                <a class="btn btn-outline-success btn-sm<?= $noSubjectStudentsCount > 0 ? '' : ' disabled' ?>" href="<?= BASE_URL ?>/modules/exams/distribute_rooms.php?<?= http_build_query(['exam_id'=>$examId,'tab'=>'unassigned','khoi'=>$khoi,'only_incomplete'=>$onlyIncomplete ? 1 : 0,'export'=>'no_subjects_excel']) ?>">Tải Excel DS chưa đăng ký môn</a>
+                            </div>
+                        <?php endif; ?>
 
                         <div class="table-responsive">
                             <table class="table table-bordered table-sm">
