@@ -52,6 +52,7 @@ $examRowStmt = $pdo->prepare('SELECT id, ten_ky_thi, exam_mode FROM exams WHERE 
 $examRowStmt->execute([':id' => $examId]);
 $examRow = $examRowStmt->fetch(PDO::FETCH_ASSOC) ?: ['id' => $examId, 'ten_ky_thi' => '', 'exam_mode' => 1];
 $examMode = in_array((int)($examRow['exam_mode'] ?? 1), [1, 2], true) ? (int)$examRow['exam_mode'] : 1;
+$isExamLocked = exams_is_locked($pdo, $examId);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
@@ -62,11 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     exams_assert_exam_unlocked_for_write($pdo, $examId);
 
-    if (exams_is_locked($pdo, $examId)) {
-        exams_set_flash('error', 'Kỳ thi đã khoá phân phòng, không thể sửa cấu hình môn.');
-        header('Location: ' . BASE_URL . '/modules/exams/configure_subjects.php');
-        exit;
-    }
 
     $baseReady = (int) $pdo->query('SELECT COUNT(*) FROM exam_students WHERE exam_id = ' . $examId . ' AND subject_id IS NULL')->fetchColumn();
     if ($baseReady <= 0) {
@@ -79,6 +75,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if ($action === 'set_exam_mode') {
+            if ($isExamLocked) {
+                throw new RuntimeException('Kỳ thi đã khoá phân phòng, không thể thay đổi Chế độ kỳ thi.');
+            }
             $mode = (int) ($_POST['exam_mode'] ?? 1);
             if (!in_array($mode, [1, 2], true)) {
                 throw new RuntimeException('Chế độ kỳ thi không hợp lệ.');
@@ -459,12 +458,15 @@ require_once BASE_PATH . '/layout/header.php';
                     <input type="hidden" name="action" value="set_exam_mode">
                     <div class="col-md-4">
                         <label class="form-label">Chế độ kỳ thi</label>
-                        <select class="form-select" name="exam_mode">
+                        <select class="form-select" name="exam_mode" <?= $isExamLocked ? 'disabled' : '' ?>>
                             <option value="1" <?= $examMode === 1 ? 'selected' : '' ?>>1 - Kiểm tra định kỳ</option>
                             <option value="2" <?= $examMode === 2 ? 'selected' : '' ?>>2 - Tốt nghiệp THPT</option>
                         </select>
                     </div>
-                    <div class="col-md-3 align-self-end"><button class="btn btn-outline-primary" type="submit">Lưu chế độ</button></div>
+                    <div class="col-md-3 align-self-end"><button class="btn btn-outline-primary" type="submit" <?= $isExamLocked ? 'disabled' : '' ?>>Lưu chế độ</button></div>
+                    <?php if ($isExamLocked): ?>
+                        <div class="col-12"><small class="text-danger">Đã khoá phân phòng, không thể thay đổi Chế độ kỳ thi.</small></div>
+                    <?php endif; ?>
                 </form>
 
                 <?php if ($examMode === 1): ?>
