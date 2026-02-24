@@ -53,10 +53,57 @@ if ($keyword !== '') {
     $params[':keyword'] = '%' . $keyword . '%';
 }
 
-$sql .= ' ORDER BY id DESC';
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$getStudentNameKey = static function(string $fullName): string {
+    $name = trim(preg_replace('/\s+/', ' ', $fullName) ?? '');
+    if ($name == '') {
+        return '';
+    }
+    $parts = explode(' ', $name);
+    return mb_strtolower((string) end($parts), 'UTF-8');
+};
+
+usort($students, static function(array $a, array $b) use ($getStudentNameKey): int {
+    $classCmp = strcmp(trim((string) ($a['lop'] ?? '')), trim((string) ($b['lop'] ?? '')));
+    if ($classCmp !== 0) {
+        return $classCmp;
+    }
+
+    $nameKeyCmp = strcmp(
+        $getStudentNameKey((string) ($a['hoten'] ?? '')),
+        $getStudentNameKey((string) ($b['hoten'] ?? ''))
+    );
+    if ($nameKeyCmp !== 0) {
+        return $nameKeyCmp;
+    }
+
+    return strcmp((string) ($a['hoten'] ?? ''), (string) ($b['hoten'] ?? ''));
+});
+
+$totalStudents = count($students);
+$perPage = 50;
+$totalPages = max(1, (int) ceil($totalStudents / $perPage));
+$page = max(1, (int) ($_GET['page'] ?? 1));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$offset = ($page - 1) * $perPage;
+$students = array_slice($students, $offset, $perPage);
+
+$groupedStudents = [];
+foreach ($students as $st) {
+    $className = trim((string) ($st['lop'] ?? ''));
+    if ($className === '') {
+        $className = 'Chưa phân lớp';
+    }
+    if (!isset($groupedStudents[$className])) {
+        $groupedStudents[$className] = [];
+    }
+    $groupedStudents[$className][] = $st;
+}
 
 require_once BASE_PATH . '/layout/header.php';
 ?>
@@ -275,28 +322,60 @@ require_once BASE_PATH . '/layout/header.php';
                                     <td colspan="8" style="text-align:center;">Không có dữ liệu học sinh.</td>
                                 </tr>
                             <?php else: ?>
-                                <?php foreach ($students as $student): ?>
+                                <?php foreach ($groupedStudents as $className => $classStudents): ?>
                                     <tr>
-                                        <td style="text-align:center;">
-                                            <input type="checkbox" class="student-check" name="student_ids[]" value="<?= (int) $student['id'] ?>">
-                                        </td>
-                                        <td><?= (int) $student['id'] ?></td>
-                                        <td><?= htmlspecialchars($student['sbd'], ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars($student['hoten'], ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars($student['ngaysinh'], ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars($student['lop'], ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars($student['truong'], ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td>
-                                            <span class="table-action">
-                                                <a class="btn-icon btn-edit" href="<?= BASE_URL ?>/modules/students/edit.php?id=<?= (int) $student['id'] ?>" title="Sửa">✏️</a>
-                                                <a class="btn-icon btn-delete" href="<?= BASE_URL ?>/modules/students/delete.php?id=<?= (int) $student['id'] ?>" title="Xóa">🗑</a>
-                                            </span>
-                                        </td>
+                                        <td colspan="8" style="background:#eaf2ff;font-weight:700;color:#1e3a8a;">Lớp: <?= htmlspecialchars($className, ENT_QUOTES, 'UTF-8') ?></td>
                                     </tr>
+                                    <?php foreach ($classStudents as $student): ?>
+                                        <tr>
+                                            <td style="text-align:center;">
+                                                <input type="checkbox" class="student-check" name="student_ids[]" value="<?= (int) $student['id'] ?>">
+                                            </td>
+                                            <td><?= (int) $student['id'] ?></td>
+                                            <td><?= htmlspecialchars($student['sbd'], ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><?= htmlspecialchars($student['hoten'], ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><?= htmlspecialchars($student['ngaysinh'], ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><?= htmlspecialchars($student['lop'], ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td><?= htmlspecialchars($student['truong'], ENT_QUOTES, 'UTF-8') ?></td>
+                                            <td>
+                                                <span class="table-action">
+                                                    <a class="btn-icon btn-edit" href="<?= BASE_URL ?>/modules/students/edit.php?id=<?= (int) $student['id'] ?>" title="Sửa">✏️</a>
+                                                    <a class="btn-icon btn-delete" href="<?= BASE_URL ?>/modules/students/delete.php?id=<?= (int) $student['id'] ?>" title="Xóa">🗑</a>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </tbody>
                     </table>
+
+                    <?php if ($totalPages > 1): ?>
+                        <?php
+                            $buildPageUrl = static function(int $targetPage) use ($keyword): string {
+                                return BASE_URL . '/modules/students/index.php?' . http_build_query([
+                                    'q' => $keyword,
+                                    'page' => $targetPage,
+                                ]);
+                            };
+                        ?>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">
+                            <?php if ($page > 1): ?>
+                                <a class="btn-icon" style="width:auto;padding:0 10px;background:#2563eb;" href="<?= htmlspecialchars($buildPageUrl(1), ENT_QUOTES, 'UTF-8') ?>">Trang đầu</a>
+                                <a class="btn-icon" style="width:auto;padding:0 10px;background:#2563eb;" href="<?= htmlspecialchars($buildPageUrl($page - 1), ENT_QUOTES, 'UTF-8') ?>">Trang trước</a>
+                            <?php endif; ?>
+
+                            <?php $startPage = max(1, $page - 2); $endPage = min($totalPages, $page + 2); ?>
+                            <?php for ($p = $startPage; $p <= $endPage; $p++): ?>
+                                <a class="btn-icon" style="width:auto;padding:0 10px;<?= $p === $page ? 'background:#1d4ed8;' : 'background:#64748b;' ?>" href="<?= htmlspecialchars($buildPageUrl($p), ENT_QUOTES, 'UTF-8') ?>"><?= $p ?></a>
+                            <?php endfor; ?>
+
+                            <?php if ($page < $totalPages): ?>
+                                <a class="btn-icon" style="width:auto;padding:0 10px;background:#2563eb;" href="<?= htmlspecialchars($buildPageUrl($page + 1), ENT_QUOTES, 'UTF-8') ?>">Trang sau</a>
+                                <a class="btn-icon" style="width:auto;padding:0 10px;background:#2563eb;" href="<?= htmlspecialchars($buildPageUrl($totalPages), ENT_QUOTES, 'UTF-8') ?>">Trang cuối</a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </form>
             </div>
         </div>
