@@ -1001,10 +1001,14 @@ if ($examId > 0) {
 
         $cellsBySubject = [];
         $missingCount = 0;
+        $selectedSubjectCount = 0;
         foreach ($subjectIds as $subId) {
             $isSelected = $examMode === 2
                 ? !empty($matrixSelectedMap[$sid][$subId])
                 : !empty($scopeEligibleMap[$sid][$subId]);
+            if ($isSelected) {
+                $selectedSubjectCount++;
+            }
             $status = $matrixAssignMap[$sid][$subId] ?? null;
             $roomName = is_array($status) ? (string) ($status['room_name'] ?? '') : '';
             $hasAssignedRoom = $roomName !== '';
@@ -1028,6 +1032,19 @@ if ($examId > 0) {
             }
 
             $cellsBySubject[$subId] = $cell;
+        }
+
+        if ($examMode === 2 && $selectedSubjectCount === 0) {
+            $missingCount++;
+            if (!empty($subjectIds)) {
+                $firstSubjectId = (int) $subjectIds[0];
+                if ($firstSubjectId > 0) {
+                    $cellsBySubject[$firstSubjectId] = [
+                        'text' => 'Chưa đăng ký môn thi',
+                        'class' => 'text-warning',
+                    ];
+                }
+            }
         }
 
         if ($onlyIncomplete && $missingCount === 0) {
