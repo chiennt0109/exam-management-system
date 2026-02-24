@@ -841,14 +841,46 @@ if ($examId > 0) {
 
     $subjectById = [];
     if ($examMode === 2) {
-        $subjectColsStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
+        $subjectColsStmt = $pdo->prepare('SELECT DISTINCT es.subject_id, sub.ten_mon
+            FROM exam_subjects es
+            INNER JOIN subjects sub ON sub.id = es.subject_id
+            WHERE es.exam_id = :exam_id
+            ORDER BY es.sort_order, sub.ten_mon');
+        $subjectColsStmt->execute([':exam_id' => $examId]);
+        foreach ($subjectColsStmt->fetchAll(PDO::FETCH_ASSOC) as $sub) {
+            $sid = (int) ($sub['subject_id'] ?? 0);
+            if ($sid > 0) {
+                $subjectById[$sid] = (string) ($sub['ten_mon'] ?? '');
+            }
+        }
+
+        $subjectSelectedStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
             FROM exam_student_subjects ess
             INNER JOIN exam_students es ON es.exam_id = ess.exam_id AND es.student_id = ess.student_id AND es.subject_id IS NULL
             INNER JOIN subjects sub ON sub.id = ess.subject_id
             WHERE ess.exam_id = :exam_id' . $matrixKhoiSql . '
             ORDER BY sub.ten_mon');
-        $subjectColsStmt->execute($matrixParams);
-        foreach ($subjectColsStmt->fetchAll(PDO::FETCH_ASSOC) as $sub) {
+        $subjectSelectedStmt->execute($matrixParams);
+        foreach ($subjectSelectedStmt->fetchAll(PDO::FETCH_ASSOC) as $sub) {
+            $sid = (int) ($sub['subject_id'] ?? 0);
+            if ($sid > 0 && !isset($subjectById[$sid])) {
+                $subjectById[$sid] = (string) ($sub['ten_mon'] ?? '');
+            }
+        }
+    } else {
+        $cfgParams = [':exam_id' => $examId];
+        $cfgKhoiSql = '';
+        if ($khoi !== '') {
+            $cfgKhoiSql = ' AND trim(coalesce(cfg.khoi, "")) IN ("", "ALL", :khoi)';
+            $cfgParams[':khoi'] = $khoi;
+        }
+        $subjectCfgStmt = $pdo->prepare('SELECT DISTINCT cfg.subject_id, sub.ten_mon
+            FROM exam_subject_config cfg
+            INNER JOIN subjects sub ON sub.id = cfg.subject_id
+            WHERE cfg.exam_id = :exam_id' . $cfgKhoiSql . '
+            ORDER BY sub.ten_mon');
+        $subjectCfgStmt->execute($cfgParams);
+        foreach ($subjectCfgStmt->fetchAll(PDO::FETCH_ASSOC) as $sub) {
             $sid = (int) ($sub['subject_id'] ?? 0);
             if ($sid > 0) {
                 $subjectById[$sid] = (string) ($sub['ten_mon'] ?? '');
@@ -905,14 +937,20 @@ if ($examId > 0) {
                 if ($stuId <= 0) {
                     continue;
                 }
-                $stuKhoi = (string) ($stuBase['khoi'] ?? '');
-                $stuLop = (string) ($stuBase['lop'] ?? '');
+                $stuKhoi = trim((string) ($stuBase['khoi'] ?? ''));
+                $stuLop = trim((string) ($stuBase['lop'] ?? ''));
+                if ($stuKhoi === '' && $stuLop !== '') {
+                    $stuKhoi = (string) (detectGradeFromClassName($stuLop) ?? '');
+                }
+
+                $cfgKhoiNorm = strtoupper(trim($cfgKhoi));
+                $scopeAllGrades = $cfgKhoiNorm === '' || $cfgKhoiNorm === 'ALL';
                 if ($scopeMode === 'entire_grade') {
-                    if ($stuKhoi !== '' && $cfgKhoi !== '' && $stuKhoi === $cfgKhoi) {
+                    if ($scopeAllGrades || ($stuKhoi !== '' && $stuKhoi === $cfgKhoi)) {
                         $scopeEligibleMap[$stuId][$subId] = true;
                     }
                 } elseif ($scopeMode === 'specific_classes') {
-                    if ($cfgLop !== '' && $stuLop !== '' && $cfgLop === $stuLop) {
+                    if ($cfgLop !== '' && $stuLop !== '' && strcasecmp($cfgLop, $stuLop) === 0) {
                         $scopeEligibleMap[$stuId][$subId] = true;
                     }
                 }
