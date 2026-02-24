@@ -40,6 +40,32 @@ $subjectStmt = $pdo->prepare('SELECT cfg.subject_id, sub.ten_mon, MAX(COALESCE(c
 $subjectStmt->execute([':exam_id' => $examId]);
 $subjects = $subjectStmt->fetchAll(PDO::FETCH_ASSOC);
 
+if (empty($subjects)) {
+    $fallbackSubjectStmt = $pdo->prepare('SELECT es.subject_id, sub.ten_mon, 1 AS component_count,
+            MIN(COALESCE(exsub.sort_order, 999999)) AS sort_order
+        FROM exam_students es
+        INNER JOIN subjects sub ON sub.id = es.subject_id
+        LEFT JOIN exam_subjects exsub ON exsub.exam_id = es.exam_id AND exsub.subject_id = es.subject_id
+        WHERE es.exam_id = :exam_id AND es.subject_id IS NOT NULL
+        GROUP BY es.subject_id, sub.ten_mon
+        ORDER BY sort_order ASC, sub.ten_mon ASC');
+    $fallbackSubjectStmt->execute([':exam_id' => $examId]);
+    $subjects = $fallbackSubjectStmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+if (empty($subjects)) {
+    $fallbackScoreSubjectStmt = $pdo->prepare('SELECT esc.subject_id, sub.ten_mon, 1 AS component_count,
+            MIN(COALESCE(exsub.sort_order, 999999)) AS sort_order
+        FROM exam_scores esc
+        INNER JOIN subjects sub ON sub.id = esc.subject_id
+        LEFT JOIN exam_subjects exsub ON exsub.exam_id = esc.exam_id AND exsub.subject_id = esc.subject_id
+        WHERE esc.exam_id = :exam_id
+        GROUP BY esc.subject_id, sub.ten_mon
+        ORDER BY sort_order ASC, sub.ten_mon ASC');
+    $fallbackScoreSubjectStmt->execute([':exam_id' => $examId]);
+    $subjects = $fallbackScoreSubjectStmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 $where = ' WHERE es.exam_id = :exam_id AND es.subject_id IS NULL';
 $params = [':exam_id' => $examId];
 if ($filterClass !== '') {
