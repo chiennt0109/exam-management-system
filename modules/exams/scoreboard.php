@@ -200,7 +200,7 @@ if ($export === 'pdf') {
     $now = new DateTimeImmutable('now', new DateTimeZone('Asia/Ho_Chi_Minh'));
 
     header('Content-Type: text/html; charset=UTF-8');
-    echo '<!doctype html><html><head><meta charset="utf-8"><title>BẢNG ĐIỂM</title><style>@page{size:' . $paperSize . ' ' . $paperOrientation . ';margin:14mm 10mm}body{font-family:"Times New Roman",serif}.center{text-align:center}.right{text-align:right}.sheet{width:100%}table{width:100%;border-collapse:collapse;margin-top:8px}.title-table{margin-top:0}.title-table td{border:none !important;padding:2px 6px;font-size:13px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:center}thead{display:table-header-group}tr{page-break-inside:avoid}.footer{margin-top:24px}.sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}</style></head><body>';
+    echo '<!doctype html><html><head><meta charset="utf-8"><title>BẢNG ĐIỂM</title><style>@page{size:' . $paperSize . ' ' . $paperOrientation . ';margin:14mm 10mm}body{font-family:"Times New Roman",serif}.center{text-align:center}.right{text-align:right}.sheet{width:100%}table{width:100%;border-collapse:collapse;margin-top:8px}.title-table{margin-top:0}.title-table td{border:none !important;padding:2px 6px;font-size:13px}th,td{border:1px solid #333;padding:4px 6px;font-size:12px}th{font-weight:700;text-align:center}thead{display:table-header-group}tr{page-break-inside:avoid}.footer{margin-top:24px}.sign{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}.right-block{text-align:center}.date-line{text-align:center;margin-bottom:8px}</style></head><body>';
     echo '<div class="sheet">';
     echo '<table class="title-table"><tr><td colspan="3" class="center"><strong>TRƯỜNG THPT CHUYÊN TRẦN PHÚ</strong></td><td colspan="' . (1 + array_sum(array_map(static fn($s) => count($s['columns']), $subjectColumns))) . '" rowspan="2" class="center"><strong>BẢNG ĐIỂM</strong></td></tr>';
     echo '<tr><td colspan="3" class="center"><strong>' . htmlspecialchars($examName, ENT_QUOTES, 'UTF-8') . '</strong></td></tr></table>';
@@ -244,7 +244,7 @@ if ($export === 'pdf') {
     }
     echo '</tbody></table>';
 
-    echo '<div class="footer"><div class="right">Hải Phòng, ngày ' . $now->format('d') . ' tháng ' . $now->format('m') . ' năm ' . $now->format('Y') . '</div><div class="sign"><div class="center"><strong>Người lập</strong></div><div class="center"><strong>BAN GIÁM HIỆU</strong></div></div></div>';
+    echo '<div class="footer"><div class="sign"><div class="center"><strong>Người lập</strong></div><div class="right-block"><div class="date-line">Hải Phòng, ngày ' . $now->format('d') . ' tháng ' . $now->format('m') . ' năm ' . $now->format('Y') . '</div><div class="center"><strong>BAN GIÁM HIỆU</strong></div></div></div></div>';
     echo '</div><script>window.print();</script></body></html>';
     exit;
 }
