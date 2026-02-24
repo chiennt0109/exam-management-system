@@ -1,9 +1,10 @@
 <?php
-require_once __DIR__ . '/templates/header.php';
+require_once __DIR__ . '/bootstrap.php';
+require_once BASE_PATH . '/templates/header.php';
 ?>
 
 <div class="container">
-<?php require_once __DIR__ . '/templates/sidebar.php'; ?>
+<?php require_once BASE_PATH . '/templates/sidebar.php'; ?>
 
 <div class="content">
     <h2>Dashboard</h2>
@@ -18,4 +19,4 @@ require_once __DIR__ . '/templates/header.php';
 </div>
 </div>
 
-<?php require_once __DIR__ . '/templates/footer.php'; ?>
+<?php require_once BASE_PATH . '/templates/footer.php'; ?>
