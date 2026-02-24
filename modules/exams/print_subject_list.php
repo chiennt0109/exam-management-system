@@ -8,15 +8,34 @@ $examStmt = $pdo->prepare('SELECT ten_ky_thi FROM exams WHERE id = :id LIMIT 1')
 $examStmt->execute([':id' => $examId]);
 $examName = trim((string) ($examStmt->fetchColumn() ?: 'KỲ THI HIỆN TẠI'));
 
-$subjectStmt = $pdo->prepare('SELECT cfg.subject_id, sub.ten_mon, MIN(COALESCE(es.sort_order, 999999)) AS sort_order
-    FROM exam_subject_config cfg
-    INNER JOIN subjects sub ON sub.id = cfg.subject_id
-    LEFT JOIN exam_subjects es ON es.exam_id = cfg.exam_id AND es.subject_id = cfg.subject_id
-    WHERE cfg.exam_id = :exam_id
-    GROUP BY cfg.subject_id, sub.ten_mon
-    ORDER BY sort_order ASC, sub.ten_mon ASC');
+$examModeStmt = $pdo->prepare('SELECT COALESCE(exam_mode, 1) FROM exams WHERE id = :id LIMIT 1');
+$examModeStmt->execute([':id' => $examId]);
+$examMode = (int) ($examModeStmt->fetchColumn() ?: 1);
+if (!in_array($examMode, [1, 2], true)) {
+    $examMode = 1;
+}
+
+if ($examMode === 2) {
+    $subjectStmt = $pdo->prepare('SELECT es.subject_id, sub.ten_mon, es.sort_order
+        FROM exam_subjects es
+        INNER JOIN subjects sub ON sub.id = es.subject_id
+        WHERE es.exam_id = :exam_id
+        ORDER BY es.sort_order ASC, sub.ten_mon ASC');
+} else {
+    $subjectStmt = $pdo->prepare('SELECT cfg.subject_id, sub.ten_mon, MIN(COALESCE(es.sort_order, 999999)) AS sort_order
+        FROM exam_subject_config cfg
+        INNER JOIN subjects sub ON sub.id = cfg.subject_id
+        LEFT JOIN exam_subjects es ON es.exam_id = cfg.exam_id AND es.subject_id = cfg.subject_id
+        WHERE cfg.exam_id = :exam_id
+        GROUP BY cfg.subject_id, sub.ten_mon
+        ORDER BY sort_order ASC, sub.ten_mon ASC');
+}
 $subjectStmt->execute([':exam_id' => $examId]);
 $subjects = $subjectStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$subjects = array_values(array_filter($subjects, static function (array $sub): bool {
+    return (int) ($sub['subject_id'] ?? 0) > 0;
+}));
 
 $classStmt = $pdo->prepare('SELECT DISTINCT trim(st.lop) AS lop
     FROM exam_students es
