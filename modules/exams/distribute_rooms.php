@@ -379,12 +379,7 @@ function distributeByMaxStudents(array $students, int $maxStudentsPerRoom, strin
 
 function generateRoomName(string $subjectCode, string $khoi, string $scopeIdentifier, int $roomIndex): string
 {
-    $safeCode = preg_replace('/[^A-Z0-9]/', '', strtoupper(trim($subjectCode))) ?: 'SUB';
-    $scopePart = $scopeIdentifier === 'entire_grade'
-        ? 'ALL'
-        : substr(strtoupper(preg_replace('/[^A-Z0-9]/', '', $scopeIdentifier) ?: 'SCOPE'), -6);
-
-    return $safeCode . '-' . $khoi . '-' . $scopePart . '-' . str_pad((string) $roomIndex, 2, '0', STR_PAD_LEFT);
+    return str_pad((string) $roomIndex, 2, '0', STR_PAD_LEFT);
 }
 
 $csrf = exams_get_csrf_token();
