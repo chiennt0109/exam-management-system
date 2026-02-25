@@ -55,12 +55,28 @@ function backfillExamKhoi(PDO $pdo, int $examId): void
 
 function isTruthyRegistrationValue(mixed $value): bool
 {
+    if (is_numeric($value)) {
+        return (float) $value > 0;
+    }
+
     $text = mb_strtolower(trim((string) $value), 'UTF-8');
     if ($text === '') {
         return false;
     }
 
-    return in_array($text, ['1', 'x', 'co', 'có', 'yes', 'y', 'true', 'dang ky', 'đăng ký'], true);
+    return in_array($text, ['1', 'x', '✓', 'v', 'co', 'có', 'yes', 'y', 'true', 'dang ky', 'đăng ký'], true);
+}
+
+function normalizeHeaderForMatch(string $value): string
+{
+    $value = trim(mb_strtolower($value, 'UTF-8'));
+    $trans = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+    if ($trans !== false) {
+        $value = strtolower($trans);
+    }
+
+    $value = preg_replace('/[^a-z0-9]+/', ' ', $value) ?? $value;
+    return trim(preg_replace('/\s+/', ' ', $value) ?? $value);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -165,12 +181,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $subjectColumnMap = array_filter($subjectColumnMap, static fn($v, $k): bool => (int) $k > 0 && trim((string) $v) !== '', ARRAY_FILTER_USE_BOTH);
+        if (empty($subjectColumnMap)) {
+            exams_set_flash('error', 'Vui lòng mapping ít nhất 1 môn đăng ký từ file Excel.');
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
+            exit;
+        }
 
         $selStudentByIdentifier = $pdo->prepare('SELECT id, lop FROM students WHERE trim(coalesce(sbd, "")) = :identifier LIMIT 1');
         $checkBase = $pdo->prepare('SELECT id FROM exam_students WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL LIMIT 1');
         $insertBase = $pdo->prepare('INSERT INTO exam_students (exam_id, student_id, subject_id, khoi, lop, room_id, sbd) VALUES (:exam_id, :student_id, NULL, :khoi, :lop, NULL, :sbd)');
         $updateBaseSbd = $pdo->prepare('UPDATE exam_students SET sbd = :sbd WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL');
         $insRegister = $pdo->prepare('INSERT OR IGNORE INTO exam_student_subjects (exam_id, student_id, subject_id) VALUES (:exam_id, :student_id, :subject_id)');
+        $delRegisterBySubjectSet = $pdo->prepare('DELETE FROM exam_student_subjects WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id = :subject_id');
         $insExamSubject = $pdo->prepare('INSERT OR IGNORE INTO exam_subjects (exam_id, subject_id, sort_order) VALUES (:exam_id, :subject_id, :sort_order)');
 
         $created = 0;
@@ -220,6 +242,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':sbd' => $examSbd !== '' ? $examSbd : null,
                     ]);
                     $created++;
+                }
+
+                foreach (array_keys($subjectColumnMap) as $mappedSubjectId) {
+                    $mappedSubjectId = (int) $mappedSubjectId;
+                    if ($mappedSubjectId <= 0) {
+                        continue;
+                    }
+                    $delRegisterBySubjectSet->execute([':exam_id' => $examId, ':student_id' => $studentId, ':subject_id' => $mappedSubjectId]);
                 }
 
                 foreach ($subjectColumnMap as $subjectIdRaw => $columnNameRaw) {
@@ -687,8 +717,28 @@ const importSubjects = <?= json_encode($subjectsForImportJs, JSON_UNESCAPED_UNIC
 let importHeaders = [];
 let importRows = [];
 
+function normalizeHeaderJs(v) {
+    return String(v || '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
 function fillColumnSelect(el, headers) {
     el.innerHTML = '<option value="">-- Chọn cột --</option>' + headers.map(h => `<option value="${String(h).replace(/"/g,'&quot;')}">${h}</option>`).join('');
+}
+
+function autoPickHeader(selectEl, headers, aliases) {
+    if (!selectEl) return;
+    const found = headers.find(h => {
+        const n = normalizeHeaderJs(h);
+        return aliases.some(a => n.includes(a));
+    });
+    if (found) {
+        selectEl.value = found;
+    }
 }
 
 function buildSubjectMapping(headers) {
@@ -700,6 +750,18 @@ function buildSubjectMapping(headers) {
         row.className = 'form-check mb-1';
         row.innerHTML = `<input class="form-check-input" type="checkbox" value="${s.id}" id="sub_${s.id}"> <label class="form-check-label" for="sub_${s.id}">${s.ten_mon}</label> <select class="form-select form-select-sm mt-1" data-subject-id="${s.id}"><option value="">-- Cột trong file --</option>${headers.map(h=>`<option value="${String(h).replace(/"/g,'&quot;')}">${h}</option>`).join('')}</select>`;
         box.appendChild(row);
+
+        const sel = row.querySelector('select[data-subject-id]');
+        const cb = row.querySelector('input[type="checkbox"]');
+        const subjectNorm = normalizeHeaderJs(s.ten_mon);
+        const found = headers.find(h => {
+            const hn = normalizeHeaderJs(h);
+            return hn === subjectNorm || hn.includes(subjectNorm) || subjectNorm.includes(hn);
+        });
+        if (found && sel && cb) {
+            sel.value = found;
+            cb.checked = true;
+        }
     });
 }
 
@@ -734,6 +796,8 @@ document.getElementById('btnLoadImportExcel')?.addEventListener('click', () => {
         });
         fillColumnSelect(document.getElementById('identifierColumn'), importHeaders);
         fillColumnSelect(document.getElementById('examSbdColumn'), importHeaders);
+        autoPickHeader(document.getElementById('identifierColumn'), importHeaders, ['ma csdl nganh', 'ma dinh danh csdl nganh', 'ma dinh danh']);
+        autoPickHeader(document.getElementById('examSbdColumn'), importHeaders, ['sbd', 'so bao danh']);
         buildSubjectMapping(importHeaders);
         renderImportPreview();
         document.getElementById('importRowsJson').value = JSON.stringify(importRows);
@@ -754,6 +818,11 @@ document.getElementById('excelImportForm')?.addEventListener('submit', (e) => {
             mapping[sid] = sel.value;
         }
     });
+    if (Object.keys(mapping).length === 0) {
+        e.preventDefault();
+        alert('Vui lòng chọn ít nhất 1 môn và cột mapping tương ứng.');
+        return;
+    }
     document.getElementById('subjectColumnMapJson').value = JSON.stringify(mapping);
 });
 </script>
