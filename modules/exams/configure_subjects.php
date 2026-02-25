@@ -53,6 +53,26 @@ $examRowStmt->execute([':id' => $examId]);
 $examRow = $examRowStmt->fetch(PDO::FETCH_ASSOC) ?: ['id' => $examId, 'ten_ky_thi' => '', 'exam_mode' => 1];
 $examMode = in_array((int)($examRow['exam_mode'] ?? 1), [1, 2], true) ? (int)$examRow['exam_mode'] : 1;
 
+// Self-heal mode value in case previous incorrect auto-switch persisted exam_mode=2.
+if ($examMode === 2) {
+    $legacyConfigCountStmt = $pdo->prepare('SELECT COUNT(*) FROM exam_subject_config WHERE exam_id = :exam_id');
+    $legacyConfigCountStmt->execute([':exam_id' => $examId]);
+    $legacyConfigCount = (int) ($legacyConfigCountStmt->fetchColumn() ?: 0);
+
+    $matrixSubjectCountStmt = $pdo->prepare('SELECT COUNT(*) FROM exam_subjects WHERE exam_id = :exam_id');
+    $matrixSubjectCountStmt->execute([':exam_id' => $examId]);
+    $matrixSubjectCount = (int) ($matrixSubjectCountStmt->fetchColumn() ?: 0);
+
+    $studentSubjectCountStmt = $pdo->prepare('SELECT COUNT(*) FROM exam_student_subjects WHERE exam_id = :exam_id');
+    $studentSubjectCountStmt->execute([':exam_id' => $examId]);
+    $studentSubjectCount = (int) ($studentSubjectCountStmt->fetchColumn() ?: 0);
+
+    if ($legacyConfigCount > 0 && $matrixSubjectCount === 0 && $studentSubjectCount === 0) {
+        $examMode = 1;
+        $pdo->prepare('UPDATE exams SET exam_mode = 1 WHERE id = :id')->execute([':id' => $examId]);
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         exams_set_flash('error', 'CSRF token không hợp lệ.');
