@@ -12,6 +12,17 @@ const EXAM_ALLOWED_ROLES = ['admin', 'organizer', 'scorer'];
 const REMAINDER_KEEP_SMALL = 'keep_small';
 const REMAINDER_REDISTRIBUTE = 'redistribute';
 
+function exams_normalize_exam_mode(mixed $mode): int
+{
+    $value = (int) $mode;
+    return in_array($value, [1, 2], true) ? $value : 1;
+}
+
+function exams_exam_mode_label(mixed $mode): string
+{
+    return exams_normalize_exam_mode($mode) === 2 ? '2 - Tốt nghiệp THPT' : '1 - Kiểm tra định kỳ';
+}
+
 function exams_init_schema(PDO $pdo): void
 {
     $pdo->exec('CREATE TABLE IF NOT EXISTS exam_students (

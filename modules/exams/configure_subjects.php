@@ -51,7 +51,7 @@ $subjects = $pdo->query('SELECT id, ma_mon, ten_mon FROM subjects ORDER BY ten_m
 $examRowStmt = $pdo->prepare('SELECT id, ten_ky_thi, exam_mode FROM exams WHERE id = :id LIMIT 1');
 $examRowStmt->execute([':id' => $examId]);
 $examRow = $examRowStmt->fetch(PDO::FETCH_ASSOC) ?: ['id' => $examId, 'ten_ky_thi' => '', 'exam_mode' => 1];
-$examMode = in_array((int)($examRow['exam_mode'] ?? 1), [1, 2], true) ? (int)$examRow['exam_mode'] : 1;
+$examMode = exams_normalize_exam_mode($examRow['exam_mode'] ?? 1);
 
 // Self-heal mode value in case previous incorrect auto-switch persisted exam_mode=2.
 if ($examMode === 2) {
@@ -462,7 +462,7 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-body">
                 <?= exams_display_flash(); ?>
 
-                <div class="alert alert-info mb-3">Chế độ kỳ thi hiện tại: <strong><?= $examMode === 2 ? '2 - Tốt nghiệp THPT' : '1 - Kiểm tra định kỳ' ?></strong>.
+                <div class="alert alert-info mb-3">Chế độ kỳ thi hiện tại: <strong><?= htmlspecialchars(exams_exam_mode_label($examMode), ENT_QUOTES, 'UTF-8') ?></strong>.
                     <span class="ms-2 text-muted">(Thiết lập khi tạo kỳ thi mới)</span></div>
                 <?php if ($examMode === 1): ?>
                     <form method="post" class="border rounded p-3 mb-3" id="cfgForm">
