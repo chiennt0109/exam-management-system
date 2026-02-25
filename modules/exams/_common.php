@@ -358,6 +358,25 @@ function exams_clear_maintenance_mode(PDO $pdo): void
 
 function exams_resolve_current_exam_from_request(): int
 {
+    global $pdo;
+
+    $requestedExamId = max(0, (int) ($_GET['exam_id'] ?? $_POST['exam_id'] ?? 0));
+    if ($requestedExamId > 0) {
+        $cols = array_column($pdo->query('PRAGMA table_info(exams)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+        $hasDeletedAt = in_array('deleted_at', $cols, true);
+        $sql = 'SELECT id FROM exams WHERE id = :id';
+        if ($hasDeletedAt) {
+            $sql .= ' AND (deleted_at IS NULL OR trim(deleted_at) = "")';
+        }
+        $sql .= ' LIMIT 1';
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':id' => $requestedExamId]);
+        if ((int) ($stmt->fetchColumn() ?: 0) > 0) {
+            return $requestedExamId;
+        }
+    }
+
     return getCurrentExamId();
 }
 
