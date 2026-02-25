@@ -52,6 +52,7 @@ $examRowStmt = $pdo->prepare('SELECT id, ten_ky_thi, exam_mode FROM exams WHERE 
 $examRowStmt->execute([':id' => $examId]);
 $examRow = $examRowStmt->fetch(PDO::FETCH_ASSOC) ?: ['id' => $examId, 'ten_ky_thi' => '', 'exam_mode' => 1];
 $examMode = exams_normalize_exam_mode($examRow['exam_mode'] ?? 1);
+$useUnifiedStep4Ui = true;
 
 // Self-heal mode value in case previous incorrect auto-switch persisted exam_mode=2.
 if ($examMode === 2) {
@@ -464,7 +465,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                 <div class="alert alert-info mb-3">Chế độ kỳ thi hiện tại: <strong><?= htmlspecialchars(exams_exam_mode_label($examMode), ENT_QUOTES, 'UTF-8') ?></strong>.
                     <span class="ms-2 text-muted">(Thiết lập khi tạo kỳ thi mới)</span></div>
-                <?php if ($examMode === 1): ?>
+                <?php if (!$useUnifiedStep4Ui && $examMode === 1): ?>
                     <form method="post" class="border rounded p-3 mb-3" id="cfgForm">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="add">
