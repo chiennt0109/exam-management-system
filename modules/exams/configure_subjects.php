@@ -51,8 +51,28 @@ $subjects = $pdo->query('SELECT id, ma_mon, ten_mon FROM subjects ORDER BY ten_m
 $examRowStmt = $pdo->prepare('SELECT id, ten_ky_thi, exam_mode FROM exams WHERE id = :id LIMIT 1');
 $examRowStmt->execute([':id' => $examId]);
 $examRow = $examRowStmt->fetch(PDO::FETCH_ASSOC) ?: ['id' => $examId, 'ten_ky_thi' => '', 'exam_mode' => 1];
-$examMode = in_array((int)($examRow['exam_mode'] ?? 1), [1, 2], true) ? (int)$examRow['exam_mode'] : 1;
-$isExamLocked = exams_is_locked($pdo, $examId);
+$examMode = exams_normalize_exam_mode($examRow['exam_mode'] ?? 1);
+$useUnifiedStep4Ui = true;
+
+// Self-heal mode value in case previous incorrect auto-switch persisted exam_mode=2.
+if ($examMode === 2) {
+    $legacyConfigCountStmt = $pdo->prepare('SELECT COUNT(*) FROM exam_subject_config WHERE exam_id = :exam_id');
+    $legacyConfigCountStmt->execute([':exam_id' => $examId]);
+    $legacyConfigCount = (int) ($legacyConfigCountStmt->fetchColumn() ?: 0);
+
+    $matrixSubjectCountStmt = $pdo->prepare('SELECT COUNT(*) FROM exam_subjects WHERE exam_id = :exam_id');
+    $matrixSubjectCountStmt->execute([':exam_id' => $examId]);
+    $matrixSubjectCount = (int) ($matrixSubjectCountStmt->fetchColumn() ?: 0);
+
+    $studentSubjectCountStmt = $pdo->prepare('SELECT COUNT(*) FROM exam_student_subjects WHERE exam_id = :exam_id');
+    $studentSubjectCountStmt->execute([':exam_id' => $examId]);
+    $studentSubjectCount = (int) ($studentSubjectCountStmt->fetchColumn() ?: 0);
+
+    if ($legacyConfigCount > 0 && $matrixSubjectCount === 0 && $studentSubjectCount === 0) {
+        $examMode = 1;
+        $pdo->prepare('UPDATE exams SET exam_mode = 1 WHERE id = :id')->execute([':id' => $examId]);
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
@@ -74,17 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? 'add');
 
     try {
-        if ($action === 'set_exam_mode') {
-            if ($isExamLocked) {
-                throw new RuntimeException('Kỳ thi đã khoá phân phòng, không thể thay đổi Chế độ kỳ thi.');
-            }
-            $mode = (int) ($_POST['exam_mode'] ?? 1);
-            if (!in_array($mode, [1, 2], true)) {
-                throw new RuntimeException('Chế độ kỳ thi không hợp lệ.');
-            }
-            $pdo->prepare('UPDATE exams SET exam_mode = :mode WHERE id = :id')->execute([':mode' => $mode, ':id' => $examId]);
-            exams_set_flash('success', 'Đã cập nhật chế độ kỳ thi.');
-        } elseif ($action === 'add_matrix_subject') {
+        if ($action === 'add_matrix_subject') {
             $subjectId = (int) ($_POST['subject_id'] ?? 0);
             if ($subjectId <= 0) {
                 throw new RuntimeException('Phải chọn môn học.');
@@ -453,23 +463,9 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-body">
                 <?= exams_display_flash(); ?>
 
-                <form method="post" class="row g-2 mb-3">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="action" value="set_exam_mode">
-                    <div class="col-md-4">
-                        <label class="form-label">Chế độ kỳ thi</label>
-                        <select class="form-select" name="exam_mode" <?= $isExamLocked ? 'disabled' : '' ?>>
-                            <option value="1" <?= $examMode === 1 ? 'selected' : '' ?>>1 - Kiểm tra định kỳ</option>
-                            <option value="2" <?= $examMode === 2 ? 'selected' : '' ?>>2 - Tốt nghiệp THPT</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3 align-self-end"><button class="btn btn-outline-primary" type="submit" <?= $isExamLocked ? 'disabled' : '' ?>>Lưu chế độ</button></div>
-                    <?php if ($isExamLocked): ?>
-                        <div class="col-12"><small class="text-danger">Đã khoá phân phòng, không thể thay đổi Chế độ kỳ thi.</small></div>
-                    <?php endif; ?>
-                </form>
-
-                <?php if ($examMode === 1): ?>
+                <div class="alert alert-info mb-3">Chế độ kỳ thi hiện tại: <strong><?= htmlspecialchars(exams_exam_mode_label($examMode), ENT_QUOTES, 'UTF-8') ?></strong>.
+                    <span class="ms-2 text-muted">(Thiết lập khi tạo kỳ thi mới)</span></div>
+                <?php if (!$useUnifiedStep4Ui && $examMode === 1): ?>
                     <form method="post" class="border rounded p-3 mb-3" id="cfgForm">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="add">

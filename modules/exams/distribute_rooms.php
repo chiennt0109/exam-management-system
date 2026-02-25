@@ -97,7 +97,7 @@ function getConfiguredScopeGroups(PDO $pdo, int $examId): array
 function getEligibleStudentsByScope(PDO $pdo, int $examId, string $khoi, string $scopeMode, array $classes): array
 {
     if ($scopeMode === 'entire_grade') {
-        $stmt = $pdo->prepare('SELECT student_id, khoi, lop, sbd FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND khoi = :khoi AND sbd IS NOT NULL AND sbd <> ""');
+        $stmt = $pdo->prepare('SELECT es.student_id, es.khoi, es.lop, es.sbd, st.hoten FROM exam_students es INNER JOIN students st ON st.id = es.student_id WHERE es.exam_id = :exam_id AND es.subject_id IS NULL AND es.khoi = :khoi AND es.sbd IS NOT NULL AND es.sbd <> \'\'');
         $stmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -107,7 +107,7 @@ function getEligibleStudentsByScope(PDO $pdo, int $examId, string $khoi, string 
     }
 
     $placeholders = implode(',', array_fill(0, count($classes), '?'));
-    $sql = 'SELECT student_id, khoi, lop, sbd FROM exam_students WHERE exam_id = ? AND subject_id IS NULL AND khoi = ? AND lop IN (' . $placeholders . ') AND sbd IS NOT NULL AND sbd <> ""';
+    $sql = 'SELECT es.student_id, es.khoi, es.lop, es.sbd, st.hoten FROM exam_students es INNER JOIN students st ON st.id = es.student_id WHERE es.exam_id = ? AND es.subject_id IS NULL AND es.khoi = ? AND es.lop IN (' . $placeholders . ') AND es.sbd IS NOT NULL AND es.sbd <> \'\'';
     $params = array_merge([$examId, $khoi], $classes);
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -377,6 +377,88 @@ function distributeByMaxStudents(array $students, int $maxStudentsPerRoom, strin
     return distributeByRoomCount($students, (int) ceil($total / $maxStudentsPerRoom), $remainderOption);
 }
 
+function roomStudentNameSortKey(string $fullName): array
+{
+    $name = trim(preg_replace('/\s+/', ' ', $fullName) ?? '');
+    if ($name === '') {
+        return ['', ''];
+    }
+
+    $parts = explode(' ', $name);
+    $first = mb_strtolower((string) end($parts), 'UTF-8');
+    return [$first, mb_strtolower($name, 'UTF-8')];
+}
+
+/**
+ * @param array<int,array<string,mixed>> $eligibleStudents
+ * @return array{0:array<int,array<int,array<string,mixed>>>,1:array<int,array<int,array<string,mixed>>>}
+ */
+function buildMode1SpecializedRoomGroups(array $eligibleStudents, int $subjectId, array $classSpecializedSubjectMap, string $mode, int $totalRooms, int $maxStudents, string $remainder): array
+{
+    $specializedClasses = [];
+    foreach ($eligibleStudents as $st) {
+        $lop = trim((string) ($st['lop'] ?? ''));
+        if ($lop === '') {
+            continue;
+        }
+        if ((int) ($classSpecializedSubjectMap[$lop] ?? 0) === $subjectId) {
+            $specializedClasses[$lop] = true;
+        }
+    }
+
+    $specializedClassCount = count($specializedClasses);
+    if ($specializedClassCount <= 0) {
+        $regularGroups = $mode === 'by_total_rooms'
+            ? distributeByRoomCount($eligibleStudents, $totalRooms, $remainder)
+            : distributeByMaxStudents($eligibleStudents, $maxStudents, $remainder);
+        return [[], $regularGroups];
+    }
+
+    $specializedStudents = [];
+    $regularStudents = [];
+    foreach ($eligibleStudents as $st) {
+        $lop = trim((string) ($st['lop'] ?? ''));
+        if ($lop !== '' && isset($specializedClasses[$lop])) {
+            $specializedStudents[] = $st;
+        } else {
+            $regularStudents[] = $st;
+        }
+    }
+
+    usort($specializedStudents, static function (array $a, array $b): int {
+        [$fa, $na] = roomStudentNameSortKey((string) ($a['hoten'] ?? ''));
+        [$fb, $nb] = roomStudentNameSortKey((string) ($b['hoten'] ?? ''));
+        if ($fa !== $fb) {
+            return $fa <=> $fb;
+        }
+        if ($na !== $nb) {
+            return $na <=> $nb;
+        }
+        return strcmp((string) ($a['sbd'] ?? ''), (string) ($b['sbd'] ?? ''));
+    });
+
+    $specializedGroups = empty($specializedStudents)
+        ? []
+        : distributeByRoomCount($specializedStudents, $specializedClassCount, REMAINDER_KEEP_SMALL);
+
+    if (empty($regularStudents)) {
+        return [$specializedGroups, []];
+    }
+
+    if ($mode === 'by_total_rooms') {
+        $regularRoomCount = max(0, $totalRooms - $specializedClassCount);
+        if ($regularRoomCount <= 0) {
+            $regularGroups = [$regularStudents];
+        } else {
+            $regularGroups = distributeByRoomCount($regularStudents, $regularRoomCount, $remainder);
+        }
+    } else {
+        $regularGroups = distributeByMaxStudents($regularStudents, $maxStudents, $remainder);
+    }
+
+    return [$specializedGroups, $regularGroups];
+}
+
 function generateRoomName(string $subjectCode, string $khoi, string $scopeIdentifier, int $roomIndex): string
 {
     return str_pad((string) $roomIndex, 2, '0', STR_PAD_LEFT);
@@ -385,6 +467,17 @@ function generateRoomName(string $subjectCode, string $khoi, string $scopeIdenti
 $csrf = exams_get_csrf_token();
 $exams = exams_get_all_exams($pdo);
 $subjects = $pdo->query('SELECT id, ma_mon, ten_mon FROM subjects ORDER BY ten_mon')->fetchAll(PDO::FETCH_ASSOC);
+$classSpecializedSubjectMap = [];
+if (in_array('classes', array_map(static fn(array $r): string => (string) ($r['name'] ?? ''), $pdo->query("SELECT name FROM sqlite_master WHERE type='table'")->fetchAll(PDO::FETCH_ASSOC)), true)) {
+    $clsStmt = $pdo->query('SELECT class_name, specialized_subject_id FROM classes');
+    foreach ($clsStmt->fetchAll(PDO::FETCH_ASSOC) as $clsRow) {
+        $className = trim((string) ($clsRow['class_name'] ?? ''));
+        if ($className === '') {
+            continue;
+        }
+        $classSpecializedSubjectMap[$className] = (int) ($clsRow['specialized_subject_id'] ?? 0);
+    }
+}
 
 $examId = exams_resolve_current_exam_from_request();
 if ($examId <= 0) {
@@ -418,8 +511,13 @@ if ($examId > 0 && is_array($ctx) && (int) ($ctx['exam_id'] ?? 0) === $examId) {
     }
 }
 
+$examRow = null;
 $examLocked = false;
 if ($examId > 0) {
+    $examInfoStmt = $pdo->prepare('SELECT id, ten_ky_thi FROM exams WHERE id = :id LIMIT 1');
+    $examInfoStmt->execute([':id' => $examId]);
+    $examRow = $examInfoStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
     $lockStmt = $pdo->prepare('SELECT distribution_locked, rooms_locked FROM exams WHERE id = :id LIMIT 1');
     $lockStmt->execute([':id' => $examId]);
     $rowLock = $lockStmt->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -527,11 +625,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     $groups = getConfiguredScopeGroups($pdo, $examId);
+                    $groups = array_values(array_filter($groups, static function (array $g): bool {
+                        $khoiValue = trim((string) ($g['khoi'] ?? ''));
+                        return $khoiValue !== '' && strtoupper($khoiValue) !== 'ALL';
+                    }));
+
+                    if (empty($groups)) {
+                        // Unified step-4 UI can store matrix subject configs with khoi=ALL.
+                        // Build mode-1 groups from matrix subjects x available grades in exam_students.
+                        $fallbackStmt = $pdo->prepare('SELECT DISTINCT ms.subject_id, es.khoi
+                            FROM exam_subjects ms
+                            INNER JOIN exam_students es ON es.exam_id = ms.exam_id AND es.subject_id IS NULL
+                            WHERE ms.exam_id = :exam_id AND es.khoi IS NOT NULL AND trim(es.khoi) <> ""
+                            ORDER BY ms.sort_order, ms.subject_id, es.khoi');
+                        $fallbackStmt->execute([':exam_id' => $examId]);
+                        foreach ($fallbackStmt->fetchAll(PDO::FETCH_ASSOC) as $gRow) {
+                            $groups[] = [
+                                'subject_id' => (int) ($gRow['subject_id'] ?? 0),
+                                'khoi' => (string) ($gRow['khoi'] ?? ''),
+                                'scope_mode' => 'entire_grade',
+                                'scope_identifier' => 'entire_grade',
+                                'classes' => [],
+                            ];
+                        }
+                    }
                 }
                 if (empty($groups)) {
                     throw new RuntimeException($examMode === 2
                         ? 'Chưa có dữ liệu ma trận môn để phân phòng (mode 2).'
-                        : 'Không có cấu hình môn/khối để phân phòng.');
+                        : 'Không có cấu hình môn/khối để phân phòng. Vui lòng kiểm tra lại bước 4.');
                 }
 
                 $roomCountStmt = $pdo->prepare('SELECT COUNT(*) FROM rooms WHERE exam_id = :exam_id');
@@ -563,9 +685,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $classes = (array) $g['classes'];
 
                     if ($examMode === 2) {
-                        $eligibleStmt = $pdo->prepare('SELECT DISTINCT es.student_id, es.khoi, es.lop, es.sbd
+                        $eligibleStmt = $pdo->prepare('SELECT DISTINCT es.student_id, es.khoi, es.lop, es.sbd, st.hoten
                             FROM exam_student_subjects ess
                             INNER JOIN exam_students es ON es.exam_id = ess.exam_id AND es.student_id = ess.student_id AND es.subject_id IS NULL
+                            INNER JOIN students st ON st.id = es.student_id
                             WHERE ess.exam_id = :exam_id AND ess.subject_id = :subject_id AND es.khoi = :khoi AND es.sbd IS NOT NULL AND es.sbd <> ""');
                         $eligibleStmt->execute([':exam_id' => $examId, ':subject_id' => $subId, ':khoi' => $groupKhoi]);
                         $eligibleStudents = $eligibleStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -595,9 +718,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     usort($eligibleStudents, static fn(array $a, array $b): int => strcmp((string) ($a['sbd'] ?? ''), (string) ($b['sbd'] ?? '')));
-                    $roomGroups = $mode === 'by_total_rooms'
-                        ? distributeByRoomCount($eligibleStudents, $totalRooms, $remainder)
-                        : distributeByMaxStudents($eligibleStudents, $maxStudents, $remainder);
+
+                    if ($examMode === 1) {
+                        [$specializedRoomGroups, $regularRoomGroups] = buildMode1SpecializedRoomGroups(
+                            $eligibleStudents,
+                            $subId,
+                            $classSpecializedSubjectMap,
+                            $mode,
+                            $totalRooms,
+                            $maxStudents,
+                            $remainder
+                        );
+                        $roomGroups = array_merge($specializedRoomGroups, $regularRoomGroups);
+                    } else {
+                        $roomGroups = $mode === 'by_total_rooms'
+                            ? distributeByRoomCount($eligibleStudents, $totalRooms, $remainder)
+                            : distributeByMaxStudents($eligibleStudents, $maxStudents, $remainder);
+                    }
 
                     $subjectCode = $subjectCodeMap[$subId] ?? 'SUB';
                     $roomIndex = 1;
@@ -1121,7 +1258,7 @@ require_once BASE_PATH . '/layout/header.php';
                         <label class="form-label">Kỳ thi</label>
                         <?php if ($fixedExamContext): ?>
                             <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                            <div class="form-control bg-light">#<?= $examId ?> - Kỳ thi hiện tại</div>
+                            <div class="form-control bg-light"><?= htmlspecialchars((string) ($examRow['ten_ky_thi'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
                         <?php else: ?>
                             <select name="exam_id" class="form-select" required>
                                 <option value="">-- Chọn kỳ thi --</option>

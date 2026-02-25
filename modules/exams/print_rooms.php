@@ -332,45 +332,47 @@ if (in_array($export, ['format1', 'format2'], true)) {
     foreach ($allGroups as $group) {
         $students = array_values($group['students']);
         $maxRows = $export === 'format1' ? 30 : 28;
-        $displayStudents = array_slice($students, 0, $maxRows);
-        $truncated = count($students) > $maxRows;
+        $studentChunks = empty($students) ? [[]] : array_chunk($students, $maxRows);
 
-        echo '<section class="export-page">';
-        if ($export === 'format1') {
-            echo '<div class="header-grid">';
-            echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">' . htmlspecialchars($examName) . '</div></div>';
-            echo '<div class="header-right"><div class="title-main">DANH SÁCH NIÊM YẾT</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
-            echo '</div>';
-            echo '<div class="table-wrap"><table><thead><tr><th style="width:7%">STT</th><th style="width:17%">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:13%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
-            foreach ($displayStudents as $i => $st) {
-                $nameSize = $fitFontSize((string) ($st['hoten'] ?? ''));
-                $classSize = $fitFontSize((string) ($st['lop'] ?? ''), 11, 8, 10);
-                echo '<tr><td class="center col-tight">' . ($i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td></td></tr>';
+        foreach ($studentChunks as $chunkIndex => $displayStudents) {
+            $sttOffset = $chunkIndex * $maxRows;
+            echo '<section class="export-page">';
+            if ($export === 'format1') {
+                echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">';
+                echo '<div class="header-left" style="text-align:left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="room-subject"><strong>' . htmlspecialchars($examName) . '</strong></div></div>';
+                echo '<div class="header-right" style="text-align:right"><div class="title-main">DANH SÁCH NIÊM YẾT</div><div class="room-subject"><strong>PHÒNG: ' . htmlspecialchars($group['ten_phong']) . '</strong> &nbsp; | &nbsp; <strong>Môn: ' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
+                echo '</div>';
+                echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th class="col-tight">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:13%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
+                foreach ($displayStudents as $i => $st) {
+                    $nameSize = $fitFontSize((string) ($st['hoten'] ?? ''));
+                    $classSize = $fitFontSize((string) ($st['lop'] ?? ''), 11, 8, 10);
+                    echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td></td></tr>';
+                }
+                if (empty($displayStudents)) {
+                    echo '<tr><td class="center" colspan="6">(Phòng trống)</td></tr>';
+                }
+                echo '</tbody></table></div>';
+                echo '<div class="footer-right"><div class="footer-signature"><div><em>Hải Phòng, ngày ... tháng ... năm ' . $year . '</em></div><div><strong>CHỦ TỊCH HỘI ĐỒNG</strong></div><div class="sig-space"></div></div></div>';
+            } else {
+                echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">';
+                echo '<div class="header-left" style="text-align:left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="room-subject"><strong>' . htmlspecialchars($examName) . '</strong></div></div>';
+                echo '<div class="header-right" style="text-align:right"><div class="title-main">PHIẾU THU BÀI</div><div class="room-subject"><strong>PHÒNG: ' . htmlspecialchars($group['ten_phong']) . '</strong> &nbsp; | &nbsp; <strong>Môn: ' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
+                echo '</div>';
+                echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th class="col-tight">SBD</th><th style="width:25%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:9%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:18%">Ghi chú / Ký tên</th></tr></thead><tbody>';
+                foreach ($displayStudents as $i => $st) {
+                    $nameSize = $fitFontSize((string) ($st['hoten'] ?? ''));
+                    $classSize = $fitFontSize((string) ($st['lop'] ?? ''), 11, 8, 10);
+                    echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td></td><td></td><td></td></tr>';
+                }
+                if (empty($displayStudents)) {
+                    echo '<tr><td class="center" colspan="8">(Phòng trống)</td></tr>';
+                }
+                echo '</tbody></table></div>';
+                echo '<div class="summary"><div><strong>Trong đó:</strong> - Số học sinh tham dự: ...... &nbsp;&nbsp; - Số học sinh vắng: ...... &nbsp;&nbsp; - SBD vắng: ...................................</div><div style="margin-top:6px">Tổng số bài: .......... &nbsp;&nbsp;&nbsp; Tổng mã đề: ..........</div></div>';
+                echo '<div class="signature-grid"><div>GIÁM THỊ 1<div class="sig-space"></div></div><div>GIÁM THỊ 2<div class="sig-space"></div></div><div>CHỦ TỊCH HỘI ĐỒNG<div class="sig-space"></div></div></div>';
             }
-            echo '</tbody></table></div>';
-            if ($truncated) {
-                echo '<div class="small-note">Danh sách vượt quá ' . $maxRows . ' học sinh, chỉ hiển thị ' . $maxRows . ' học sinh đầu tiên trên trang in.</div>';
-            }
-            echo '<div class="footer-right"><div class="footer-signature"><div><em>Hải Phòng, ngày ... tháng ... năm ' . $year . '</em></div><div><strong>CHỦ TỊCH HỘI ĐỒNG</strong></div><div class="sig-space"></div></div></div>';
-        } else {
-            echo '<div class="header-grid">';
-            echo '<div class="header-left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="title-sub">' . htmlspecialchars($examName) . '</div></div>';
-            echo '<div class="header-right"><div class="title-main">PHIẾU THU BÀI</div><div class="room-subject">PHÒNG: <strong>' . htmlspecialchars($group['ten_phong']) . '</strong></div><div class="room-subject">Môn: <strong>' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
-            echo '</div>';
-            echo '<div class="table-wrap"><table><thead><tr><th style="width:7%">STT</th><th style="width:17%">SBD</th><th style="width:25%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:9%">Lớp</th><th style="width:8%">Số tờ</th><th style="width:8%">Mã đề</th><th style="width:18%">Ghi chú / Ký tên</th></tr></thead><tbody>';
-            foreach ($displayStudents as $i => $st) {
-                $nameSize = $fitFontSize((string) ($st['hoten'] ?? ''));
-                $classSize = $fitFontSize((string) ($st['lop'] ?? ''), 11, 8, 10);
-                echo '<tr><td class="center col-tight">' . ($i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td></td><td></td><td></td></tr>';
-            }
-            echo '</tbody></table></div>';
-            if ($truncated) {
-                echo '<div class="small-note">Danh sách vượt quá ' . $maxRows . ' học sinh, chỉ hiển thị ' . $maxRows . ' học sinh đầu tiên trên trang in.</div>';
-            }
-            echo '<div class="summary"><div><strong>Trong đó:</strong> - Số học sinh tham dự: ...... &nbsp;&nbsp; - Số học sinh vắng: ...... &nbsp;&nbsp; - SBD vắng: ...................................</div><div style="margin-top:6px">Tổng số bài: .......... &nbsp;&nbsp;&nbsp; Tổng mã đề: ..........</div></div>';
-            echo '<div class="signature-grid"><div>GIÁM THỊ 1<div class="sig-space"></div></div><div>GIÁM THỊ 2<div class="sig-space"></div></div><div>CHỦ TỊCH HỘI ĐỒNG<div class="sig-space"></div></div></div>';
+            echo '</section>';
         }
-        echo '</section>';
     }
     if ($isPdfExport) {
         echo '<script>(function(){function fitText(sel,min){document.querySelectorAll(sel).forEach(function(el){var fs=parseFloat(window.getComputedStyle(el).fontSize)||11;while(el.scrollWidth>el.clientWidth&&fs>min){fs-=0.5;el.style.fontSize=fs+"px";}});}fitText(".name-cell",8);fitText(".class-cell",8);})();</script>';

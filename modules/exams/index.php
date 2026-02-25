@@ -168,6 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $nam = (int) ($_POST['nam'] ?? 0);
         $ngayThi = trim((string) ($_POST['ngay_thi'] ?? ''));
         $trangThai = trim((string) ($_POST['trang_thai'] ?? 'draft'));
+        $examMode = exams_normalize_exam_mode($_POST['exam_mode'] ?? 1);
 
         if ($tenKyThi === '') {
             $errors[] = 'Tên kỳ thi không được để trống.';
@@ -182,19 +183,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($errors)) {
             try {
                 if ($hasTrangThai) {
-                    $stmt = $pdo->prepare('INSERT INTO exams (ten_ky_thi, nam, ngay_thi, trang_thai, deleted_at) VALUES (:ten_ky_thi, :nam, :ngay_thi, :trang_thai, NULL)');
+                    $stmt = $pdo->prepare('INSERT INTO exams (ten_ky_thi, nam, ngay_thi, exam_mode, trang_thai, deleted_at) VALUES (:ten_ky_thi, :nam, :ngay_thi, :exam_mode, :trang_thai, NULL)');
                     $stmt->execute([
                         ':ten_ky_thi' => $tenKyThi,
                         ':nam' => $nam,
                         ':ngay_thi' => $ngayThi,
+                        ':exam_mode' => $examMode,
                         ':trang_thai' => $trangThai,
                     ]);
                 } else {
-                    $stmt = $pdo->prepare('INSERT INTO exams (ten_ky_thi, nam, ngay_thi, deleted_at) VALUES (:ten_ky_thi, :nam, :ngay_thi, NULL)');
+                    $stmt = $pdo->prepare('INSERT INTO exams (ten_ky_thi, nam, ngay_thi, exam_mode, deleted_at) VALUES (:ten_ky_thi, :nam, :ngay_thi, :exam_mode, NULL)');
                     $stmt->execute([
                         ':ten_ky_thi' => $tenKyThi,
                         ':nam' => $nam,
                         ':ngay_thi' => $ngayThi,
+                        ':exam_mode' => $examMode,
                     ]);
                 }
 
@@ -261,7 +264,7 @@ $selectTrangThai = $hasTrangThai ? ', trang_thai' : '';
 $currentExamId = getCurrentExamId();
 $isAdmin = current_user_role() === 'admin';
 $examWhere = $isAdmin ? '' : ' WHERE deleted_at IS NULL';
-$exams = $pdo->query('SELECT id, ten_ky_thi, nam, ngay_thi, deleted_at, is_default,
+$exams = $pdo->query('SELECT id, ten_ky_thi, nam, ngay_thi, exam_mode, deleted_at, is_default,
     COALESCE(distribution_locked,0) AS distribution_locked,
     COALESCE(rooms_locked,0) AS rooms_locked,
     COALESCE(is_locked,0) AS is_locked,
@@ -294,7 +297,8 @@ require_once BASE_PATH . '/layout/header.php';
                         <form method="post" class="row g-2">
                             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                             <input type="hidden" name="action" value="create">
-                            <div class="col-md-4"><label class="form-label">Tên kỳ thi</label><input class="form-control" name="ten_ky_thi" required></div>
+                            <div class="col-md-3"><label class="form-label">Tên kỳ thi</label><input class="form-control" name="ten_ky_thi" required></div>
+                            <div class="col-md-3"><label class="form-label">Chế độ kỳ thi</label><select class="form-select" name="exam_mode"><option value="1"><?= htmlspecialchars(exams_exam_mode_label(1), ENT_QUOTES, 'UTF-8') ?></option><option value="2"><?= htmlspecialchars(exams_exam_mode_label(2), ENT_QUOTES, 'UTF-8') ?></option></select></div>
                             <div class="col-md-2"><label class="form-label">Năm</label><input class="form-control" type="number" name="nam" min="2000" max="2100" value="<?= date('Y') ?>" required></div>
                             <div class="col-md-3"><label class="form-label">Ngày thi</label><input class="form-control" type="date" name="ngay_thi"></div>
                             <?php if ($hasTrangThai): ?><div class="col-md-3"><label class="form-label">Trạng thái</label><select class="form-select" name="trang_thai"><option value="draft">draft</option><option value="open">open</option><option value="closed">closed</option></select></div><?php endif; ?>
@@ -323,6 +327,7 @@ require_once BASE_PATH . '/layout/header.php';
                                 <td><?= htmlspecialchars((string) $exam['ngay_thi'], ENT_QUOTES, 'UTF-8') ?></td>
                                 <td>
                                     <?= $hasTrangThai ? htmlspecialchars((string) ($exam['trang_thai'] ?? ''), ENT_QUOTES, 'UTF-8') : '<em>N/A</em>' ?>
+                                    <span class="badge bg-info text-dark ms-1"><?= htmlspecialchars(exams_exam_mode_label($exam['exam_mode'] ?? 1), ENT_QUOTES, 'UTF-8') ?></span>
                                     <?php if ($isDeleted): ?><span class="badge bg-warning text-dark ms-1">đã xóa tạm</span><?php endif; ?>
                                     <?php
                                         $distributionLocked = (int) ($exam['distribution_locked'] ?? 0) === 1
