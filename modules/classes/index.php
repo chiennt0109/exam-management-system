@@ -114,7 +114,7 @@ require_once BASE_PATH . '/layout/header.php';
                                     </select>
                             </td>
                             <td class="d-flex gap-2">
-                                    <button class="btn btn-sm btn-primary" type="submit">💾 Sửa</button>
+                                    <button class="btn btn-sm btn-primary" type="submit">💾 Lưu</button>
                                 </form>
                                 <form method="post" onsubmit="return confirm('Xóa lớp này?')">
                                     <input type="hidden" name="action" value="delete">
