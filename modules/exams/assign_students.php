@@ -52,6 +52,17 @@ function backfillExamKhoi(PDO $pdo, int $examId): void
     }
 }
 
+
+function isTruthyRegistrationValue(mixed $value): bool
+{
+    $text = mb_strtolower(trim((string) $value), 'UTF-8');
+    if ($text === '') {
+        return false;
+    }
+
+    return in_array($text, ['1', 'x', 'co', 'có', 'yes', 'y', 'true', 'dang ky', 'đăng ký'], true);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         exams_set_flash('error', 'CSRF token không hợp lệ.');
@@ -132,6 +143,127 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected', 'q_assigned' => $searchAssigned, 'page' => $page]));
+        exit;
+    }
+
+    if ($action === 'import_excel_map') {
+        $rows = json_decode((string) ($_POST['import_rows_json'] ?? '[]'), true);
+        $identifierColumn = trim((string) ($_POST['identifier_column'] ?? ''));
+        $examSbdColumn = trim((string) ($_POST['exam_sbd_column'] ?? ''));
+        $subjectColumnMap = json_decode((string) ($_POST['subject_column_map_json'] ?? '{}'), true);
+        $subjectColumnMap = is_array($subjectColumnMap) ? $subjectColumnMap : [];
+
+        if (!is_array($rows) || empty($rows)) {
+            exams_set_flash('error', 'Không có dữ liệu import hợp lệ.');
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
+            exit;
+        }
+        if ($identifierColumn === '' || $examSbdColumn === '') {
+            exams_set_flash('error', 'Thiếu cột mapping bắt buộc: Mã định danh CSDL ngành hoặc SBD kỳ thi.');
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
+            exit;
+        }
+
+        $subjectColumnMap = array_filter($subjectColumnMap, static fn($v, $k): bool => (int) $k > 0 && trim((string) $v) !== '', ARRAY_FILTER_USE_BOTH);
+
+        $selStudentByIdentifier = $pdo->prepare('SELECT id, lop FROM students WHERE trim(coalesce(sbd, "")) = :identifier LIMIT 1');
+        $checkBase = $pdo->prepare('SELECT id FROM exam_students WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL LIMIT 1');
+        $insertBase = $pdo->prepare('INSERT INTO exam_students (exam_id, student_id, subject_id, khoi, lop, room_id, sbd) VALUES (:exam_id, :student_id, NULL, :khoi, :lop, NULL, :sbd)');
+        $updateBaseSbd = $pdo->prepare('UPDATE exam_students SET sbd = :sbd WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL');
+        $insRegister = $pdo->prepare('INSERT OR IGNORE INTO exam_student_subjects (exam_id, student_id, subject_id) VALUES (:exam_id, :student_id, :subject_id)');
+        $insExamSubject = $pdo->prepare('INSERT OR IGNORE INTO exam_subjects (exam_id, subject_id, sort_order) VALUES (:exam_id, :subject_id, :sort_order)');
+
+        $created = 0;
+        $updatedSbd = 0;
+        $registered = 0;
+        $errorsImport = [];
+
+        try {
+            $pdo->beginTransaction();
+
+            $maxSort = (int) $pdo->query('SELECT COALESCE(MAX(sort_order), 0) FROM exam_subjects WHERE exam_id = ' . $examId)->fetchColumn();
+            $sortBySubject = [];
+
+            foreach ($rows as $idx => $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $identifier = trim((string) ($row[$identifierColumn] ?? ''));
+                $examSbd = trim((string) ($row[$examSbdColumn] ?? ''));
+                if ($identifier === '') {
+                    continue;
+                }
+
+                $selStudentByIdentifier->execute([':identifier' => $identifier]);
+                $st = $selStudentByIdentifier->fetch(PDO::FETCH_ASSOC);
+                if (!$st) {
+                    $errorsImport[] = 'Dòng ' . ($idx + 1) . ': Không tìm thấy học sinh với Mã định danh CSDL ngành = ' . $identifier;
+                    continue;
+                }
+
+                $studentId = (int) ($st['id'] ?? 0);
+                $lop = trim((string) ($st['lop'] ?? ''));
+                $khoi = (string) (detectGradeFromClassName($lop) ?? '');
+
+                $checkBase->execute([':exam_id' => $examId, ':student_id' => $studentId]);
+                if ($checkBase->fetch(PDO::FETCH_ASSOC)) {
+                    if ($examSbd !== '') {
+                        $updateBaseSbd->execute([':sbd' => $examSbd, ':exam_id' => $examId, ':student_id' => $studentId]);
+                        $updatedSbd++;
+                    }
+                } else {
+                    $insertBase->execute([
+                        ':exam_id' => $examId,
+                        ':student_id' => $studentId,
+                        ':khoi' => $khoi,
+                        ':lop' => $lop,
+                        ':sbd' => $examSbd !== '' ? $examSbd : null,
+                    ]);
+                    $created++;
+                }
+
+                foreach ($subjectColumnMap as $subjectIdRaw => $columnNameRaw) {
+                    $subjectId = (int) $subjectIdRaw;
+                    $columnName = trim((string) $columnNameRaw);
+                    if ($subjectId <= 0 || $columnName === '') {
+                        continue;
+                    }
+                    $cellValue = $row[$columnName] ?? '';
+                    if (!isTruthyRegistrationValue($cellValue)) {
+                        continue;
+                    }
+
+                    $insRegister->execute([':exam_id' => $examId, ':student_id' => $studentId, ':subject_id' => $subjectId]);
+                    $registered++;
+
+                    if (!isset($sortBySubject[$subjectId])) {
+                        $maxSort++;
+                        $sortBySubject[$subjectId] = $maxSort;
+                    }
+                    $insExamSubject->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':sort_order' => $sortBySubject[$subjectId]]);
+                }
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            exams_set_flash('error', 'Lỗi import excel: ' . $e->getMessage());
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
+            exit;
+        }
+
+        $msg = 'Import thành công. Tạo mới ' . $created . ' học sinh vào kỳ thi, cập nhật SBD ' . $updatedSbd . ' dòng, ghi nhận đăng ký môn ' . $registered . ' lượt.';
+        if (!empty($errorsImport)) {
+            $msg .= ' Có ' . count($errorsImport) . ' lỗi đối chiếu mã định danh.';
+        }
+        exams_set_flash('success', $msg);
+        if (!empty($errorsImport)) {
+            exams_set_flash('warning', implode(' | ', array_slice($errorsImport, 0, 10)) . (count($errorsImport) > 10 ? ' ...' : ''));
+        }
+
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
         exit;
     }
 
@@ -314,6 +446,7 @@ if ($examId > 0) {
 $totalPages = max(1, (int) ceil($totalSelected / $perPage));
 $wizard = $examId > 0 ? exams_wizard_steps($pdo, $examId) : [];
 $assignStudentsUrl = BASE_URL . '/modules/exams/assign_students.php';
+$subjectsForImportJs = $pdo->query('SELECT id, ten_mon FROM subjects ORDER BY ten_mon')->fetchAll(PDO::FETCH_ASSOC);
 
 require_once BASE_PATH . '/layout/header.php';
 ?>
@@ -327,22 +460,61 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-body">
                 <?= exams_display_flash(); ?>
 
-                <form method="get" action="<?= $assignStudentsUrl ?>" class="row g-2 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Kỳ thi</label>
-                        <?php if ($fixedExamContext): ?><input type="hidden" name="exam_id" value="<?= $examId ?>"><div class="form-control bg-light">#<?= $examId ?> - Kỳ thi hiện tại</div><?php else: ?><select name="exam_id" class="form-select" required>
-                            <option value="">-- Chọn kỳ thi --</option>
-                            <?php foreach ($exams as $exam): ?>
-                                <option value="<?= (int) $exam['id'] ?>" <?= $examId === (int) $exam['id'] ? 'selected' : '' ?>>#<?= (int) $exam['id'] ?> - <?= htmlspecialchars((string) $exam['ten_ky_thi'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars((string) $exam['nam'], ENT_QUOTES, 'UTF-8') ?>)</option>
-                            <?php endforeach; ?>
-                        </select><?php endif; ?>
-                    </div>
-                    <div class="col-md-3 align-self-end"><button class="btn btn-primary" type="submit">Tải dữ liệu</button></div>
-                </form>
+<?php if ($examId > 0): ?>
 
-                <?php if ($examId > 0): ?>
-                    <div class="mb-3 small text-muted">Đã gán: <strong><?= $assignedCount ?></strong> học sinh.</div>
-                    <div class="mb-3"><?php foreach ($wizard as $index => $step): ?><span class="badge <?= $step['done'] ? 'bg-success' : 'bg-secondary' ?> me-1">B<?= $index ?>: <?= htmlspecialchars($step['label'], ENT_QUOTES, 'UTF-8') ?></span><?php endforeach; ?></div>
+
+                    <div class="card border mb-3">
+                        <div class="card-header bg-light"><strong>📥 Import Excel gán học sinh + môn đăng ký (Mode 2)</strong></div>
+                        <div class="card-body">
+                            <form method="post" action="<?= $assignStudentsUrl ?>" id="excelImportForm">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="action" value="import_excel_map">
+                                <input type="hidden" name="import_rows_json" id="importRowsJson">
+                                <input type="hidden" name="subject_column_map_json" id="subjectColumnMapJson" value="{}">
+
+                                <div class="row g-2">
+                                    <div class="col-md-5">
+                                        <label class="form-label">File Excel</label>
+                                        <input type="file" class="form-control" id="excelImportFile" accept=".xlsx,.xls">
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-end">
+                                        <button class="btn btn-outline-primary w-100" type="button" id="btnLoadImportExcel">Đọc file</button>
+                                    </div>
+                                    <div class="col-md-5 d-flex align-items-end">
+                                        <small class="text-muted">Cột mã định danh sẽ đối chiếu với cột "SBD" trong danh mục học sinh hiện có.</small>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label">Cột Mã Định danh CSDL ngành</label>
+                                        <select class="form-select" name="identifier_column" id="identifierColumn" required></select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Cột SBD kỳ thi hiện tại</label>
+                                        <select class="form-select" name="exam_sbd_column" id="examSbdColumn" required></select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Mapping cột môn đăng ký</label>
+                                        <div id="subjectMappingContainer" class="border rounded p-2" style="max-height:160px;overflow:auto;"></div>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <div id="importPreviewErrors" class="small text-danger mb-2"></div>
+                                        <div class="table-responsive" style="max-height:220px;overflow:auto;">
+                                            <table class="table table-sm table-bordered" id="importPreviewTable">
+                                                <thead></thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 d-flex gap-2">
+                                        <button class="btn btn-success" type="submit">Import vào kỳ thi hiện tại</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
 
                     <ul class="nav nav-tabs" role="tablist">
                         <li class="nav-item"><button class="nav-link <?= $activeTab === 'manual' ? 'active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tab-manual" type="button">Mode A: Chọn thủ công</button></li>
@@ -367,7 +539,7 @@ require_once BASE_PATH . '/layout/header.php';
                                 <input type="hidden" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>">
                                 <div class="table-responsive" style="max-height:320px;overflow:auto;">
                                     <table class="table table-sm table-bordered">
-                                        <thead><tr><th></th><th>Họ tên</th><th>Lớp</th><th>SBD cũ</th><th>Trường</th><th>Khối detect</th></tr></thead>
+                                        <thead><tr><th></th><th>Họ tên</th><th>Lớp</th><th>Mã Định danh CSDL ngành</th><th>Trường</th><th>Khối detect</th></tr></thead>
                                         <tbody>
                                         <?php foreach ($students as $s): ?>
                                             <?php $khoi = detectGradeFromClassName((string) ($s['lop'] ?? '')) ?? 'N/A'; ?>
@@ -506,6 +678,84 @@ if (checkAllSelected) {
         });
     });
 }
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+const importSubjects = <?= json_encode($subjectsForImportJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+let importHeaders = [];
+let importRows = [];
+
+function fillColumnSelect(el, headers) {
+    el.innerHTML = '<option value="">-- Chọn cột --</option>' + headers.map(h => `<option value="${String(h).replace(/"/g,'&quot;')}">${h}</option>`).join('');
+}
+
+function buildSubjectMapping(headers) {
+    const box = document.getElementById('subjectMappingContainer');
+    if (!box) return;
+    box.innerHTML = '';
+    importSubjects.forEach((s) => {
+        const row = document.createElement('div');
+        row.className = 'form-check mb-1';
+        row.innerHTML = `<input class="form-check-input" type="checkbox" value="${s.id}" id="sub_${s.id}"> <label class="form-check-label" for="sub_${s.id}">${s.ten_mon}</label> <select class="form-select form-select-sm mt-1" data-subject-id="${s.id}"><option value="">-- Cột trong file --</option>${headers.map(h=>`<option value="${String(h).replace(/"/g,'&quot;')}">${h}</option>`).join('')}</select>`;
+        box.appendChild(row);
+    });
+}
+
+function renderImportPreview() {
+    const thead = document.querySelector('#importPreviewTable thead');
+    const tbody = document.querySelector('#importPreviewTable tbody');
+    if (!thead || !tbody) return;
+    thead.innerHTML = '<tr>' + importHeaders.slice(0, 12).map(h => `<th>${h}</th>`).join('') + '</tr>';
+    tbody.innerHTML = '';
+    importRows.slice(0, 20).forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = importHeaders.slice(0, 12).map(h => `<td>${(r[h] ?? '')}</td>`).join('');
+        tbody.appendChild(tr);
+    });
+}
+
+document.getElementById('btnLoadImportExcel')?.addEventListener('click', () => {
+    const f = document.getElementById('excelImportFile');
+    if (!f || !f.files || !f.files[0]) { alert('Vui lòng chọn file Excel.'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type: 'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const arr = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ''});
+        if (!arr.length) { alert('File rỗng.'); return; }
+        importHeaders = arr[0].map(v => String(v || '').trim()).filter(v => v !== '');
+        importRows = arr.slice(1).map(row => {
+            const obj = {};
+            importHeaders.forEach((h, i) => obj[h] = row[i] ?? '');
+            return obj;
+        });
+        fillColumnSelect(document.getElementById('identifierColumn'), importHeaders);
+        fillColumnSelect(document.getElementById('examSbdColumn'), importHeaders);
+        buildSubjectMapping(importHeaders);
+        renderImportPreview();
+        document.getElementById('importRowsJson').value = JSON.stringify(importRows);
+        document.getElementById('importPreviewErrors').textContent = 'Đã đọc ' + importRows.length + ' dòng dữ liệu.';
+    };
+    reader.readAsArrayBuffer(f.files[0]);
+});
+
+document.getElementById('excelImportForm')?.addEventListener('submit', (e) => {
+    const rowsJson = document.getElementById('importRowsJson');
+    if (!rowsJson || rowsJson.value.trim() === '') { e.preventDefault(); alert('Chưa có dữ liệu file excel.'); return; }
+
+    const mapping = {};
+    document.querySelectorAll('#subjectMappingContainer select[data-subject-id]').forEach(sel => {
+        const sid = sel.getAttribute('data-subject-id');
+        const cb = document.getElementById('sub_' + sid);
+        if (cb && cb.checked && sel.value) {
+            mapping[sid] = sel.value;
+        }
+    });
+    document.getElementById('subjectColumnMapJson').value = JSON.stringify(mapping);
+});
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
