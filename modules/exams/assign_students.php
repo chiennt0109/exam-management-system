@@ -528,8 +528,12 @@ require_once BASE_PATH . '/layout/header.php';
                                         <div id="subjectMappingContainer" class="border rounded p-2" style="max-height:160px;overflow:auto;"></div>
                                     </div>
 
+                                    <div class="col-12 d-flex gap-2">
+                                        <button class="btn btn-outline-secondary btn-sm" type="button" id="btnApplyMapping">Áp dụng mapping</button>
+                                        <div id="importPreviewErrors" class="small text-muted align-self-center"></div>
+                                    </div>
                                     <div class="col-12">
-                                        <div id="importPreviewErrors" class="small text-danger mb-2"></div>
+
                                         <div class="table-responsive" style="max-height:220px;overflow:auto;">
                                             <table class="table table-sm table-bordered" id="importPreviewTable">
                                                 <thead></thead>
@@ -765,17 +769,53 @@ function buildSubjectMapping(headers) {
     });
 }
 
-function renderImportPreview() {
+function collectSubjectMapping() {
+    const mapping = {};
+    document.querySelectorAll('#subjectMappingContainer select[data-subject-id]').forEach(sel => {
+        const sid = sel.getAttribute('data-subject-id');
+        const cb = document.getElementById('sub_' + sid);
+        if (cb && cb.checked && sel.value) {
+            mapping[sid] = sel.value;
+        }
+    });
+    return mapping;
+}
+
+function renderImportPreview(applyMapping = false) {
     const thead = document.querySelector('#importPreviewTable thead');
     const tbody = document.querySelector('#importPreviewTable tbody');
+    const info = document.getElementById('importPreviewErrors');
     if (!thead || !tbody) return;
-    thead.innerHTML = '<tr>' + importHeaders.slice(0, 12).map(h => `<th>${h}</th>`).join('') + '</tr>';
+
+    const identifierCol = document.getElementById('identifierColumn')?.value || '';
+    const examSbdCol = document.getElementById('examSbdColumn')?.value || '';
+    const subjectMapping = collectSubjectMapping();
+
+    let previewCols = importHeaders.slice(0, 12);
+    if (applyMapping) {
+        previewCols = [];
+        if (identifierCol) previewCols.push(identifierCol);
+        if (examSbdCol && !previewCols.includes(examSbdCol)) previewCols.push(examSbdCol);
+        Object.values(subjectMapping).forEach((col) => {
+            if (col && !previewCols.includes(col)) previewCols.push(col);
+        });
+        if (previewCols.length === 0) {
+            previewCols = importHeaders.slice(0, 12);
+        }
+    }
+
+    thead.innerHTML = '<tr>' + previewCols.map(h => `<th>${h}</th>`).join('') + '</tr>';
     tbody.innerHTML = '';
     importRows.slice(0, 20).forEach(r => {
         const tr = document.createElement('tr');
-        tr.innerHTML = importHeaders.slice(0, 12).map(h => `<td>${(r[h] ?? '')}</td>`).join('');
+        tr.innerHTML = previewCols.map(h => `<td>${(r[h] ?? '')}</td>`).join('');
         tbody.appendChild(tr);
     });
+
+    if (info) {
+        const mappedCount = Object.keys(subjectMapping).length;
+        info.textContent = `Đã đọc ${importRows.length} dòng. Đang mapping: ${mappedCount} môn.`;
+    }
 }
 
 document.getElementById('btnLoadImportExcel')?.addEventListener('click', () => {
@@ -799,25 +839,26 @@ document.getElementById('btnLoadImportExcel')?.addEventListener('click', () => {
         autoPickHeader(document.getElementById('identifierColumn'), importHeaders, ['ma csdl nganh', 'ma dinh danh csdl nganh', 'ma dinh danh']);
         autoPickHeader(document.getElementById('examSbdColumn'), importHeaders, ['sbd', 'so bao danh']);
         buildSubjectMapping(importHeaders);
-        renderImportPreview();
+        renderImportPreview(false);
         document.getElementById('importRowsJson').value = JSON.stringify(importRows);
-        document.getElementById('importPreviewErrors').textContent = 'Đã đọc ' + importRows.length + ' dòng dữ liệu.';
     };
     reader.readAsArrayBuffer(f.files[0]);
 });
+
+
+document.getElementById('btnApplyMapping')?.addEventListener('click', () => {
+    renderImportPreview(true);
+});
+
+document.getElementById('identifierColumn')?.addEventListener('change', () => renderImportPreview(true));
+document.getElementById('examSbdColumn')?.addEventListener('change', () => renderImportPreview(true));
+document.getElementById('subjectMappingContainer')?.addEventListener('change', () => renderImportPreview(true));
 
 document.getElementById('excelImportForm')?.addEventListener('submit', (e) => {
     const rowsJson = document.getElementById('importRowsJson');
     if (!rowsJson || rowsJson.value.trim() === '') { e.preventDefault(); alert('Chưa có dữ liệu file excel.'); return; }
 
-    const mapping = {};
-    document.querySelectorAll('#subjectMappingContainer select[data-subject-id]').forEach(sel => {
-        const sid = sel.getAttribute('data-subject-id');
-        const cb = document.getElementById('sub_' + sid);
-        if (cb && cb.checked && sel.value) {
-            mapping[sid] = sel.value;
-        }
-    });
+    const mapping = collectSubjectMapping();
     if (Object.keys(mapping).length === 0) {
         e.preventDefault();
         alert('Vui lòng chọn ít nhất 1 môn và cột mapping tương ứng.');
