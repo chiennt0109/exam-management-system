@@ -13,6 +13,9 @@ if ($examId <= 0) {
     exit;
 }
 $fixedExamContext = getCurrentExamId() > 0;
+$examModeStmt = $pdo->prepare('SELECT exam_mode FROM exams WHERE id = :id LIMIT 1');
+$examModeStmt->execute([':id' => $examId]);
+$examMode = exams_normalize_exam_mode($examModeStmt->fetchColumn() ?: 1);
 exams_debug_log_context($pdo, $examId);
 $mode = (string) ($_POST['mode'] ?? 'manual');
 $activeTab = (string) ($_GET['tab'] ?? $_POST['tab'] ?? 'manual');
@@ -181,7 +184,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $subjectColumnMap = array_filter($subjectColumnMap, static fn($v, $k): bool => (int) $k > 0 && trim((string) $v) !== '', ARRAY_FILTER_USE_BOTH);
-        if (empty($subjectColumnMap)) {
+        $allowSubjectRegistrationImport = $examMode === 2;
+        if ($allowSubjectRegistrationImport && empty($subjectColumnMap)) {
             exams_set_flash('error', 'Vui lòng mapping ít nhất 1 môn đăng ký từ file Excel.');
             header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
             exit;
@@ -244,7 +248,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $created++;
                 }
 
-                foreach (array_keys($subjectColumnMap) as $mappedSubjectId) {
+                if ($allowSubjectRegistrationImport) {
+                    foreach (array_keys($subjectColumnMap) as $mappedSubjectId) {
                     $mappedSubjectId = (int) $mappedSubjectId;
                     if ($mappedSubjectId <= 0) {
                         continue;
@@ -252,7 +257,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $delRegisterBySubjectSet->execute([':exam_id' => $examId, ':student_id' => $studentId, ':subject_id' => $mappedSubjectId]);
                 }
 
-                foreach ($subjectColumnMap as $subjectIdRaw => $columnNameRaw) {
+                    foreach ($subjectColumnMap as $subjectIdRaw => $columnNameRaw) {
                     $subjectId = (int) $subjectIdRaw;
                     $columnName = trim((string) $columnNameRaw);
                     if ($subjectId <= 0 || $columnName === '') {
@@ -271,6 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $sortBySubject[$subjectId] = $maxSort;
                     }
                     $insExamSubject->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':sort_order' => $sortBySubject[$subjectId]]);
+                    }
                 }
             }
 
@@ -285,6 +291,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $msg = 'Import thành công. Tạo mới ' . $created . ' học sinh vào kỳ thi, cập nhật SBD ' . $updatedSbd . ' dòng, ghi nhận đăng ký môn ' . $registered . ' lượt.';
+        if (!$allowSubjectRegistrationImport) {
+            $msg .= ' Kỳ thi đang ở Chế độ 1 nên hệ thống bỏ qua dữ liệu đăng ký môn từ file import.';
+        }
         if (!empty($errorsImport)) {
             $msg .= ' Có ' . count($errorsImport) . ' lỗi đối chiếu mã định danh.';
         }
