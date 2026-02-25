@@ -36,8 +36,9 @@ if (function_exists('getCurrentExamId')) {
 <li><a href="<?= BASE_URL ?>/index.php">Dashboard</a></li>
 
 <?php if ($role === 'admin'): ?>
-    <li><a href="<?= BASE_URL ?>/modules/users/">Quản lý người dùng</a></li>
-    <li><a href="<?= BASE_URL ?>/modules/students/">Học sinh</a></li>
+    <li><a href="<?= BASE_URL ?>/modules/users/">👤 Quản lý người dùng</a></li>
+    <li><a href="<?= BASE_URL ?>/modules/classes/index.php">🏫 Quản lý lớp</a></li>
+    <li><a href="<?= BASE_URL ?>/modules/students/">🎓 Học sinh</a></li>
     <li><a href="<?= BASE_URL ?>/modules/subjects/">Môn học</a></li>
 <?php endif; ?>
 

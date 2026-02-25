@@ -4,6 +4,7 @@ require_once BASE_PATH . '/core/auth.php';
 require_login();
 require_role(['admin']);
 require_once BASE_PATH . '/core/db.php';
+require_once BASE_PATH . '/modules/classes/_common.php';
 
 $errors = [];
 
@@ -42,7 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $inserted++;
         }
 
-        header('Location: ' . BASE_URL . '/modules/students/index.php?msg=' . ($inserted > 0 ? 'created' : 'none_inserted'));
+        $syncResult = classes_sync_from_students($pdo);
+        $msg = $inserted > 0 ? 'created' : 'none_inserted';
+        $query = ['msg' => $msg];
+        if ((int) ($syncResult['created_count'] ?? 0) > 0) {
+            $query['classes_created'] = (int) $syncResult['created_count'];
+        }
+
+        header('Location: ' . BASE_URL . '/modules/students/index.php?' . http_build_query($query));
         exit;
     }
 }

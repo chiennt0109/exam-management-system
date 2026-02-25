@@ -7,6 +7,7 @@ require_once BASE_PATH . '/core/db.php';
 
 $keyword = trim($_GET['q'] ?? '');
 $flash = $_GET['msg'] ?? '';
+$classesCreated = max(0, (int) ($_GET['classes_created'] ?? 0));
 $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -249,6 +250,7 @@ require_once BASE_PATH . '/layout/header.php';
                     <div class="notice success">Đã xóa học sinh theo điều kiện lọc.</div>
                 <?php elseif ($flash === 'created'): ?>
                     <div class="notice success">Đã thêm học sinh mới.</div>
+                    <?php if ($classesCreated > 0): ?><div class="notice success">🏫 Tự động tạo mới <?= (int) $classesCreated ?> lớp trong Quản lý lớp.</div><?php endif; ?>
                 <?php elseif ($flash === 'updated'): ?>
                     <div class="notice success">Đã cập nhật thông tin học sinh.</div>
                 <?php elseif ($flash === 'deleted_one'): ?>
