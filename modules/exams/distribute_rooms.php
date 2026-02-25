@@ -625,11 +625,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     $groups = getConfiguredScopeGroups($pdo, $examId);
+                    $groups = array_values(array_filter($groups, static function (array $g): bool {
+                        $khoiValue = trim((string) ($g['khoi'] ?? ''));
+                        return $khoiValue !== '' && strtoupper($khoiValue) !== 'ALL';
+                    }));
+
+                    if (empty($groups)) {
+                        // Unified step-4 UI can store matrix subject configs with khoi=ALL.
+                        // Build mode-1 groups from matrix subjects x available grades in exam_students.
+                        $fallbackStmt = $pdo->prepare('SELECT DISTINCT ms.subject_id, es.khoi
+                            FROM exam_subjects ms
+                            INNER JOIN exam_students es ON es.exam_id = ms.exam_id AND es.subject_id IS NULL
+                            WHERE ms.exam_id = :exam_id AND es.khoi IS NOT NULL AND trim(es.khoi) <> ""
+                            ORDER BY ms.sort_order, ms.subject_id, es.khoi');
+                        $fallbackStmt->execute([':exam_id' => $examId]);
+                        foreach ($fallbackStmt->fetchAll(PDO::FETCH_ASSOC) as $gRow) {
+                            $groups[] = [
+                                'subject_id' => (int) ($gRow['subject_id'] ?? 0),
+                                'khoi' => (string) ($gRow['khoi'] ?? ''),
+                                'scope_mode' => 'entire_grade',
+                                'scope_identifier' => 'entire_grade',
+                                'classes' => [],
+                            ];
+                        }
+                    }
                 }
                 if (empty($groups)) {
                     throw new RuntimeException($examMode === 2
                         ? 'Chưa có dữ liệu ma trận môn để phân phòng (mode 2).'
-                        : 'Không có cấu hình môn/khối để phân phòng.');
+                        : 'Không có cấu hình môn/khối để phân phòng. Vui lòng kiểm tra lại bước 4.');
                 }
 
                 $roomCountStmt = $pdo->prepare('SELECT COUNT(*) FROM rooms WHERE exam_id = :exam_id');
