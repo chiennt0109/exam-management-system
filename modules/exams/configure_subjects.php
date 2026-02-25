@@ -53,17 +53,6 @@ $examRowStmt->execute([':id' => $examId]);
 $examRow = $examRowStmt->fetch(PDO::FETCH_ASSOC) ?: ['id' => $examId, 'ten_ky_thi' => '', 'exam_mode' => 1];
 $examMode = in_array((int)($examRow['exam_mode'] ?? 1), [1, 2], true) ? (int)$examRow['exam_mode'] : 1;
 
-$registeredCountStmt = $pdo->prepare('SELECT COUNT(*) FROM exam_student_subjects WHERE exam_id = :exam_id');
-$registeredCountStmt->execute([':exam_id' => $examId]);
-$registeredCount = (int) ($registeredCountStmt->fetchColumn() ?: 0);
-$effectiveExamMode = $examMode;
-$autoSwitchedByRegistration = false;
-if ($effectiveExamMode !== 2 && $registeredCount > 0) {
-    $effectiveExamMode = 2;
-    $autoSwitchedByRegistration = true;
-    $pdo->prepare('UPDATE exams SET exam_mode = 2 WHERE id = :id')->execute([':id' => $examId]);
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
         exams_set_flash('error', 'CSRF token không hợp lệ.');
@@ -453,13 +442,9 @@ require_once BASE_PATH . '/layout/header.php';
             <div class="card-body">
                 <?= exams_display_flash(); ?>
 
-                <div class="alert alert-info mb-3">Chế độ kỳ thi hiện tại: <strong><?= $effectiveExamMode === 2 ? '2 - Tốt nghiệp THPT' : '1 - Kiểm tra định kỳ' ?></strong>.
+                <div class="alert alert-info mb-3">Chế độ kỳ thi hiện tại: <strong><?= $examMode === 2 ? '2 - Tốt nghiệp THPT' : '1 - Kiểm tra định kỳ' ?></strong>.
                     <span class="ms-2 text-muted">(Thiết lập khi tạo kỳ thi mới)</span></div>
-                <?php if ($autoSwitchedByRegistration): ?>
-                    <div class="alert alert-warning mb-3">Đã phát hiện dữ liệu đăng ký môn theo học sinh, hệ thống tự chuyển hiển thị sang Chế độ 2 để đồng bộ ma trận môn.</div>
-                <?php endif; ?>
-
-                <?php if ($effectiveExamMode === 1): ?>
+                <?php if ($examMode === 1): ?>
                     <form method="post" class="border rounded p-3 mb-3" id="cfgForm">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="add">

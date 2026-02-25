@@ -274,10 +274,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            if ($registered > 0) {
-                $pdo->prepare('UPDATE exams SET exam_mode = 2 WHERE id = :id')->execute([':id' => $examId]);
-            }
-
             $pdo->commit();
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -289,9 +285,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $msg = 'Import thành công. Tạo mới ' . $created . ' học sinh vào kỳ thi, cập nhật SBD ' . $updatedSbd . ' dòng, ghi nhận đăng ký môn ' . $registered . ' lượt.';
-        if ($registered > 0) {
-            $msg .= ' Đã tự động chuyển kỳ thi sang Chế độ 2 để đồng bộ cấu hình môn.';
-        }
         if (!empty($errorsImport)) {
             $msg .= ' Có ' . count($errorsImport) . ' lỗi đối chiếu mã định danh.';
         }
