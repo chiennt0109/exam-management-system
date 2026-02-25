@@ -19,7 +19,9 @@ function classes_normalize_text(string $value): string
     if ($trans !== false) {
         $value = strtoupper($trans);
     }
-    return preg_replace('/\s+/', ' ', $value) ?? $value;
+
+    $value = preg_replace('/[^A-Z0-9]+/', ' ', $value) ?? $value;
+    return preg_replace('/\s+/', ' ', trim($value)) ?? $value;
 }
 
 function classes_detect_specialized_subject_id(string $className, array $subjectNameToId): ?int
@@ -31,10 +33,11 @@ function classes_detect_specialized_subject_id(string $className, array $subject
         ['keywords' => [' LY ', ' LÝ ', 'LY', 'LÝ'], 'subject' => 'VAT LY'],
     ];
 
+    $normalizedSpaced = ' ' . $normalized . ' ';
     foreach ($rules as $rule) {
         foreach ($rule['keywords'] as $kw) {
-            $kwNorm = classes_normalize_text((string) $kw);
-            if (str_contains(' ' . $normalized . ' ', ' ' . trim($kwNorm) . ' ')) {
+            $kwNorm = trim(classes_normalize_text((string) $kw));
+            if ($kwNorm !== '' && str_contains($normalizedSpaced, ' ' . $kwNorm . ' ')) {
                 foreach ($subjectNameToId as $nameNorm => $id) {
                     if (str_contains($nameNorm, (string) $rule['subject'])) {
                         return (int) $id;
