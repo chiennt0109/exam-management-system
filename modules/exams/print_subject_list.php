@@ -37,6 +37,26 @@ $subjects = array_values(array_filter($subjects, static function (array $sub): b
     return (int) ($sub['subject_id'] ?? 0) > 0;
 }));
 
+$preferredCoreSubjectIds = [];
+$subjectNorm = static function (string $value): string {
+    $v = mb_strtolower(trim($value), 'UTF-8');
+    $v = str_replace(['ă','â','á','à','ả','ã','ạ','đ','ê','é','è','ẻ','ẽ','ẹ','ô','ơ','ó','ò','ỏ','õ','ọ','ư','ú','ù','ủ','ũ','ụ','í','ì','ỉ','ĩ','ị','ý','ỳ','ỷ','ỹ','ỵ'],
+        ['a','a','a','a','a','a','a','d','e','e','e','e','e','e','o','o','o','o','o','o','o','u','u','u','u','u','u','i','i','i','i','i','y','y','y','y','y'], $v);
+    return preg_replace('/\s+/', ' ', $v) ?? $v;
+};
+foreach ($subjects as $sub) {
+    $nameNorm = $subjectNorm((string) ($sub['ten_mon'] ?? ''));
+    if (!isset($preferredCoreSubjectIds['toan']) && str_contains($nameNorm, 'toan')) {
+        $preferredCoreSubjectIds['toan'] = (int) ($sub['subject_id'] ?? 0);
+    }
+    if (!isset($preferredCoreSubjectIds['van']) && (str_contains($nameNorm, 'ngu van') || str_contains($nameNorm, 'van'))) {
+        $preferredCoreSubjectIds['van'] = (int) ($sub['subject_id'] ?? 0);
+    }
+    if (!isset($preferredCoreSubjectIds['anh']) && (str_contains($nameNorm, 'tieng anh') || str_contains($nameNorm, 'anh'))) {
+        $preferredCoreSubjectIds['anh'] = (int) ($sub['subject_id'] ?? 0);
+    }
+}
+
 $classStmt = $pdo->prepare('SELECT DISTINCT trim(st.lop) AS lop
     FROM exam_students es
     INNER JOIN students st ON st.id = es.student_id
@@ -114,12 +134,12 @@ if (!empty($studentIds) && !empty($subjects)) {
 }
 
 
-$subjectsForClassFromMap = static function(array $rows, array $roomMap) use ($subjects): array {
+$subjectsForClassFromMap = static function(array $rows, array $roomMap) use ($subjects, $preferredCoreSubjectIds): array {
     if (empty($rows) || empty($subjects)) {
         return [];
     }
 
-    $result = [];
+    $selectedById = [];
     foreach ($subjects as $sub) {
         $subId = (int) ($sub['subject_id'] ?? 0);
         if ($subId <= 0) {
@@ -129,13 +149,25 @@ $subjectsForClassFromMap = static function(array $rows, array $roomMap) use ($su
         foreach ($rows as $row) {
             $sid = (int) ($row['student_id'] ?? 0);
             if ($sid > 0 && array_key_exists($subId, $roomMap[$sid] ?? [])) {
-                $result[] = $sub;
+                $selectedById[$subId] = $sub;
                 break;
             }
         }
     }
 
-    return $result;
+    $ordered = [];
+    foreach (['toan', 'van', 'anh'] as $k) {
+        $sid = (int) ($preferredCoreSubjectIds[$k] ?? 0);
+        if ($sid > 0 && isset($selectedById[$sid])) {
+            $ordered[] = $selectedById[$sid];
+            unset($selectedById[$sid]);
+        }
+    }
+    foreach ($selectedById as $sub) {
+        $ordered[] = $sub;
+    }
+
+    return $ordered;
 };
 
 if ($export === '1') {
