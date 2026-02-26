@@ -1,0 +1,881 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/../../bootstrap.php';
+
+require_once BASE_PATH . '/modules/exams/_common.php';
+
+$csrf = exams_get_csrf_token();
+$exams = exams_get_all_exams($pdo);
+$examId = exams_resolve_current_exam_from_request();
+if ($examId <= 0) {
+    exams_set_flash('warning', 'Vui lòng chọn kỳ thi hiện tại trước khi thao tác.');
+    header('Location: ' . BASE_URL . '/modules/exams/index.php');
+    exit;
+}
+$fixedExamContext = getCurrentExamId() > 0;
+$examModeStmt = $pdo->prepare('SELECT exam_mode FROM exams WHERE id = :id LIMIT 1');
+$examModeStmt->execute([':id' => $examId]);
+$examMode = exams_normalize_exam_mode($examModeStmt->fetchColumn() ?: 1);
+exams_debug_log_context($pdo, $examId);
+$mode = (string) ($_POST['mode'] ?? 'manual');
+$activeTab = (string) ($_GET['tab'] ?? $_POST['tab'] ?? 'manual');
+$searchAssigned = trim((string) ($_GET['q_assigned'] ?? ''));
+$qManual = trim((string) ($_GET['q_manual'] ?? ''));
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = 20;
+
+$getFirstNameKey = static function(string $fullName): string {
+    $name = trim(preg_replace('/\s+/', ' ', $fullName) ?? '');
+    if ($name === '') {
+        return '';
+    }
+    $parts = explode(' ', $name);
+    return mb_strtolower((string) end($parts), 'UTF-8');
+};
+
+function backfillExamKhoi(PDO $pdo, int $examId): void
+{
+    if ($examId <= 0) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('SELECT id, lop FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL AND (khoi IS NULL OR trim(khoi) = "" OR lower(khoi) = "unknown")');
+    $stmt->execute([':exam_id' => $examId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($rows)) {
+        return;
+    }
+
+    $up = $pdo->prepare('UPDATE exam_students SET khoi = :khoi WHERE id = :id');
+    foreach ($rows as $row) {
+        $detected = detectGradeFromClassName((string) ($row['lop'] ?? ''));
+        if ($detected !== null && $detected !== '') {
+            $up->execute([':khoi' => $detected, ':id' => (int) $row['id']]);
+        }
+    }
+}
+
+
+function isTruthyRegistrationValue(mixed $value): bool
+{
+    if (is_numeric($value)) {
+        return (float) $value > 0;
+    }
+
+    $text = mb_strtolower(trim((string) $value), 'UTF-8');
+    if ($text === '') {
+        return false;
+    }
+
+    return in_array($text, ['1', 'x', '✓', 'v', 'co', 'có', 'yes', 'y', 'true', 'dang ky', 'đăng ký'], true);
+}
+
+function normalizeHeaderForMatch(string $value): string
+{
+    $value = trim(mb_strtolower($value, 'UTF-8'));
+    $trans = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+    if ($trans !== false) {
+        $value = strtolower($trans);
+    }
+
+    $value = preg_replace('/[^a-z0-9]+/', ' ', $value) ?? $value;
+    return trim(preg_replace('/\s+/', ' ', $value) ?? $value);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!exams_verify_csrf($_POST['csrf_token'] ?? null)) {
+        exams_set_flash('error', 'CSRF token không hợp lệ.');
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?exam_id=' . $examId);
+        exit;
+    }
+
+    try {
+        exams_guard_write_access($pdo, $examId);
+    } catch (Throwable $e) {
+        exams_set_flash('error', $e->getMessage());
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?exam_id=' . $examId);
+        exit;
+    }
+
+    if ($examId <= 0) {
+        exams_set_flash('error', 'Vui lòng chọn kỳ thi.');
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php');
+        exit;
+    }
+    if (exams_is_locked($pdo, $examId)) {
+        exams_set_flash('error', 'Kỳ thi đã khoá phân phòng, không thể chỉnh sửa danh sách học sinh.');
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php');
+        exit;
+    }
+
+    backfillExamKhoi($pdo, $examId);
+
+    $action = (string) ($_POST['action'] ?? 'add');
+    if ($action === 'remove_student') {
+        $studentId = (int) ($_POST['student_id'] ?? 0);
+        if ($studentId <= 0) {
+            exams_set_flash('error', 'Thiếu học sinh cần loại khỏi kỳ thi.');
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected']));
+            exit;
+        }
+
+        try {
+            $pdo->beginTransaction();
+            $del = $pdo->prepare('DELETE FROM exam_students WHERE exam_id = :exam_id AND student_id = :student_id');
+            $del->execute([':exam_id' => $examId, ':student_id' => $studentId]);
+            $pdo->commit();
+            exams_set_flash('success', 'Đã loại học sinh khỏi kỳ thi.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            exams_set_flash('error', 'Không thể loại học sinh khỏi kỳ thi.');
+        }
+
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected']));
+        exit;
+    }
+
+
+    if ($action === 'remove_selected') {
+        $studentIdsToRemove = array_values(array_unique(array_map('intval', (array) ($_POST['student_ids_remove'] ?? []))));
+        $studentIdsToRemove = array_values(array_filter($studentIdsToRemove, static fn(int $id): bool => $id > 0));
+        if (empty($studentIdsToRemove)) {
+            exams_set_flash('warning', 'Vui lòng chọn ít nhất một học sinh để loại khỏi kỳ thi.');
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected', 'q_assigned' => $searchAssigned, 'page' => $page]));
+            exit;
+        }
+
+        try {
+            $pdo->beginTransaction();
+            $placeholders = implode(',', array_fill(0, count($studentIdsToRemove), '?'));
+            $sql = "DELETE FROM exam_students WHERE exam_id = ? AND student_id IN ($placeholders)";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute(array_merge([$examId], $studentIdsToRemove));
+            $pdo->commit();
+            exams_set_flash('success', 'Đã loại các học sinh đã chọn khỏi kỳ thi.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            exams_set_flash('error', 'Không thể loại các học sinh đã chọn khỏi kỳ thi.');
+        }
+
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'selected', 'q_assigned' => $searchAssigned, 'page' => $page]));
+        exit;
+    }
+
+    if ($action === 'import_excel_map') {
+        $rows = json_decode((string) ($_POST['import_rows_json'] ?? '[]'), true);
+        $identifierColumn = trim((string) ($_POST['identifier_column'] ?? ''));
+        $examSbdColumn = trim((string) ($_POST['exam_sbd_column'] ?? ''));
+        $subjectColumnMap = json_decode((string) ($_POST['subject_column_map_json'] ?? '{}'), true);
+        $subjectColumnMap = is_array($subjectColumnMap) ? $subjectColumnMap : [];
+
+        if (!is_array($rows) || empty($rows)) {
+            exams_set_flash('error', 'Không có dữ liệu import hợp lệ.');
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
+            exit;
+        }
+        if ($identifierColumn === '' || $examSbdColumn === '') {
+            exams_set_flash('error', 'Thiếu cột mapping bắt buộc: Mã định danh CSDL ngành hoặc SBD kỳ thi.');
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
+            exit;
+        }
+
+        $subjectColumnMap = array_filter($subjectColumnMap, static fn($v, $k): bool => (int) $k > 0 && trim((string) $v) !== '', ARRAY_FILTER_USE_BOTH);
+        $allowSubjectRegistrationImport = $examMode === 2;
+        if ($allowSubjectRegistrationImport && empty($subjectColumnMap)) {
+            exams_set_flash('error', 'Vui lòng mapping ít nhất 1 môn đăng ký từ file Excel.');
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
+            exit;
+        }
+
+        $selStudentByIdentifier = $pdo->prepare('SELECT id, lop FROM students WHERE trim(coalesce(sbd, "")) = :identifier LIMIT 1');
+        $checkBase = $pdo->prepare('SELECT id FROM exam_students WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL LIMIT 1');
+        $insertBase = $pdo->prepare('INSERT INTO exam_students (exam_id, student_id, subject_id, khoi, lop, room_id, sbd) VALUES (:exam_id, :student_id, NULL, :khoi, :lop, NULL, :sbd)');
+        $updateBaseSbd = $pdo->prepare('UPDATE exam_students SET sbd = :sbd WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id IS NULL');
+        $insRegister = $pdo->prepare('INSERT OR IGNORE INTO exam_student_subjects (exam_id, student_id, subject_id) VALUES (:exam_id, :student_id, :subject_id)');
+        $delRegisterBySubjectSet = $pdo->prepare('DELETE FROM exam_student_subjects WHERE exam_id = :exam_id AND student_id = :student_id AND subject_id = :subject_id');
+        $insExamSubject = $pdo->prepare('INSERT OR IGNORE INTO exam_subjects (exam_id, subject_id, sort_order) VALUES (:exam_id, :subject_id, :sort_order)');
+
+        $created = 0;
+        $updatedSbd = 0;
+        $registered = 0;
+        $errorsImport = [];
+
+        try {
+            $pdo->beginTransaction();
+
+            $maxSort = (int) $pdo->query('SELECT COALESCE(MAX(sort_order), 0) FROM exam_subjects WHERE exam_id = ' . $examId)->fetchColumn();
+            $sortBySubject = [];
+
+            foreach ($rows as $idx => $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                $identifier = trim((string) ($row[$identifierColumn] ?? ''));
+                $examSbd = trim((string) ($row[$examSbdColumn] ?? ''));
+                if ($identifier === '') {
+                    continue;
+                }
+
+                $selStudentByIdentifier->execute([':identifier' => $identifier]);
+                $st = $selStudentByIdentifier->fetch(PDO::FETCH_ASSOC);
+                if (!$st) {
+                    $errorsImport[] = 'Dòng ' . ($idx + 1) . ': Không tìm thấy học sinh với Mã định danh CSDL ngành = ' . $identifier;
+                    continue;
+                }
+
+                $studentId = (int) ($st['id'] ?? 0);
+                $lop = trim((string) ($st['lop'] ?? ''));
+                $khoi = (string) (detectGradeFromClassName($lop) ?? '');
+
+                $checkBase->execute([':exam_id' => $examId, ':student_id' => $studentId]);
+                if ($checkBase->fetch(PDO::FETCH_ASSOC)) {
+                    if ($examSbd !== '') {
+                        $updateBaseSbd->execute([':sbd' => $examSbd, ':exam_id' => $examId, ':student_id' => $studentId]);
+                        $updatedSbd++;
+                    }
+                } else {
+                    $insertBase->execute([
+                        ':exam_id' => $examId,
+                        ':student_id' => $studentId,
+                        ':khoi' => $khoi,
+                        ':lop' => $lop,
+                        ':sbd' => $examSbd !== '' ? $examSbd : null,
+                    ]);
+                    $created++;
+                }
+
+                if ($allowSubjectRegistrationImport) {
+                    foreach (array_keys($subjectColumnMap) as $mappedSubjectId) {
+                    $mappedSubjectId = (int) $mappedSubjectId;
+                    if ($mappedSubjectId <= 0) {
+                        continue;
+                    }
+                    $delRegisterBySubjectSet->execute([':exam_id' => $examId, ':student_id' => $studentId, ':subject_id' => $mappedSubjectId]);
+                }
+
+                    foreach ($subjectColumnMap as $subjectIdRaw => $columnNameRaw) {
+                    $subjectId = (int) $subjectIdRaw;
+                    $columnName = trim((string) $columnNameRaw);
+                    if ($subjectId <= 0 || $columnName === '') {
+                        continue;
+                    }
+                    $cellValue = $row[$columnName] ?? '';
+                    if (!isTruthyRegistrationValue($cellValue)) {
+                        continue;
+                    }
+
+                    $insRegister->execute([':exam_id' => $examId, ':student_id' => $studentId, ':subject_id' => $subjectId]);
+                    $registered++;
+
+                    if (!isset($sortBySubject[$subjectId])) {
+                        $maxSort++;
+                        $sortBySubject[$subjectId] = $maxSort;
+                    }
+                    $insExamSubject->execute([':exam_id' => $examId, ':subject_id' => $subjectId, ':sort_order' => $sortBySubject[$subjectId]]);
+                    }
+                }
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            exams_set_flash('error', 'Lỗi import excel: ' . $e->getMessage());
+            header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
+            exit;
+        }
+
+        $msg = 'Import thành công. Tạo mới ' . $created . ' học sinh vào kỳ thi, cập nhật SBD ' . $updatedSbd . ' dòng, ghi nhận đăng ký môn ' . $registered . ' lượt.';
+        if (!$allowSubjectRegistrationImport) {
+            $msg .= ' Kỳ thi đang ở Chế độ 1 nên hệ thống bỏ qua dữ liệu đăng ký môn từ file import.';
+        }
+        if (!empty($errorsImport)) {
+            $msg .= ' Có ' . count($errorsImport) . ' lỗi đối chiếu mã định danh.';
+        }
+        exams_set_flash('success', $msg);
+        if (!empty($errorsImport)) {
+            exams_set_flash('warning', implode(' | ', array_slice($errorsImport, 0, 10)) . (count($errorsImport) > 10 ? ' ...' : ''));
+        }
+
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']));
+        exit;
+    }
+
+    /** @var array<int> $studentIds */
+    $studentIds = [];
+
+    if ($mode === 'manual') {
+        $studentIds = array_values(array_unique(array_map('intval', (array) ($_POST['student_ids'] ?? []))));
+    } elseif ($mode === 'class') {
+        $className = trim((string) ($_POST['class_name'] ?? ''));
+        if ($className !== '') {
+            $stmt = $pdo->prepare('SELECT id FROM students WHERE lop = :lop');
+            $stmt->execute([':lop' => $className]);
+            $studentIds = array_map('intval', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+        }
+    } elseif ($mode === 'filter') {
+        $exactClass = trim((string) ($_POST['filter_class'] ?? ''));
+        $grade = trim((string) ($_POST['filter_grade'] ?? ''));
+        $pattern = trim((string) ($_POST['filter_pattern'] ?? ''));
+
+        $where = [];
+        $params = [];
+        if ($exactClass !== '') {
+            $where[] = 'lop = :exact_class';
+            $params[':exact_class'] = $exactClass;
+        }
+        if ($pattern !== '') {
+            $where[] = 'lop LIKE :pattern';
+            $params[':pattern'] = '%' . $pattern . '%';
+        }
+
+        $sql = 'SELECT id, lop FROM students' . ($where ? (' WHERE ' . implode(' AND ', $where)) : '');
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $detected = detectGradeFromClassName((string) ($row['lop'] ?? ''));
+            if ($grade === '' || $detected === $grade) {
+                $studentIds[] = (int) $row['id'];
+            }
+        }
+        $studentIds = array_values(array_unique($studentIds));
+    }
+
+    if (empty($studentIds)) {
+        exams_set_flash('warning', 'Không có học sinh phù hợp để thêm vào kỳ thi.');
+        header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => $activeTab]));
+        exit;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        $selStudent = $pdo->prepare('SELECT id, lop FROM students WHERE id = :id LIMIT 1');
+        $check = $pdo->prepare('SELECT id FROM exam_students WHERE exam_id = :exam_id AND student_id = :student_id LIMIT 1');
+        $ins = $pdo->prepare('INSERT INTO exam_students (exam_id, student_id, subject_id, khoi, lop, room_id, sbd) VALUES (:exam_id, :student_id, NULL, :khoi, :lop, NULL, NULL)');
+
+        $added = 0;
+        $duplicateCount = 0;
+        foreach ($studentIds as $studentId) {
+            if ($studentId <= 0) {
+                continue;
+            }
+
+            $check->execute([':exam_id' => $examId, ':student_id' => $studentId]);
+            if ($check->fetch(PDO::FETCH_ASSOC)) {
+                $duplicateCount++;
+                continue;
+            }
+
+            $selStudent->execute([':id' => $studentId]);
+            $student = $selStudent->fetch(PDO::FETCH_ASSOC);
+            if (!$student) {
+                continue;
+            }
+
+            $lop = (string) ($student['lop'] ?? '');
+            $khoi = detectGradeFromClassName($lop) ?? '';
+            if ($khoi === '') {
+                continue;
+            }
+
+            $ins->execute([
+                ':exam_id' => $examId,
+                ':student_id' => $studentId,
+                ':khoi' => $khoi,
+                ':lop' => $lop,
+            ]);
+            $added++;
+        }
+
+        $pdo->commit();
+        if ($added > 0) {
+            $msg = 'Đã thêm ' . $added . ' học sinh vào kỳ thi.';
+            if ($duplicateCount > 0) {
+                $msg .= ' Bỏ qua ' . $duplicateCount . ' học sinh đã tồn tại trong kỳ thi này.';
+            }
+            exams_set_flash('success', $msg);
+        } else {
+            exams_set_flash('error', 'Học sinh đã tồn tại trong kỳ thi này.');
+        }
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        exams_set_flash('error', 'Lỗi khi thêm học sinh vào kỳ thi.');
+    }
+
+    header('Location: ' . BASE_URL . '/modules/exams/assign_students.php?' . http_build_query(['exam_id' => $examId, 'tab' => $activeTab]));
+    exit;
+}
+
+$classStmt = $pdo->query('SELECT DISTINCT lop FROM students WHERE lop IS NOT NULL AND lop <> "" ORDER BY lop');
+$classes = array_map(static fn(array $row): string => (string) $row['lop'], $classStmt->fetchAll(PDO::FETCH_ASSOC));
+
+$students = [];
+if ($examId > 0) {
+    backfillExamKhoi($pdo, $examId);
+    $manualWhere = '';
+    $manualParams = [];
+    if ($qManual !== '') {
+        $manualWhere = ' WHERE (hoten LIKE :q OR lop LIKE :q OR sbd LIKE :q OR truong LIKE :q)';
+        $manualParams[':q'] = '%' . $qManual . '%';
+    }
+    $stmt = $pdo->prepare('SELECT id, sbd, hoten, lop, truong FROM students' . $manualWhere . ' ORDER BY lop, hoten LIMIT 500');
+    foreach ($manualParams as $k => $v) {
+        $stmt->bindValue($k, $v);
+    }
+    $stmt->execute();
+    $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+$assignedCount = 0;
+$selectedRows = [];
+$totalSelected = 0;
+if ($examId > 0) {
+    $assignedCount = (int) $pdo->query('SELECT COUNT(*) FROM exam_students WHERE exam_id = ' . $examId . ' AND subject_id IS NULL')->fetchColumn();
+
+    $where = ' WHERE es.exam_id = :exam_id AND es.subject_id IS NULL';
+    $params = [':exam_id' => $examId];
+    if ($searchAssigned !== '') {
+        $where .= ' AND (s.hoten LIKE :q OR es.lop LIKE :q OR es.sbd LIKE :q)';
+        $params[':q'] = '%' . $searchAssigned . '%';
+    }
+
+    $countStmt = $pdo->prepare('SELECT COUNT(*) FROM exam_students es INNER JOIN students s ON s.id = es.student_id' . $where);
+    $countStmt->execute($params);
+    $totalSelected = (int) $countStmt->fetchColumn();
+
+    $listStmt = $pdo->prepare('SELECT es.student_id, es.khoi, es.lop, es.sbd, s.hoten
+        FROM exam_students es
+        INNER JOIN students s ON s.id = es.student_id' . $where);
+    foreach ($params as $k => $v) {
+        $listStmt->bindValue($k, $v);
+    }
+    $listStmt->execute();
+    $selectedRows = $listStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    usort($selectedRows, static function(array $a, array $b) use ($getFirstNameKey): int {
+        $classCmp = strcmp(trim((string) ($a['lop'] ?? '')), trim((string) ($b['lop'] ?? '')));
+        if ($classCmp !== 0) {
+            return $classCmp;
+        }
+
+        $nameKeyCmp = strcmp(
+            $getFirstNameKey((string) ($a['hoten'] ?? '')),
+            $getFirstNameKey((string) ($b['hoten'] ?? ''))
+        );
+        if ($nameKeyCmp !== 0) {
+            return $nameKeyCmp;
+        }
+
+        return strcmp((string) ($a['hoten'] ?? ''), (string) ($b['hoten'] ?? ''));
+    });
+
+    $offset = ($page - 1) * $perPage;
+    $selectedRows = array_slice($selectedRows, $offset, $perPage);
+}
+
+$totalPages = max(1, (int) ceil($totalSelected / $perPage));
+$wizard = $examId > 0 ? exams_wizard_steps($pdo, $examId) : [];
+$assignStudentsUrl = BASE_URL . '/modules/exams/assign_students.php';
+$subjectsForImportJs = $pdo->query('SELECT id, ten_mon FROM subjects ORDER BY ten_mon')->fetchAll(PDO::FETCH_ASSOC);
+
+require_once BASE_PATH . '/layout/header.php';
+?>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<div style="display:flex;min-height:calc(100vh - 44px);">
+    <?php require_once BASE_PATH . '/layout/sidebar.php'; ?>
+    <div style="flex:1;padding:20px;min-width:0;">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white"><strong>Bước 2: Gán học sinh vào kỳ thi</strong></div>
+            <div class="card-body">
+                <?= exams_display_flash(); ?>
+
+<?php if ($examId > 0): ?>
+
+
+                    <div class="card border mb-3">
+                        <div class="card-header bg-light"><strong>📥 Import Excel gán học sinh + môn đăng ký (Mode 2)</strong></div>
+                        <div class="card-body">
+                            <form method="post" action="<?= $assignStudentsUrl ?>" id="excelImportForm">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="action" value="import_excel_map">
+                                <input type="hidden" name="import_rows_json" id="importRowsJson">
+                                <input type="hidden" name="subject_column_map_json" id="subjectColumnMapJson" value="{}">
+
+                                <div class="row g-2">
+                                    <div class="col-md-5">
+                                        <label class="form-label">File Excel</label>
+                                        <input type="file" class="form-control" id="excelImportFile" accept=".xlsx,.xls">
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-end">
+                                        <button class="btn btn-outline-primary w-100" type="button" id="btnLoadImportExcel">Đọc file</button>
+                                    </div>
+                                    <div class="col-md-5 d-flex align-items-end">
+                                        <small class="text-muted">Cột mã định danh sẽ đối chiếu với cột "SBD" trong danh mục học sinh hiện có.</small>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <label class="form-label">Cột Mã Định danh CSDL ngành</label>
+                                        <select class="form-select" name="identifier_column" id="identifierColumn" required></select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Cột SBD kỳ thi hiện tại</label>
+                                        <select class="form-select" name="exam_sbd_column" id="examSbdColumn" required></select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Mapping cột môn đăng ký</label>
+                                        <div id="subjectMappingContainer" class="border rounded p-2" style="max-height:160px;overflow:auto;"></div>
+                                    </div>
+
+                                    <div class="col-12 d-flex gap-2">
+                                        <button class="btn btn-outline-secondary btn-sm" type="button" id="btnApplyMapping">Áp dụng mapping</button>
+                                        <div id="importPreviewErrors" class="small text-muted align-self-center"></div>
+                                    </div>
+                                    <div class="col-12">
+
+                                        <div class="table-responsive" style="max-height:220px;overflow:auto;">
+                                            <table class="table table-sm table-bordered" id="importPreviewTable">
+                                                <thead></thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 d-flex gap-2">
+                                        <button class="btn btn-success" type="submit">Import vào kỳ thi hiện tại</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item"><button class="nav-link <?= $activeTab === 'manual' ? 'active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tab-manual" type="button">Mode A: Chọn thủ công</button></li>
+                        <li class="nav-item"><button class="nav-link <?= $activeTab === 'class' ? 'active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tab-class" type="button">Mode B: Theo lớp</button></li>
+                        <li class="nav-item"><button class="nav-link <?= $activeTab === 'filter' ? 'active' : '' ?>" data-bs-toggle="tab" data-bs-target="#tab-filter" type="button">Mode C: Theo bộ lọc</button></li>
+                    </ul>
+                    <div class="tab-content border border-top-0 p-3 mb-3">
+                        <div class="tab-pane fade <?= $activeTab === 'manual' ? 'show active' : '' ?>" id="tab-manual">
+                            <form method="get" action="<?= $assignStudentsUrl ?>" class="row g-2 mb-2">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="tab" value="manual">
+                                <input type="hidden" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>">
+                                <div class="col-md-5"><input class="form-control" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>" placeholder="Tìm theo tên / lớp / SBD / trường"></div>
+                                <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Lọc</button></div>
+                                <?php if ($qManual !== ''): ?><div class="col-md-2"><a class="btn btn-outline-secondary" href="<?= $assignStudentsUrl . '?' . http_build_query(['exam_id' => $examId, 'tab' => 'manual']) ?>">Xóa lọc</a></div><?php endif; ?>
+                            </form>
+                            <form method="post" action="<?= $assignStudentsUrl ?>">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="mode" value="manual">
+                                <input type="hidden" name="tab" value="manual">
+                                <input type="hidden" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>">
+                                <div class="table-responsive" style="max-height:320px;overflow:auto;">
+                                    <table class="table table-sm table-bordered">
+                                        <thead><tr><th></th><th>Họ tên</th><th>Lớp</th><th>Mã Định danh CSDL ngành</th><th>Trường</th><th>Khối detect</th></tr></thead>
+                                        <tbody>
+                                        <?php foreach ($students as $s): ?>
+                                            <?php $khoi = detectGradeFromClassName((string) ($s['lop'] ?? '')) ?? 'N/A'; ?>
+                                            <tr>
+                                                <td><input type="checkbox" name="student_ids[]" value="<?= (int) $s['id'] ?>"></td>
+                                                <td><?= htmlspecialchars((string) $s['hoten'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) $s['lop'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) $s['sbd'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars((string) $s['truong'], ENT_QUOTES, 'UTF-8') ?></td>
+                                                <td><?= htmlspecialchars($khoi, ENT_QUOTES, 'UTF-8') ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <button class="btn btn-success mt-2" type="submit">Thêm theo chọn tay</button>
+                            </form>
+                        </div>
+
+                        <div class="tab-pane fade <?= $activeTab === 'class' ? 'show active' : '' ?>" id="tab-class">
+                            <form method="post" class="row g-2">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="mode" value="class">
+                                <input type="hidden" name="tab" value="class">
+                                <div class="col-md-6">
+                                    <label class="form-label">Chọn lớp</label>
+                                    <select class="form-select" name="class_name" required>
+                                        <option value="">-- Chọn lớp --</option>
+                                        <?php foreach ($classes as $className): ?><option value="<?= htmlspecialchars($className, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($className, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 align-self-end"><button class="btn btn-success" type="submit">Thêm toàn bộ lớp</button></div>
+                            </form>
+                        </div>
+
+                        <div class="tab-pane fade <?= $activeTab === 'filter' ? 'show active' : '' ?>" id="tab-filter">
+                            <form method="post" class="row g-2">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="mode" value="filter">
+                                <input type="hidden" name="tab" value="filter">
+                                <div class="col-md-4"><label class="form-label">Lớp chính xác</label><input class="form-control" name="filter_class" placeholder="VD: 11A1"></div>
+                                <div class="col-md-4"><label class="form-label">Mẫu lớp (contains)</label><input class="form-control" name="filter_pattern" placeholder="VD: A"></div>
+                                <div class="col-md-2"><label class="form-label">Khối</label><input class="form-control" name="filter_grade" placeholder="VD: 11"></div>
+                                <div class="col-md-2 align-self-end"><button class="btn btn-success w-100" type="submit">Thêm theo bộ lọc</button></div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card border">
+                        <div class="card-header bg-light"><strong>Danh sách đã chọn vào kỳ thi</strong></div>
+                        <div class="card-body">
+                            <form method="get" action="<?= $assignStudentsUrl ?>" class="row g-2 mb-3">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="tab" value="selected">
+                                <input type="hidden" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>">
+                                <div class="col-md-4"><input class="form-control" name="q_assigned" value="<?= htmlspecialchars($searchAssigned, ENT_QUOTES, 'UTF-8') ?>" placeholder="Lọc theo tên / lớp / SBD"></div>
+                                <div class="col-md-2"><button class="btn btn-outline-primary" type="submit">Lọc</button></div>
+                            </form>
+
+                            <form method="post" action="<?= $assignStudentsUrl ?>" onsubmit="return confirm('Loại các học sinh đã chọn khỏi kỳ thi?')">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="exam_id" value="<?= $examId ?>">
+                                <input type="hidden" name="tab" value="selected">
+                                <input type="hidden" name="q_assigned" value="<?= htmlspecialchars($searchAssigned, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="q_manual" value="<?= htmlspecialchars($qManual, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="hidden" name="page" value="<?= $page ?>">
+                                <input type="hidden" name="action" value="remove_selected">
+
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered align-middle">
+                                        <thead><tr><th style="width:40px;"><input type="checkbox" id="checkAllSelected"></th><th>Họ tên</th><th>Lớp</th><th>Khối</th><th>SBD</th></tr></thead>
+                                        <tbody>
+                                        <?php if (empty($selectedRows)): ?>
+                                            <tr><td colspan="5" class="text-center">Chưa có học sinh được gắn.</td></tr>
+                                        <?php else: ?>
+                                            <?php $currentClass = null; foreach ($selectedRows as $r): ?>
+                                                <?php $rowClass = trim((string) ($r['lop'] ?? '')); if ($rowClass === '') { $rowClass = 'Chưa phân lớp'; } ?>
+                                                <?php if ($currentClass !== $rowClass): $currentClass = $rowClass; ?>
+                                                    <tr><td colspan="5" style="background:#eef2ff;font-weight:700;color:#1d4ed8;">Lớp: <?= htmlspecialchars($currentClass, ENT_QUOTES, 'UTF-8') ?></td></tr>
+                                                <?php endif; ?>
+                                                <tr>
+                                                    <td><input type="checkbox" class="selected-student-checkbox" name="student_ids_remove[]" value="<?= (int) $r['student_id'] ?>"></td>
+                                                    <td><?= htmlspecialchars((string) ($r['hoten'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                    <td><?= htmlspecialchars((string) ($r['lop'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                    <td><?= htmlspecialchars((string) ($r['khoi'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                    <td><?= htmlspecialchars((string) ($r['sbd'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <button class="btn btn-sm btn-outline-danger mb-2" type="submit" <?= empty($selectedRows) ? 'disabled' : '' ?>>Loại học sinh đã chọn</button>
+                            </form>
+
+                            <?php if ($totalPages > 1): ?>
+                                <?php
+                                    $windowStart = max(1, $page - 10);
+                                    $windowEnd = min($totalPages, $page + 10);
+                                    $pageLink = static fn(int $target): string => $assignStudentsUrl . '?' . http_build_query(['exam_id' => $examId, 'page' => $target, 'q_assigned' => $searchAssigned, 'q_manual' => $qManual, 'tab' => 'selected']);
+                                ?>
+                                <nav>
+                                    <ul class="pagination pagination-sm flex-wrap">
+                                        <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>"><a class="page-link" href="<?= $page <= 1 ? '#' : $pageLink(1) ?>">Trang đầu</a></li>
+                                        <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>"><a class="page-link" href="<?= $page <= 1 ? '#' : $pageLink($page - 1) ?>">Trang trước</a></li>
+
+                                        <?php for ($i = $windowStart; $i <= $windowEnd; $i++): ?>
+                                            <li class="page-item <?= $i === $page ? 'active' : '' ?>">
+                                                <a class="page-link" href="<?= $pageLink($i) ?>"><?= $i ?></a>
+                                            </li>
+                                        <?php endfor; ?>
+
+                                        <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>"><a class="page-link" href="<?= $page >= $totalPages ? '#' : $pageLink($page + 1) ?>">Trang sau</a></li>
+                                        <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>"><a class="page-link" href="<?= $page >= $totalPages ? '#' : $pageLink($totalPages) ?>">Trang cuối</a></li>
+                                    </ul>
+                                </nav>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+const checkAllSelected = document.getElementById('checkAllSelected');
+if (checkAllSelected) {
+    checkAllSelected.addEventListener('change', () => {
+        document.querySelectorAll('.selected-student-checkbox').forEach((cb) => {
+            cb.checked = checkAllSelected.checked;
+        });
+    });
+}
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+const importSubjects = <?= json_encode($subjectsForImportJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+let importHeaders = [];
+let importRows = [];
+
+function normalizeHeaderJs(v) {
+    return String(v || '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function fillColumnSelect(el, headers) {
+    el.innerHTML = '<option value="">-- Chọn cột --</option>' + headers.map(h => `<option value="${String(h).replace(/"/g,'&quot;')}">${h}</option>`).join('');
+}
+
+function autoPickHeader(selectEl, headers, aliases) {
+    if (!selectEl) return;
+    const found = headers.find(h => {
+        const n = normalizeHeaderJs(h);
+        return aliases.some(a => n.includes(a));
+    });
+    if (found) {
+        selectEl.value = found;
+    }
+}
+
+function buildSubjectMapping(headers) {
+    const box = document.getElementById('subjectMappingContainer');
+    if (!box) return;
+    box.innerHTML = '';
+    importSubjects.forEach((s) => {
+        const row = document.createElement('div');
+        row.className = 'form-check mb-1';
+        row.innerHTML = `<input class="form-check-input" type="checkbox" value="${s.id}" id="sub_${s.id}"> <label class="form-check-label" for="sub_${s.id}">${s.ten_mon}</label> <select class="form-select form-select-sm mt-1" data-subject-id="${s.id}"><option value="">-- Cột trong file --</option>${headers.map(h=>`<option value="${String(h).replace(/"/g,'&quot;')}">${h}</option>`).join('')}</select>`;
+        box.appendChild(row);
+
+        const sel = row.querySelector('select[data-subject-id]');
+        const cb = row.querySelector('input[type="checkbox"]');
+        const subjectNorm = normalizeHeaderJs(s.ten_mon);
+        const found = headers.find(h => {
+            const hn = normalizeHeaderJs(h);
+            return hn === subjectNorm || hn.includes(subjectNorm) || subjectNorm.includes(hn);
+        });
+        if (found && sel && cb) {
+            sel.value = found;
+            cb.checked = true;
+        }
+    });
+}
+
+function collectSubjectMapping() {
+    const mapping = {};
+    document.querySelectorAll('#subjectMappingContainer select[data-subject-id]').forEach(sel => {
+        const sid = sel.getAttribute('data-subject-id');
+        const cb = document.getElementById('sub_' + sid);
+        if (cb && cb.checked && sel.value) {
+            mapping[sid] = sel.value;
+        }
+    });
+    return mapping;
+}
+
+function renderImportPreview(applyMapping = false) {
+    const thead = document.querySelector('#importPreviewTable thead');
+    const tbody = document.querySelector('#importPreviewTable tbody');
+    const info = document.getElementById('importPreviewErrors');
+    if (!thead || !tbody) return;
+
+    const identifierCol = document.getElementById('identifierColumn')?.value || '';
+    const examSbdCol = document.getElementById('examSbdColumn')?.value || '';
+    const subjectMapping = collectSubjectMapping();
+
+    let previewCols = importHeaders.slice(0, 12);
+    if (applyMapping) {
+        previewCols = [];
+        if (identifierCol) previewCols.push(identifierCol);
+        if (examSbdCol && !previewCols.includes(examSbdCol)) previewCols.push(examSbdCol);
+        Object.values(subjectMapping).forEach((col) => {
+            if (col && !previewCols.includes(col)) previewCols.push(col);
+        });
+        if (previewCols.length === 0) {
+            previewCols = importHeaders.slice(0, 12);
+        }
+    }
+
+    thead.innerHTML = '<tr>' + previewCols.map(h => `<th>${h}</th>`).join('') + '</tr>';
+    tbody.innerHTML = '';
+    importRows.slice(0, 20).forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = previewCols.map(h => `<td>${(r[h] ?? '')}</td>`).join('');
+        tbody.appendChild(tr);
+    });
+
+    if (info) {
+        const mappedCount = Object.keys(subjectMapping).length;
+        info.textContent = `Đã đọc ${importRows.length} dòng. Đang mapping: ${mappedCount} môn.`;
+    }
+}
+
+document.getElementById('btnLoadImportExcel')?.addEventListener('click', () => {
+    const f = document.getElementById('excelImportFile');
+    if (!f || !f.files || !f.files[0]) { alert('Vui lòng chọn file Excel.'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type: 'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const arr = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ''});
+        if (!arr.length) { alert('File rỗng.'); return; }
+        importHeaders = arr[0].map(v => String(v || '').trim()).filter(v => v !== '');
+        importRows = arr.slice(1).map(row => {
+            const obj = {};
+            importHeaders.forEach((h, i) => obj[h] = row[i] ?? '');
+            return obj;
+        });
+        fillColumnSelect(document.getElementById('identifierColumn'), importHeaders);
+        fillColumnSelect(document.getElementById('examSbdColumn'), importHeaders);
+        autoPickHeader(document.getElementById('identifierColumn'), importHeaders, ['ma csdl nganh', 'ma dinh danh csdl nganh', 'ma dinh danh']);
+        autoPickHeader(document.getElementById('examSbdColumn'), importHeaders, ['sbd', 'so bao danh']);
+        buildSubjectMapping(importHeaders);
+        renderImportPreview(false);
+        document.getElementById('importRowsJson').value = JSON.stringify(importRows);
+    };
+    reader.readAsArrayBuffer(f.files[0]);
+});
+
+
+document.getElementById('btnApplyMapping')?.addEventListener('click', () => {
+    renderImportPreview(true);
+});
+
+document.getElementById('identifierColumn')?.addEventListener('change', () => renderImportPreview(true));
+document.getElementById('examSbdColumn')?.addEventListener('change', () => renderImportPreview(true));
+document.getElementById('subjectMappingContainer')?.addEventListener('change', () => renderImportPreview(true));
+
+document.getElementById('excelImportForm')?.addEventListener('submit', (e) => {
+    const rowsJson = document.getElementById('importRowsJson');
+    if (!rowsJson || rowsJson.value.trim() === '') { e.preventDefault(); alert('Chưa có dữ liệu file excel.'); return; }
+
+    const mapping = collectSubjectMapping();
+    if (Object.keys(mapping).length === 0) {
+        e.preventDefault();
+        alert('Vui lòng chọn ít nhất 1 môn và cột mapping tương ứng.');
+        return;
+    }
+    document.getElementById('subjectColumnMapJson').value = JSON.stringify(mapping);
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<?php require_once BASE_PATH . '/layout/footer.php'; ?>
