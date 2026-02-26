@@ -505,10 +505,16 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
 
     $plan = [
         'feasible' => true,
-        'total_rooms_used' => 0,
-        'total_sessions' => 0,
+        'total_rooms' => 0,
+        'total_sessions_day2' => 0,
         'room_assignment' => [],
-        'session_schedule' => [],
+        'schedule' => [
+            'day_1' => [
+                'morning' => 'Ngữ văn',
+                'afternoon' => 'Toán',
+            ],
+            'day_2' => [],
+        ],
         'suggestions' => [],
         'khoi_plans' => [],
     ];
@@ -523,18 +529,29 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         $neededRooms = (int) ceil($studentCount / max(1, $capacityPerRoom));
         if ($neededRooms > $maxRooms) {
             $plan['feasible'] = false;
-            $plan['suggestions'][] = 'Khối ' . $khoi . ': cần ít nhất ' . $neededRooms . ' phòng với sĩ số ' . $capacityPerRoom . '. Tăng số phòng hoặc tăng sĩ số/phòng.';
+            $suggestedCapacity = (int) ceil($studentCount / max(1, $maxRooms));
+            $plan['suggestions'][] = 'Khối ' . $khoi . ': cần ít nhất ' . $neededRooms . ' phòng. Gợi ý tăng sĩ số/phòng lên ' . $suggestedCapacity . ' hoặc tăng số phòng.';
             continue;
         }
 
         $roomAssignment = [];
+        $roomAssignmentOut = [];
+        $roomStudentMap = [];
         foreach ($students as $idx => $st) {
-            $roomIndex = intdiv($idx, max(1, $capacityPerRoom)) + 1;
             $sid = (int) ($st['student_id'] ?? 0);
             if ($sid <= 0) {
                 continue;
             }
+            $roomIndex = intdiv($idx, max(1, $capacityPerRoom)) + 1;
+            $roomKey = 'room_' . $roomIndex;
             $roomAssignment[$sid] = $roomIndex;
+            $roomAssignmentOut[$roomKey][] = [
+                'student_id' => $sid,
+                'name' => (string) ($st['hoten'] ?? ''),
+                'sbd' => (string) ($st['sbd'] ?? ''),
+                'lop' => (string) ($st['lop'] ?? ''),
+            ];
+            $roomStudentMap[$roomIndex][] = $sid;
         }
 
         $subjectRooms = [];
@@ -545,6 +562,9 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                 continue;
             }
             $roomIndex = (int) ($roomAssignment[$sid] ?? 0);
+            if ($roomIndex <= 0) {
+                continue;
+            }
             foreach (($subjectsByStudent[$sid] ?? []) as $subId) {
                 $subjectStudentCount[$subId] = (int) ($subjectStudentCount[$subId] ?? 0) + 1;
                 $subjectRooms[$subId][$roomIndex] = true;
@@ -557,7 +577,7 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
             if ($roomsNeeded[$subId] > $maxRooms) {
                 $plan['feasible'] = false;
                 $requiredCapacity = (int) ceil(((int) ($subjectStudentCount[$subId] ?? 0)) / max(1, $maxRooms));
-                $plan['suggestions'][] = 'Khối ' . $khoi . ': môn #' . $subId . ' cần ' . $roomsNeeded[$subId] . ' phòng (> ' . $maxRooms . '). Gợi ý tăng sĩ số/phòng lên ít nhất ' . $requiredCapacity . '.';
+                $plan['suggestions'][] = 'Khối ' . $khoi . ': môn #' . $subId . ' cần ' . $roomsNeeded[$subId] . ' phòng (> ' . $maxRooms . '). Gợi ý tăng sĩ số/phòng lên ít nhất ' . $requiredCapacity . ' hoặc tăng số phòng.';
             }
         }
 
@@ -570,29 +590,17 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         $sessions = [];
         foreach ($items as $item) {
             $subId = (int) $item['subject_id'];
-            $roomSet = $subjectRooms[$subId] ?? [];
+            $roomSet = (array) ($subjectRooms[$subId] ?? []);
             $placed = false;
 
             foreach ($sessions as &$session) {
-                $hasOverlap = false;
-                foreach ($roomSet as $roomIndex => $_flag) {
-                    if (!empty($session['rooms'][$roomIndex])) {
-                        $hasOverlap = true;
-                        break;
-                    }
-                }
-                if ($hasOverlap) {
-                    continue;
-                }
-
-                $unionRooms = $session['rooms'];
+                $unionRooms = (array) ($session['rooms'] ?? []);
                 foreach ($roomSet as $roomIndex => $_flag) {
                     $unionRooms[$roomIndex] = true;
                 }
                 if (count($unionRooms) > $maxRooms) {
                     continue;
                 }
-
                 $session['subjects'][] = $subId;
                 $session['rooms'] = $unionRooms;
                 $placed = true;
@@ -605,47 +613,46 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
             }
         }
 
-        $sumRoomsNeeded = array_sum(array_values($roomsNeeded));
-        $theoreticalMin = (int) ceil($sumRoomsNeeded / max(1, $maxRooms));
-        if (count($sessions) > $theoreticalMin) {
-            $plan['suggestions'][] = 'Khối ' . $khoi . ': số ca thực tế (' . count($sessions) . ') lớn hơn cận dưới lý thuyết (' . $theoreticalMin . '). Có thể thử tăng sĩ số/phòng để giảm ca.';
-        }
+        $day2Schedule = [];
+        foreach ($sessions as $idx => $session) {
+            $sessionNo = $idx + 1;
+            $halfDayIndex = intdiv($idx, 2);
+            $caInHalfDay = ($idx % 2) + 1;
+            $halfDayLabel = ($halfDayIndex % 2 === 0) ? 'Sáng' : 'Chiều';
+            $day2Label = 'Ngày 2 - ' . $halfDayLabel . ' - Ca ' . $caInHalfDay;
+            $sessionKey = 'session_' . $sessionNo;
 
-        $plan['total_rooms_used'] = max((int) $plan['total_rooms_used'], $neededRooms);
-        $plan['total_sessions'] = max((int) $plan['total_sessions'], count($sessions));
-
-        $roomAssignmentOut = [];
-        foreach ($students as $st) {
-            $sid = (int) ($st['student_id'] ?? 0);
-            if ($sid <= 0) {
-                continue;
+            $roomMap = [];
+            foreach ((array) ($session['rooms'] ?? []) as $roomIdx => $_flag) {
+                $roomKey = 'room_' . (int) $roomIdx;
+                $roomMap[$roomKey] = [];
             }
-            $roomAssignmentOut[(string) $sid] = [
-                'room' => generateRoomName('SUB', $khoi, 'entire_grade', (int) $roomAssignment[$sid]),
-                'name' => (string) ($st['hoten'] ?? ''),
+
+            foreach ((array) ($session['subjects'] ?? []) as $subId) {
+                foreach (array_keys((array) ($subjectRooms[$subId] ?? [])) as $roomIdx) {
+                    $roomKey = 'room_' . (int) $roomIdx;
+                    $roomMap[$roomKey][] = (int) $subId;
+                }
+            }
+
+            $day2Schedule[$sessionKey] = [
+                'label' => $day2Label,
+                'rooms' => $roomMap,
             ];
         }
 
-        $sessionSchedule = [];
-        foreach ($sessions as $i => $session) {
-            $roomMap = [];
-            foreach ($session['subjects'] as $subId) {
-                foreach (array_keys($subjectRooms[$subId] ?? []) as $roomIdx) {
-                    $roomName = generateRoomName('SUB', $khoi, 'entire_grade', (int) $roomIdx);
-                    $roomMap[$roomName][] = (int) $subId;
-                }
-            }
-            $sessionSchedule['session_' . ($i + 1)] = $roomMap;
-        }
-
+        $plan['total_rooms'] = max((int) $plan['total_rooms'], $neededRooms);
+        $plan['total_sessions_day2'] = max((int) $plan['total_sessions_day2'], count($sessions));
         $plan['room_assignment'][$khoi] = $roomAssignmentOut;
-        $plan['session_schedule'][$khoi] = $sessionSchedule;
+        $plan['schedule']['day_2'][$khoi] = $day2Schedule;
+
         $plan['khoi_plans'][$khoi] = [
             'students' => $students,
             'room_assignment' => $roomAssignment,
             'subject_rooms' => $subjectRooms,
             'sessions' => $sessions,
             'subjects_by_student' => $subjectsByStudent,
+            'room_students' => $roomStudentMap,
         ];
     }
 
@@ -933,9 +940,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
 
-                    if (!empty($mode2Plan['total_sessions']) && (int) $mode2Plan['total_sessions'] > 0) {
+                    if ((int) ($mode2Plan['total_sessions_day2'] ?? 0) > 0) {
                         $suggestionsText = !empty($suggestions) ? ' | Gợi ý tối ưu: ' . implode(' ', $suggestions) : '';
-                        exams_set_flash('success', 'Đã phân phòng tự động theo chế độ thi 2 với ' . (int) $mode2Plan['total_rooms_used'] . ' phòng cố định/ca, sĩ số tối đa ' . $mode2Capacity . ' học sinh/phòng. Số ca tối đa giữa các khối: ' . (int) $mode2Plan['total_sessions'] . '.' . $suggestionsText);
+                        exams_set_flash('success', 'Đã phân phòng tự động theo chế độ thi 2 với ' . (int) $mode2Plan['total_rooms'] . ' phòng cố định/ca, sĩ số tối đa ' . $mode2Capacity . ' học sinh/phòng. Số ca tối đa giữa các khối: ' . (int) $mode2Plan['total_sessions_day2'] . '.' . $suggestionsText);
                     } else {
                         exams_set_flash('warning', 'Không có dữ liệu học sinh đăng ký môn để phân phòng ở chế độ thi 2.');
                     }
