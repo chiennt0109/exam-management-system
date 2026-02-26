@@ -513,7 +513,8 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         'khoi_plans' => [],
     ];
 
-    foreach ($studentsByKhoi as $khoi => $students) {
+    foreach ($studentsByKhoi as $khoiKey => $students) {
+        $khoi = (string) $khoiKey;
         $studentCount = count($students);
         if ($studentCount === 0) {
             continue;
