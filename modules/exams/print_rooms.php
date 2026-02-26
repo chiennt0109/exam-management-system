@@ -270,8 +270,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             }
             $usedSheetNames[$sheetName] = true;
 
-            $isFormat1 = $export === 'format1';
-            $columnWidths = $isFormat1 ? [5,10,28,12,12,18] : [5,10,28,12,12,8,8,18];
+            $columnWidths = [5,10,28,12,12,8,8,18];
             echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '">';
             echo '<Table ss:ExpandedColumnCount="' . count($columnWidths) . '" ss:DefaultRowHeight="18">';
             foreach ($columnWidths as $w) {
@@ -316,7 +315,6 @@ if (in_array($export, ['format1', 'format2'], true)) {
             }
 
             echo '</Table>';
-            echo '<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><PageSetup><Layout x:Orientation="Portrait"/><PageMargins x:Top="0.7" x:Bottom="0.7" x:Left="0.7" x:Right="0.7"/></PageSetup><Print><ValidPrinterInfo/><PaperSizeIndex>9</PaperSizeIndex><FitWidth>1</FitWidth><FitHeight>1</FitHeight></Print></WorksheetOptions>';
             echo '</Worksheet>';
         }
 
