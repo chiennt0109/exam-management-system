@@ -464,6 +464,194 @@ function generateRoomName(string $subjectCode, string $khoi, string $scopeIdenti
     return str_pad((string) $roomIndex, 2, '0', STR_PAD_LEFT);
 }
 
+/**
+ * @return array<string,mixed>
+ */
+function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capacityPerRoom): array
+{
+    $baseStmt = $pdo->prepare('SELECT es.student_id, es.khoi, es.lop, es.sbd, st.hoten
+        FROM exam_students es
+        INNER JOIN students st ON st.id = es.student_id
+        WHERE es.exam_id = :exam_id AND es.subject_id IS NULL
+        ORDER BY es.student_id ASC');
+    $baseStmt->execute([':exam_id' => $examId]);
+    $baseRows = $baseStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $studentsByKhoi = [];
+    $allStudentIds = [];
+    foreach ($baseRows as $row) {
+        $studentId = (int) ($row['student_id'] ?? 0);
+        $khoi = trim((string) ($row['khoi'] ?? ''));
+        if ($studentId <= 0 || $khoi === '') {
+            continue;
+        }
+        $allStudentIds[] = $studentId;
+        $studentsByKhoi[$khoi][] = $row;
+    }
+
+    $subjectsByStudent = [];
+    if (!empty($allStudentIds)) {
+        $placeholders = implode(',', array_fill(0, count($allStudentIds), '?'));
+        $subStmt = $pdo->prepare('SELECT student_id, subject_id FROM exam_student_subjects WHERE exam_id = ? AND student_id IN (' . $placeholders . ') ORDER BY student_id, subject_id');
+        $subStmt->execute(array_merge([$examId], $allStudentIds));
+        foreach ($subStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $sid = (int) ($r['student_id'] ?? 0);
+            $subId = (int) ($r['subject_id'] ?? 0);
+            if ($sid > 0 && $subId > 0) {
+                $subjectsByStudent[$sid][] = $subId;
+            }
+        }
+    }
+
+    $plan = [
+        'feasible' => true,
+        'total_rooms_used' => 0,
+        'total_sessions' => 0,
+        'room_assignment' => [],
+        'session_schedule' => [],
+        'suggestions' => [],
+        'khoi_plans' => [],
+    ];
+
+    foreach ($studentsByKhoi as $khoiKey => $students) {
+        $khoi = (string) $khoiKey;
+        $studentCount = count($students);
+        if ($studentCount === 0) {
+            continue;
+        }
+
+        $neededRooms = (int) ceil($studentCount / max(1, $capacityPerRoom));
+        if ($neededRooms > $maxRooms) {
+            $plan['feasible'] = false;
+            $plan['suggestions'][] = 'Khối ' . $khoi . ': cần ít nhất ' . $neededRooms . ' phòng với sĩ số ' . $capacityPerRoom . '. Tăng số phòng hoặc tăng sĩ số/phòng.';
+            continue;
+        }
+
+        $roomAssignment = [];
+        foreach ($students as $idx => $st) {
+            $roomIndex = intdiv($idx, max(1, $capacityPerRoom)) + 1;
+            $sid = (int) ($st['student_id'] ?? 0);
+            if ($sid <= 0) {
+                continue;
+            }
+            $roomAssignment[$sid] = $roomIndex;
+        }
+
+        $subjectRooms = [];
+        $subjectStudentCount = [];
+        foreach ($students as $st) {
+            $sid = (int) ($st['student_id'] ?? 0);
+            if ($sid <= 0) {
+                continue;
+            }
+            $roomIndex = (int) ($roomAssignment[$sid] ?? 0);
+            foreach (($subjectsByStudent[$sid] ?? []) as $subId) {
+                $subjectStudentCount[$subId] = (int) ($subjectStudentCount[$subId] ?? 0) + 1;
+                $subjectRooms[$subId][$roomIndex] = true;
+            }
+        }
+
+        $roomsNeeded = [];
+        foreach ($subjectRooms as $subId => $roomSet) {
+            $roomsNeeded[$subId] = count($roomSet);
+            if ($roomsNeeded[$subId] > $maxRooms) {
+                $plan['feasible'] = false;
+                $requiredCapacity = (int) ceil(((int) ($subjectStudentCount[$subId] ?? 0)) / max(1, $maxRooms));
+                $plan['suggestions'][] = 'Khối ' . $khoi . ': môn #' . $subId . ' cần ' . $roomsNeeded[$subId] . ' phòng (> ' . $maxRooms . '). Gợi ý tăng sĩ số/phòng lên ít nhất ' . $requiredCapacity . '.';
+            }
+        }
+
+        $items = [];
+        foreach ($roomsNeeded as $subId => $need) {
+            $items[] = ['subject_id' => (int) $subId, 'need' => (int) $need];
+        }
+        usort($items, static fn(array $a, array $b): int => ($b['need'] <=> $a['need']) ?: ($a['subject_id'] <=> $b['subject_id']));
+
+        $sessions = [];
+        foreach ($items as $item) {
+            $subId = (int) $item['subject_id'];
+            $roomSet = $subjectRooms[$subId] ?? [];
+            $placed = false;
+
+            foreach ($sessions as &$session) {
+                $hasOverlap = false;
+                foreach ($roomSet as $roomIndex => $_flag) {
+                    if (!empty($session['rooms'][$roomIndex])) {
+                        $hasOverlap = true;
+                        break;
+                    }
+                }
+                if ($hasOverlap) {
+                    continue;
+                }
+
+                $unionRooms = $session['rooms'];
+                foreach ($roomSet as $roomIndex => $_flag) {
+                    $unionRooms[$roomIndex] = true;
+                }
+                if (count($unionRooms) > $maxRooms) {
+                    continue;
+                }
+
+                $session['subjects'][] = $subId;
+                $session['rooms'] = $unionRooms;
+                $placed = true;
+                break;
+            }
+            unset($session);
+
+            if (!$placed) {
+                $sessions[] = ['subjects' => [$subId], 'rooms' => $roomSet];
+            }
+        }
+
+        $sumRoomsNeeded = array_sum(array_values($roomsNeeded));
+        $theoreticalMin = (int) ceil($sumRoomsNeeded / max(1, $maxRooms));
+        if (count($sessions) > $theoreticalMin) {
+            $plan['suggestions'][] = 'Khối ' . $khoi . ': số ca thực tế (' . count($sessions) . ') lớn hơn cận dưới lý thuyết (' . $theoreticalMin . '). Có thể thử tăng sĩ số/phòng để giảm ca.';
+        }
+
+        $plan['total_rooms_used'] = max((int) $plan['total_rooms_used'], $neededRooms);
+        $plan['total_sessions'] = max((int) $plan['total_sessions'], count($sessions));
+
+        $roomAssignmentOut = [];
+        foreach ($students as $st) {
+            $sid = (int) ($st['student_id'] ?? 0);
+            if ($sid <= 0) {
+                continue;
+            }
+            $roomAssignmentOut[(string) $sid] = [
+                'room' => generateRoomName('SUB', $khoi, 'entire_grade', (int) $roomAssignment[$sid]),
+                'name' => (string) ($st['hoten'] ?? ''),
+            ];
+        }
+
+        $sessionSchedule = [];
+        foreach ($sessions as $i => $session) {
+            $roomMap = [];
+            foreach ($session['subjects'] as $subId) {
+                foreach (array_keys($subjectRooms[$subId] ?? []) as $roomIdx) {
+                    $roomName = generateRoomName('SUB', $khoi, 'entire_grade', (int) $roomIdx);
+                    $roomMap[$roomName][] = (int) $subId;
+                }
+            }
+            $sessionSchedule['session_' . ($i + 1)] = $roomMap;
+        }
+
+        $plan['room_assignment'][$khoi] = $roomAssignmentOut;
+        $plan['session_schedule'][$khoi] = $sessionSchedule;
+        $plan['khoi_plans'][$khoi] = [
+            'students' => $students,
+            'room_assignment' => $roomAssignment,
+            'subject_rooms' => $subjectRooms,
+            'sessions' => $sessions,
+            'subjects_by_student' => $subjectsByStudent,
+        ];
+    }
+
+    return $plan;
+}
+
 $csrf = exams_get_csrf_token();
 $exams = exams_get_all_exams($pdo);
 $subjects = $pdo->query('SELECT id, ma_mon, ten_mon FROM subjects ORDER BY ten_mon')->fetchAll(PDO::FETCH_ASSOC);
@@ -500,6 +688,8 @@ if ($activeTab !== 'unassigned') {
     $activeTab = 'unassigned';
 }
 $onlyIncomplete = ((string) ($_GET['only_incomplete'] ?? '1')) !== '0';
+$mode2MaxRoomsInput = max(1, (int) ($_POST['mode2_max_rooms'] ?? 5));
+$mode2CapacityInput = max(1, (int) ($_POST['mode2_capacity_per_room'] ?? 24));
 
 $ctx = $_SESSION['distribution_context'] ?? null;
 if ($examId > 0 && is_array($ctx) && (int) ($ctx['exam_id'] ?? 0) === $examId) {
@@ -585,19 +775,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $remainder = (string) ($_POST['remainder_option'] ?? REMAINDER_KEEP_SMALL);
                 $totalRooms = max(0, (int) ($_POST['total_rooms'] ?? 0));
                 $maxStudents = max(0, (int) ($_POST['max_students_per_room'] ?? 0));
+                $mode2MaxRooms = max(0, (int) ($_POST['mode2_max_rooms'] ?? 0));
+                $mode2Capacity = max(0, (int) ($_POST['mode2_capacity_per_room'] ?? 0));
                 $overwrite = (($_POST['overwrite_existing'] ?? '') === '1');
 
-                if (!in_array($mode, ['by_total_rooms', 'by_max_students'], true)) {
+                $mode2MaxRoomsInput = $mode2MaxRooms > 0 ? $mode2MaxRooms : $mode2MaxRoomsInput;
+                $mode2CapacityInput = $mode2Capacity > 0 ? $mode2Capacity : $mode2CapacityInput;
+
+                if ($examMode === 1 && !in_array($mode, ['by_total_rooms', 'by_max_students'], true)) {
                     throw new RuntimeException('Chế độ phân phòng không hợp lệ.');
                 }
-                if (!in_array($remainder, [REMAINDER_KEEP_SMALL, REMAINDER_REDISTRIBUTE], true)) {
+                if ($examMode === 1 && !in_array($remainder, [REMAINDER_KEEP_SMALL, REMAINDER_REDISTRIBUTE], true)) {
                     throw new RuntimeException('Tùy chọn xử lý dư không hợp lệ.');
                 }
-                if ($mode === 'by_total_rooms' && $totalRooms <= 0) {
+                if ($examMode === 1 && $mode === 'by_total_rooms' && $totalRooms <= 0) {
                     throw new RuntimeException('Số phòng phải > 0.');
                 }
-                if ($mode === 'by_max_students' && $maxStudents <= 0) {
+                if ($examMode === 1 && $mode === 'by_max_students' && $maxStudents <= 0) {
                     throw new RuntimeException('Số thí sinh tối đa mỗi phòng phải > 0.');
+                }
+                if ($examMode === 2 && $mode2MaxRooms <= 0) {
+                    throw new RuntimeException('Vui lòng nhập số phòng cố định sử dụng trong mỗi ca thi (mode 2).');
+                }
+                if ($examMode === 2 && $mode2Capacity <= 0) {
+                    throw new RuntimeException('Vui lòng nhập sĩ số tối đa của mỗi phòng (mode 2).');
                 }
 
                 $baseCountStmt = $pdo->prepare('SELECT COUNT(*) FROM exam_students WHERE exam_id = :exam_id AND subject_id IS NULL');
@@ -607,30 +808,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $groups = [];
-                if ($examMode === 2) {
-                    $groupStmt = $pdo->prepare('SELECT DISTINCT ess.subject_id, es.khoi
-                        FROM exam_student_subjects ess
-                        INNER JOIN exam_students es ON es.exam_id = ess.exam_id AND es.student_id = ess.student_id AND es.subject_id IS NULL
-                        WHERE ess.exam_id = :exam_id AND es.khoi IS NOT NULL AND trim(es.khoi) <> ""
-                        ORDER BY ess.subject_id, es.khoi');
-                    $groupStmt->execute([':exam_id' => $examId]);
-                    foreach ($groupStmt->fetchAll(PDO::FETCH_ASSOC) as $gRow) {
-                        $groups[] = [
-                            'subject_id' => (int) ($gRow['subject_id'] ?? 0),
-                            'khoi' => (string) ($gRow['khoi'] ?? ''),
-                            'scope_mode' => 'entire_grade',
-                            'scope_identifier' => 'entire_grade',
-                            'classes' => [],
-                        ];
-                    }
-                } else {
+                if ($examMode !== 2) {
                     $groups = getConfiguredScopeGroups($pdo, $examId);
                     $groups = array_values(array_filter($groups, static function (array $g): bool {
                         $khoiValue = trim((string) ($g['khoi'] ?? ''));
                         return $khoiValue !== '' && strtoupper($khoiValue) !== 'ALL';
                     }));
 
-                    if (empty($groups)) {
+                    if ($examMode !== 2 && empty($groups)) {
                         // Unified step-4 UI can store matrix subject configs with khoi=ALL.
                         // Build mode-1 groups from matrix subjects x available grades in exam_students.
                         $fallbackStmt = $pdo->prepare('SELECT DISTINCT ms.subject_id, es.khoi
@@ -650,7 +835,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                 }
-                if (empty($groups)) {
+                if ($examMode !== 2 && empty($groups)) {
                     throw new RuntimeException($examMode === 2
                         ? 'Chưa có dữ liệu ma trận môn để phân phòng (mode 2).'
                         : 'Không có cấu hình môn/khối để phân phòng. Vui lòng kiểm tra lại bước 4.');
@@ -677,7 +862,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $assignedInSubject = [];
                 $firstDistributedContext = null;
-                foreach ($groups as $g) {
+
+                if ($examMode === 2) {
+                    $mode2Plan = buildMode2FixedRoomPlan($pdo, $examId, $mode2MaxRooms, $mode2Capacity);
+                    $suggestions = array_values(array_unique(array_map(static fn(string $v): string => trim($v), (array) ($mode2Plan['suggestions'] ?? []))));
+                    if (empty($mode2Plan['feasible'])) {
+                        throw new RuntimeException('Không thể phân phòng theo chế độ thi 2 với thông số đã nhập. ' . implode(' ', $suggestions));
+                    }
+
+                    foreach ((array) ($mode2Plan['khoi_plans'] ?? []) as $gradeKhoi => $khoiPlan) {
+                        $studentsInKhoi = [];
+                        foreach ((array) ($khoiPlan['students'] ?? []) as $st) {
+                            $sid = (int) ($st['student_id'] ?? 0);
+                            if ($sid <= 0) {
+                                continue;
+                            }
+                            $studentsInKhoi[$sid] = $st;
+                        }
+
+                        $roomAssignment = (array) ($khoiPlan['room_assignment'] ?? []);
+                        $subjectRooms = (array) ($khoiPlan['subject_rooms'] ?? []);
+                        $subjectsByStudent = (array) ($khoiPlan['subjects_by_student'] ?? []);
+
+                        foreach ($subjectRooms as $subId => $roomSet) {
+                            $subIdInt = (int) $subId;
+                            if ($subIdInt <= 0) {
+                                continue;
+                            }
+
+                            $roomIndexes = array_map('intval', array_keys((array) $roomSet));
+                            sort($roomIndexes);
+                            $roomIdByIndex = [];
+                            foreach ($roomIndexes as $roomIndex) {
+                                $insertRoom->execute([
+                                    ':exam_id' => $examId,
+                                    ':subject_id' => $subIdInt,
+                                    ':khoi' => (string) $gradeKhoi,
+                                    ':ten' => generateRoomName('SUB', (string) $gradeKhoi, 'entire_grade', $roomIndex),
+                                    ':scope_identifier' => 'entire_grade',
+                                ]);
+                                $roomIdByIndex[$roomIndex] = (int) $pdo->lastInsertId();
+                            }
+
+                            foreach ($studentsInKhoi as $sid => $studentRow) {
+                                $registeredSubjects = array_map('intval', (array) ($subjectsByStudent[$sid] ?? []));
+                                if (!in_array($subIdInt, $registeredSubjects, true)) {
+                                    continue;
+                                }
+
+                                $assignedRoomIndex = (int) ($roomAssignment[$sid] ?? 0);
+                                $roomId = (int) ($roomIdByIndex[$assignedRoomIndex] ?? 0);
+                                if ($roomId <= 0) {
+                                    continue;
+                                }
+
+                                $insertExamStudent->execute([
+                                    ':exam_id' => $examId,
+                                    ':student_id' => $sid,
+                                    ':subject_id' => $subIdInt,
+                                    ':khoi' => (string) ($studentRow['khoi'] ?? $gradeKhoi),
+                                    ':lop' => (string) ($studentRow['lop'] ?? ''),
+                                    ':room_id' => $roomId,
+                                    ':sbd' => (string) ($studentRow['sbd'] ?? ''),
+                                ]);
+                            }
+
+                            if ($firstDistributedContext === null) {
+                                $firstDistributedContext = ['exam_id' => $examId, 'subject_id' => $subIdInt, 'khoi' => (string) $gradeKhoi];
+                            }
+                        }
+                    }
+
+                    if (!empty($mode2Plan['total_sessions']) && (int) $mode2Plan['total_sessions'] > 0) {
+                        $suggestionsText = !empty($suggestions) ? ' | Gợi ý tối ưu: ' . implode(' ', $suggestions) : '';
+                        exams_set_flash('success', 'Đã phân phòng tự động theo chế độ thi 2 với ' . (int) $mode2Plan['total_rooms_used'] . ' phòng cố định/ca, sĩ số tối đa ' . $mode2Capacity . ' học sinh/phòng. Số ca tối đa giữa các khối: ' . (int) $mode2Plan['total_sessions'] . '.' . $suggestionsText);
+                    } else {
+                        exams_set_flash('warning', 'Không có dữ liệu học sinh đăng ký môn để phân phòng ở chế độ thi 2.');
+                    }
+                }
+
+                if ($examMode === 1) {
+                    foreach ($groups as $g) {
+
                     $subId = (int) $g['subject_id'];
                     $groupKhoi = (string) $g['khoi'];
                     $scopeMode = (string) $g['scope_mode'];
@@ -765,13 +1031,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                }
+
                 $pdo->commit();
                 if ($firstDistributedContext !== null) {
                     $_SESSION['distribution_context'] = $firstDistributedContext;
                     $redirectParams['subject_id'] = (int) $firstDistributedContext['subject_id'];
                     $redirectParams['khoi'] = (string) $firstDistributedContext['khoi'];
                 }
-                exams_set_flash('success', 'Đã phân phòng tự động cho toàn bộ môn/khối theo cấu hình.');
+                if ($examMode === 1) {
+                    exams_set_flash('success', 'Đã phân phòng tự động cho toàn bộ môn/khối theo cấu hình.');
+                }
             } else {
                 if ($subjectId <= 0 || $khoi === '') {
                     throw new RuntimeException('Vui lòng chọn môn và khối để tinh chỉnh thủ công.');
@@ -1334,20 +1604,39 @@ require_once BASE_PATH . '/layout/header.php';
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                         <input type="hidden" name="action" value="auto_distribute">
                         <input type="hidden" name="exam_id" value="<?= $examId ?>">
-                                <input type="hidden" name="tab" value="adjust">
+                        <input type="hidden" name="tab" value="adjust">
                         <div class="row g-2">
-                            <div class="col-md-6">
-                                <label class="form-label d-block">Chế độ phân phòng tự động</label>
-                                <div class="form-check"><input class="form-check-input" type="radio" name="distribution_mode" value="by_total_rooms" checked><label class="form-check-label">Theo tổng số phòng</label></div>
-                                <div class="form-check"><input class="form-check-input" type="radio" name="distribution_mode" value="by_max_students"><label class="form-check-label">Theo sĩ số tối đa mỗi phòng</label></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label d-block">Xử lý phần dư</label>
-                                <div class="form-check"><input class="form-check-input" type="radio" name="remainder_option" value="keep_small" checked><label class="form-check-label">Giữ phòng cuối nhỏ hơn</label></div>
-                                <div class="form-check"><input class="form-check-input" type="radio" name="remainder_option" value="redistribute"><label class="form-check-label">Phân bổ lại phần dư</label></div>
-                            </div>
-                            <div class="col-md-3"><label class="form-label">Tổng số phòng / nhóm</label><input class="form-control" type="number" min="1" name="total_rooms" value="5"></div>
-                            <div class="col-md-3"><label class="form-label">Sĩ số tối đa / phòng</label><input class="form-control" type="number" min="1" name="max_students_per_room" value="24"></div>
+                            <?php if ($examMode === 2): ?>
+                                <div class="col-12">
+                                    <div class="alert alert-info mb-2 py-2">
+                                        <strong>Chế độ thi 2:</strong> Mỗi khối dùng <em>cố định số phòng theo ca</em>. Hãy nhập số phòng có thể mở mỗi ca và sĩ số tối đa/phòng để hệ thống lập phương án phòng - ca thi.
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Số phòng cố định / ca</label>
+                                    <input class="form-control" type="number" min="1" name="mode2_max_rooms" value="<?= (int) $mode2MaxRoomsInput ?>" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Sĩ số tối đa / phòng</label>
+                                    <input class="form-control" type="number" min="1" name="mode2_capacity_per_room" value="<?= (int) $mode2CapacityInput ?>" required>
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <small class="text-muted">Hệ thống tự tính số ca tối thiểu theo từng khối và đưa gợi ý tối ưu nếu cần điều chỉnh thông số.</small>
+                                </div>
+                            <?php else: ?>
+                                <div class="col-md-6">
+                                    <label class="form-label d-block">Chế độ phân phòng tự động</label>
+                                    <div class="form-check"><input class="form-check-input" type="radio" name="distribution_mode" value="by_total_rooms" checked><label class="form-check-label">Theo tổng số phòng</label></div>
+                                    <div class="form-check"><input class="form-check-input" type="radio" name="distribution_mode" value="by_max_students"><label class="form-check-label">Theo sĩ số tối đa mỗi phòng</label></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label d-block">Xử lý phần dư</label>
+                                    <div class="form-check"><input class="form-check-input" type="radio" name="remainder_option" value="keep_small" checked><label class="form-check-label">Giữ phòng cuối nhỏ hơn</label></div>
+                                    <div class="form-check"><input class="form-check-input" type="radio" name="remainder_option" value="redistribute"><label class="form-check-label">Phân bổ lại phần dư</label></div>
+                                </div>
+                                <div class="col-md-3"><label class="form-label">Tổng số phòng / nhóm</label><input class="form-control" type="number" min="1" name="total_rooms" value="5"></div>
+                                <div class="col-md-3"><label class="form-label">Sĩ số tối đa / phòng</label><input class="form-control" type="number" min="1" name="max_students_per_room" value="24"></div>
+                            <?php endif; ?>
                             <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" name="overwrite_existing" value="1" id="overwrite_existing"><label class="form-check-label" for="overwrite_existing">Cho phép ghi đè toàn bộ phân phòng của kỳ thi này</label></div><div id="overwriteWarningText" class="small text-danger mt-1 d-none">Cảnh báo: hệ thống sẽ xóa toàn bộ phòng và dữ liệu gán phòng hiện tại của kỳ thi này trước khi phân phòng lại.</div></div>
                             <div class="col-12 d-flex gap-2">
                                 <button class="btn btn-success" type="submit" <?= $examLocked ? 'disabled' : '' ?>>Phân phòng tự động</button>
