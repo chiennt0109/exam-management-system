@@ -241,10 +241,19 @@ if ($export === '1') {
         echo '<Style ss:ID="L"><Alignment ss:Horizontal="Left" ss:Vertical="Center"/><Borders><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>';
         echo '</Styles>';
 
+        $usedSheetNames = [];
         foreach ($classesToExport as $lop) {
             $rows = $allRowsByClass[$lop] ?? [];
             $classSubjects = $subjectsForClassFromMap($rows, $allRoomByStudentSubject);
-            $sheetName = substr((string) (preg_replace('/[\\\/*\[\]:\?]+/', '_', $lop) ?: 'Lop'), 0, 31);
+            $sheetBase = substr((string) (preg_replace('/[\\\/*\[\]:\?]+/', '_', $lop) ?: 'Lop'), 0, 28);
+            $sheetName = $sheetBase;
+            $suffix = 1;
+            while (isset($usedSheetNames[$sheetName])) {
+                $suffix++;
+                $sheetName = substr($sheetBase, 0, 28 - strlen((string) $suffix)) . $suffix;
+            }
+            $usedSheetNames[$sheetName] = true;
+
             $columnCount = 4 + count($classSubjects);
 
             echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '"><Table ss:ExpandedColumnCount="' . $columnCount . '">';
