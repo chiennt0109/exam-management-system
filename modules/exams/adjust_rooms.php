@@ -175,6 +175,8 @@ $classViewSubjectByStudent = [];
 $roomViewSubjects = [];
 $roomViewSubjectByStudent = [];
 $roomViewRoomByStudent = [];
+$roomViewMandatorySubjects = [];
+$roomViewOptionalSubjects = [];
 $totalRows = 0;
 $totalPages = 1;
 $offset = 0;
@@ -269,6 +271,21 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
             ORDER BY sub.ten_mon');
         $subColsStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
         $roomViewSubjects = $subColsStmt->fetchAll(PDO::FETCH_ASSOC);
+        $subTypeStmt = $pdo->prepare('SELECT id, COALESCE(is_mandatory,0) AS is_mandatory FROM subjects');
+        $subTypeStmt->execute();
+        $isMandatoryMap = [];
+        foreach ($subTypeStmt->fetchAll(PDO::FETCH_ASSOC) as $srow) {
+            $isMandatoryMap[(int) ($srow['id'] ?? 0)] = ((int) ($srow['is_mandatory'] ?? 0)) === 1;
+        }
+        foreach ($roomViewSubjects as $sub) {
+            $sid = (int) ($sub['subject_id'] ?? 0);
+            if ($sid <= 0) continue;
+            if (!empty($isMandatoryMap[$sid])) {
+                $roomViewMandatorySubjects[] = $sub;
+            } else {
+                $roomViewOptionalSubjects[] = $sub;
+            }
+        }
 
         $roomMapStmt = $pdo->prepare('SELECT es.student_id, es.subject_id, sub.ten_mon, r.ten_phong
             FROM exam_students es
@@ -450,10 +467,10 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered table-sm">
-                            <thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><?php if ($viewMode === 'class'): ?><?php foreach ($classViewSubjects as $sub): ?><th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?><?php else: ?><?php foreach ($roomViewSubjects as $sub): ?><th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?><th>Phòng thi</th><?php endif; ?></tr></thead>
+                            <thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><?php if ($viewMode === 'class'): ?><?php foreach ($classViewSubjects as $sub): ?><th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?><?php else: ?><th>Môn bắt buộc 1</th><th>Môn bắt buộc 2</th><th>Bài thi chọn số 1</th><th>Bài thi chọn số 2</th><th>Phòng thi</th><?php endif; ?></tr></thead>
                             <tbody>
                             <?php if (empty($pagedStudents)): ?>
-                                <tr><td colspan="<?= $viewMode === 'class' ? 5 + count($classViewSubjects) : 6 + count($roomViewSubjects) ?>" class="text-center">Không có dữ liệu phù hợp.</td></tr>
+                                <tr><td colspan="<?= $viewMode === 'class' ? 5 + count($classViewSubjects) : 10 ?>" class="text-center">Không có dữ liệu phù hợp.</td></tr>
                             <?php else: foreach ($pagedStudents as $idx => $st): ?>
                                 <tr>
                                     <td><?= $offset + $idx + 1 ?></td>
@@ -469,10 +486,24 @@ require_once BASE_PATH . '/layout/header.php';
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <?php $studentId = (int) ($st['student_id'] ?? 0); ?>
-                                        <?php foreach ($roomViewSubjects as $sub): ?>
-                                            <?php $subId = (int) ($sub['subject_id'] ?? 0); ?>
-                                            <td><?= htmlspecialchars((string) ($roomViewSubjectByStudent[$studentId][$subId] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <?php endforeach; ?>
+                                        <?php
+                                        $mandatoryVals = [];
+                                        foreach ($roomViewMandatorySubjects as $sub) {
+                                            $subId = (int) ($sub['subject_id'] ?? 0);
+                                            $val = trim((string) ($roomViewSubjectByStudent[$studentId][$subId] ?? ''));
+                                            if ($val !== '') $mandatoryVals[] = $val;
+                                        }
+                                        $optionalVals = [];
+                                        foreach ($roomViewOptionalSubjects as $sub) {
+                                            $subId = (int) ($sub['subject_id'] ?? 0);
+                                            $val = trim((string) ($roomViewSubjectByStudent[$studentId][$subId] ?? ''));
+                                            if ($val !== '') $optionalVals[] = $val;
+                                        }
+                                        ?>
+                                        <td><?= htmlspecialchars((string) ($mandatoryVals[0] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($mandatoryVals[1] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($optionalVals[0] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($optionalVals[1] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <td class="fw-bold text-center"><?= htmlspecialchars((string) ($roomViewRoomByStudent[$studentId] ?? ($roomMap[(int) ($st['room_id'] ?? 0)] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
                                     <?php endif; ?>
                                 </tr>
