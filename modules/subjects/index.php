@@ -5,8 +5,13 @@ require_login();
 require_role(['admin']);
 require_once BASE_PATH . '/core/db.php';
 
+$subjectCols = array_column($pdo->query('PRAGMA table_info(subjects)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+if (!in_array('is_mandatory', $subjectCols, true)) {
+    $pdo->exec('ALTER TABLE subjects ADD COLUMN is_mandatory INTEGER DEFAULT 0');
+}
+
 $flash = $_GET['msg'] ?? '';
-$stmt = $pdo->query('SELECT id, ma_mon, ten_mon, he_so FROM subjects ORDER BY id DESC');
+$stmt = $pdo->query('SELECT id, ma_mon, ten_mon, he_so, COALESCE(is_mandatory,0) AS is_mandatory FROM subjects ORDER BY id DESC');
 $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 require_once BASE_PATH . '/layout/header.php';
@@ -52,12 +57,13 @@ require_once BASE_PATH . '/layout/header.php';
                             <th>Mã môn</th>
                             <th>Tên môn</th>
                             <th>Hệ số</th>
+                            <th>Môn bắt buộc</th>
                             <th style="width:130px;">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($subjects)): ?>
-                            <tr><td colspan="5" style="text-align:center;">Chưa có môn học.</td></tr>
+                            <tr><td colspan="6" style="text-align:center;">Chưa có môn học.</td></tr>
                         <?php else: ?>
                             <?php foreach ($subjects as $subject): ?>
                                 <tr>
@@ -65,6 +71,7 @@ require_once BASE_PATH . '/layout/header.php';
                                     <td><?= htmlspecialchars($subject['ma_mon'], ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= htmlspecialchars($subject['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td>
                                     <td><?= htmlspecialchars((string) $subject['he_so'], ENT_QUOTES, 'UTF-8') ?></td>
+                                    <td><?= ((int) $subject['is_mandatory'] === 1) ? '✓' : '' ?></td>
                                     <td>
                                         <a class="btn btn-warning" href="<?= BASE_URL ?>/modules/subjects/edit.php?id=<?= (int) $subject['id'] ?>" title="Sửa">✏️</a>
                                         <a class="btn btn-danger" href="<?= BASE_URL ?>/modules/subjects/delete.php?id=<?= (int) $subject['id'] ?>" title="Xóa">🗑️</a>
