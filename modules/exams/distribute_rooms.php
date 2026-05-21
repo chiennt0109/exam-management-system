@@ -532,6 +532,16 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
 
     foreach ($studentsByKhoi as $khoiKey => $students) {
         $khoi = (string) $khoiKey;
+        // Bảo vệ dữ liệu lỗi: exam_students (subject_id IS NULL) có thể bị trùng student_id.
+        // Mode 2 cần mỗi học sinh đúng 1 suất phòng, nên chuẩn hoá theo student_id duy nhất.
+        $uniqueStudents = [];
+        foreach ($students as $st) {
+            $sid = (int) ($st['student_id'] ?? 0);
+            if ($sid > 0 && !isset($uniqueStudents[$sid])) {
+                $uniqueStudents[$sid] = $st;
+            }
+        }
+        $students = array_values($uniqueStudents);
         $studentCount = count($students);
         if ($studentCount === 0) {
             continue;
@@ -600,7 +610,7 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                     }
                 }
                 if ($bestRoom <= 0) {
-                    throw new RuntimeException('Không thể xếp đủ phòng với cấu hình hiện tại. Vui lòng tăng số phòng hoặc sĩ số/phòng.');
+                    throw new RuntimeException('Không thể xếp đủ phòng với cấu hình hiện tại (khối ' . $khoi . ', tối đa ' . $maxRooms . ' phòng, ' . $capacityPerRoom . ' HS/phòng). Vui lòng tăng số phòng hoặc sĩ số/phòng.');
                 }
                 $roomAssignment[$sid] = $bestRoom;
                 $roomMeta[$bestRoom]['students'][] = $sid;
