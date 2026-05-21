@@ -592,12 +592,18 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
 
         $roomMeta = [];
         for ($i = 1; $i <= $maxRooms; $i++) {
-            $roomMeta[$i] = ['students' => [], 'subjects' => []];
+            $roomMeta[$i] = ['students' => [], 'subjects' => [], 'opt_slot_1' => 0, 'opt_slot_2' => 0];
         }
 
         $roomAssignment = [];
         foreach ($comboItems as $item) {
             $comboSubjects = normalizeSubjectList((array) ($item['subjects'] ?? []));
+            $comboOptionalSubjects = array_values(array_filter(
+                $comboSubjects,
+                static fn(int $subId): bool => !isset($mandatorySubjectIds[$subId])
+            ));
+            $comboSlot1 = (int) ($comboOptionalSubjects[0] ?? 0);
+            $comboSlot2 = (int) ($comboOptionalSubjects[1] ?? 0);
             foreach ((array) ($item['student_ids'] ?? []) as $sidRaw) {
                 $sid = (int) $sidRaw;
                 if ($sid <= 0) {
@@ -607,6 +613,15 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                 $bestScore = -1;
                 for ($roomIndex = 1; $roomIndex <= $maxRooms; $roomIndex++) {
                     if (count((array) ($roomMeta[$roomIndex]['students'] ?? [])) >= $capacityPerRoom) {
+                        continue;
+                    }
+                    // Ràng buộc cứng: 1 phòng chỉ bóc 1 đề/slot tự chọn trong cùng ca.
+                    $roomSlot1 = (int) ($roomMeta[$roomIndex]['opt_slot_1'] ?? 0);
+                    $roomSlot2 = (int) ($roomMeta[$roomIndex]['opt_slot_2'] ?? 0);
+                    if ($comboSlot1 > 0 && $roomSlot1 > 0 && $comboSlot1 !== $roomSlot1) {
+                        continue;
+                    }
+                    if ($comboSlot2 > 0 && $roomSlot2 > 0 && $comboSlot2 !== $roomSlot2) {
                         continue;
                     }
                     $existingSubjects = normalizeSubjectList((array) ($roomMeta[$roomIndex]['subjects'] ?? []));
@@ -638,6 +653,12 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                 }
                 $roomAssignment[$sid] = $bestRoom;
                 $roomMeta[$bestRoom]['students'][] = $sid;
+                if ($comboSlot1 > 0 && (int) ($roomMeta[$bestRoom]['opt_slot_1'] ?? 0) === 0) {
+                    $roomMeta[$bestRoom]['opt_slot_1'] = $comboSlot1;
+                }
+                if ($comboSlot2 > 0 && (int) ($roomMeta[$bestRoom]['opt_slot_2'] ?? 0) === 0) {
+                    $roomMeta[$bestRoom]['opt_slot_2'] = $comboSlot2;
+                }
                 $roomMeta[$bestRoom]['subjects'] = normalizeSubjectList(array_merge(
                     (array) ($roomMeta[$bestRoom]['subjects'] ?? []),
                     $comboSubjects
