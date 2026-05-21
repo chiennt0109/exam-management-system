@@ -17,6 +17,11 @@ if (!in_array('rooms_locked', $examCols, true)) {
     $pdo->exec('ALTER TABLE exams ADD COLUMN rooms_locked INTEGER DEFAULT 0');
 }
 
+$subjectCols = array_column($pdo->query('PRAGMA table_info(subjects)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+if (!in_array('is_mandatory', $subjectCols, true)) {
+    $pdo->exec('ALTER TABLE subjects ADD COLUMN is_mandatory INTEGER DEFAULT 0');
+}
+
 /**
  * @param array<int,string> $classes
  */
@@ -501,6 +506,11 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
     }
 
     $subjectsByStudent = [];
+    $mandatorySubjectIds = [];
+    $mandatoryStmt = $pdo->query('SELECT id FROM subjects WHERE COALESCE(is_mandatory,0) = 1');
+    foreach ($mandatoryStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $mandatorySubjectIds[(int) ($row['id'] ?? 0)] = true;
+    }
     if (!empty($allStudentIds)) {
         $placeholders = implode(',', array_fill(0, count($allStudentIds), '?'));
         $subStmt = $pdo->prepare('SELECT student_id, subject_id FROM exam_student_subjects WHERE exam_id = ? AND student_id IN (' . $placeholders . ') ORDER BY student_id, subject_id');
@@ -686,9 +696,39 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         foreach ($items as $item) {
             $subId = (int) $item['subject_id'];
             $roomSet = (array) ($subjectRooms[$subId] ?? []);
+            $isMandatory = isset($mandatorySubjectIds[$subId]);
+
+            if ($isMandatory) {
+                $sessions[] = ['subjects' => [$subId], 'rooms' => $roomSet];
+                continue;
+            }
             $placed = false;
 
             foreach ($sessions as &$session) {
+                $sessionSubjects = (array) ($session['subjects'] ?? []);
+                $hasMandatoryInSession = false;
+                foreach ($sessionSubjects as $ss) {
+                    if (isset($mandatorySubjectIds[(int) $ss])) {
+                        $hasMandatoryInSession = true;
+                        break;
+                    }
+                }
+                if ($hasMandatoryInSession) {
+                    continue;
+                }
+
+                // Mỗi phòng trong cùng một ca chỉ bóc 01 đề => không cho 2 môn dùng chung 1 phòng trong cùng session
+                $hasRoomConflict = false;
+                foreach ($roomSet as $roomIndex => $_flag) {
+                    if (!empty($session['rooms'][$roomIndex])) {
+                        $hasRoomConflict = true;
+                        break;
+                    }
+                }
+                if ($hasRoomConflict) {
+                    continue;
+                }
+
                 $unionRooms = (array) ($session['rooms'] ?? []);
                 foreach ($roomSet as $roomIndex => $_flag) {
                     $unionRooms[$roomIndex] = true;
