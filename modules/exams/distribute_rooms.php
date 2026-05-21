@@ -612,8 +612,10 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                     $existingSubjects = normalizeSubjectList((array) ($roomMeta[$roomIndex]['subjects'] ?? []));
                     $overlap = count(array_intersect($comboSubjects, $existingSubjects));
                     $penalty = count(array_diff($comboSubjects, $existingSubjects));
-                    $freeSeats = $capacityPerRoom - count((array) ($roomMeta[$roomIndex]['students'] ?? []));
-                    $score = ($overlap * 1000) - ($penalty * 10) + $freeSeats;
+                    $currentLoad = count((array) ($roomMeta[$roomIndex]['students'] ?? []));
+                    $freeSeats = $capacityPerRoom - $currentLoad;
+                    // Ưu tiên cân bằng sĩ số để tránh phòng quá ít thí sinh.
+                    $score = ($overlap * 1000) - ($penalty * 10) - ($currentLoad * 5) + $freeSeats;
                     if ($score > $bestScore) {
                         $bestScore = $score;
                         $bestRoom = $roomIndex;
@@ -640,6 +642,67 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                     (array) ($roomMeta[$bestRoom]['subjects'] ?? []),
                     $comboSubjects
                 ));
+            }
+        }
+
+        // Cân bằng hậu kỳ: hạn chế phòng quá ít thí sinh nhưng không phá vỡ ràng buộc sức chứa.
+        $targetMin = (int) floor($studentCount / max(1, $neededRooms));
+        $targetMax = (int) ceil($studentCount / max(1, $neededRooms));
+        if ($targetMin > 0) {
+            $moveGuard = 0;
+            while ($moveGuard < ($studentCount * 4)) {
+                $moveGuard++;
+                $underRooms = [];
+                $overRooms = [];
+                for ($ri = 1; $ri <= $maxRooms; $ri++) {
+                    $cnt = count((array) ($roomMeta[$ri]['students'] ?? []));
+                    if ($cnt > 0 && $cnt < $targetMin) {
+                        $underRooms[] = $ri;
+                    } elseif ($cnt > $targetMax) {
+                        $overRooms[] = $ri;
+                    }
+                }
+                if (empty($underRooms) || empty($overRooms)) {
+                    break;
+                }
+
+                $moved = false;
+                foreach ($underRooms as $uRoom) {
+                    foreach ($overRooms as $oRoom) {
+                        if (count((array) ($roomMeta[$uRoom]['students'] ?? [])) >= $targetMin) {
+                            break;
+                        }
+                        $candidateSid = 0;
+                        $bestGain = -PHP_INT_MAX;
+                        $uSubjects = normalizeSubjectList((array) ($roomMeta[$uRoom]['subjects'] ?? []));
+                        foreach ((array) ($roomMeta[$oRoom]['students'] ?? []) as $sidRaw) {
+                            $sid = (int) $sidRaw;
+                            if ($sid <= 0) {
+                                continue;
+                            }
+                            $sidSubjects = normalizeSubjectList((array) ($subjectsByStudent[$sid] ?? []));
+                            $gain = count(array_intersect($sidSubjects, $uSubjects)) * 100 - count(array_diff($sidSubjects, $uSubjects)) * 3;
+                            if ($gain > $bestGain) {
+                                $bestGain = $gain;
+                                $candidateSid = $sid;
+                            }
+                        }
+                        if ($candidateSid <= 0) {
+                            continue;
+                        }
+
+                        $roomMeta[$oRoom]['students'] = array_values(array_filter(
+                            (array) ($roomMeta[$oRoom]['students'] ?? []),
+                            static fn($v): bool => (int) $v !== $candidateSid
+                        ));
+                        $roomMeta[$uRoom]['students'][] = $candidateSid;
+                        $roomAssignment[$candidateSid] = $uRoom;
+                        $moved = true;
+                    }
+                }
+                if (!$moved) {
+                    break;
+                }
             }
         }
 
