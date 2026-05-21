@@ -610,7 +610,19 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                     }
                 }
                 if ($bestRoom <= 0) {
-                    throw new RuntimeException('Không thể xếp đủ phòng với cấu hình hiện tại (khối ' . $khoi . ', tối đa ' . $maxRooms . ' phòng, ' . $capacityPerRoom . ' HS/phòng). Vui lòng tăng số phòng hoặc sĩ số/phòng.');
+                    // Fallback an toàn: nếu heuristic không chọn được phòng (do điểm số hoặc dữ liệu bất thường),
+                    // thử nhét vào phòng đầu tiên còn chỗ để tránh false-negative khi tổng sức chứa vẫn đủ.
+                    for ($fallbackRoom = 1; $fallbackRoom <= $maxRooms; $fallbackRoom++) {
+                        if (count((array) ($roomMeta[$fallbackRoom]['students'] ?? [])) < $capacityPerRoom) {
+                            $bestRoom = $fallbackRoom;
+                            break;
+                        }
+                    }
+                }
+                if ($bestRoom <= 0) {
+                    $assignedCount = count($roomAssignment);
+                    $maxCapacity = $maxRooms * $capacityPerRoom;
+                    throw new RuntimeException('Không thể xếp đủ phòng với cấu hình hiện tại (khối ' . $khoi . ', tối đa ' . $maxRooms . ' phòng, ' . $capacityPerRoom . ' HS/phòng, đã xếp ' . $assignedCount . '/' . $studentCount . ', sức chứa tối đa ' . $maxCapacity . '). Vui lòng tăng số phòng hoặc sĩ số/phòng.');
                 }
                 $roomAssignment[$sid] = $bestRoom;
                 $roomMeta[$bestRoom]['students'][] = $sid;
