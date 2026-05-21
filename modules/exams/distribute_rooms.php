@@ -17,6 +17,11 @@ if (!in_array('rooms_locked', $examCols, true)) {
     $pdo->exec('ALTER TABLE exams ADD COLUMN rooms_locked INTEGER DEFAULT 0');
 }
 
+$subjectCols = array_column($pdo->query('PRAGMA table_info(subjects)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+if (!in_array('is_mandatory', $subjectCols, true)) {
+    $pdo->exec('ALTER TABLE subjects ADD COLUMN is_mandatory INTEGER DEFAULT 0');
+}
+
 /**
  * @param array<int,string> $classes
  */
@@ -465,6 +470,17 @@ function generateRoomName(string $subjectCode, string $khoi, string $scopeIdenti
 }
 
 /**
+ * @param array<int,int> $subjects
+ * @return array<int,int>
+ */
+function normalizeSubjectList(array $subjects): array
+{
+    $unique = array_values(array_unique(array_filter(array_map('intval', $subjects), static fn(int $v): bool => $v > 0)));
+    sort($unique);
+    return $unique;
+}
+
+/**
  * @return array<string,mixed>
  */
 function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capacityPerRoom): array
@@ -490,6 +506,11 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
     }
 
     $subjectsByStudent = [];
+    $mandatorySubjectIds = [];
+    $mandatoryStmt = $pdo->query('SELECT id FROM subjects WHERE COALESCE(is_mandatory,0) = 1');
+    foreach ($mandatoryStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $mandatorySubjectIds[(int) ($row['id'] ?? 0)] = true;
+    }
     if (!empty($allStudentIds)) {
         $placeholders = implode(',', array_fill(0, count($allStudentIds), '?'));
         $subStmt = $pdo->prepare('SELECT student_id, subject_id FROM exam_student_subjects WHERE exam_id = ? AND student_id IN (' . $placeholders . ') ORDER BY student_id, subject_id');
@@ -521,6 +542,16 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
 
     foreach ($studentsByKhoi as $khoiKey => $students) {
         $khoi = (string) $khoiKey;
+        // Bảo vệ dữ liệu lỗi: exam_students (subject_id IS NULL) có thể bị trùng student_id.
+        // Mode 2 cần mỗi học sinh đúng 1 suất phòng, nên chuẩn hoá theo student_id duy nhất.
+        $uniqueStudents = [];
+        foreach ($students as $st) {
+            $sid = (int) ($st['student_id'] ?? 0);
+            if ($sid > 0 && !isset($uniqueStudents[$sid])) {
+                $uniqueStudents[$sid] = $st;
+            }
+        }
+        $students = array_values($uniqueStudents);
         $studentCount = count($students);
         if ($studentCount === 0) {
             continue;
@@ -534,25 +565,99 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
             continue;
         }
 
-        $roomAssignment = [];
-        $roomAssignmentOut = [];
-        $roomStudentMap = [];
-        foreach ($students as $idx => $st) {
+        $studentRowsById = [];
+        $comboGroups = [];
+        foreach ($students as $st) {
             $sid = (int) ($st['student_id'] ?? 0);
             if ($sid <= 0) {
                 continue;
             }
-            $roomIndex = intdiv($idx, max(1, $capacityPerRoom)) + 1;
+            $studentRowsById[$sid] = $st;
+            $subjects = normalizeSubjectList((array) ($subjectsByStudent[$sid] ?? []));
+            $comboKey = empty($subjects) ? 'none' : implode('|', $subjects);
+            if (!isset($comboGroups[$comboKey])) {
+                $comboGroups[$comboKey] = ['subjects' => $subjects, 'student_ids' => []];
+            }
+            $comboGroups[$comboKey]['student_ids'][] = $sid;
+        }
+
+        $comboItems = array_values($comboGroups);
+        usort($comboItems, static function (array $a, array $b): int {
+            $sizeCmp = count((array) ($b['student_ids'] ?? [])) <=> count((array) ($a['student_ids'] ?? []));
+            if ($sizeCmp !== 0) {
+                return $sizeCmp;
+            }
+            return count((array) ($b['subjects'] ?? [])) <=> count((array) ($a['subjects'] ?? []));
+        });
+
+        $roomMeta = [];
+        for ($i = 1; $i <= $maxRooms; $i++) {
+            $roomMeta[$i] = ['students' => [], 'subjects' => []];
+        }
+
+        $roomAssignment = [];
+        foreach ($comboItems as $item) {
+            $comboSubjects = normalizeSubjectList((array) ($item['subjects'] ?? []));
+            foreach ((array) ($item['student_ids'] ?? []) as $sidRaw) {
+                $sid = (int) $sidRaw;
+                if ($sid <= 0) {
+                    continue;
+                }
+                $bestRoom = 0;
+                $bestScore = -1;
+                for ($roomIndex = 1; $roomIndex <= $maxRooms; $roomIndex++) {
+                    if (count((array) ($roomMeta[$roomIndex]['students'] ?? [])) >= $capacityPerRoom) {
+                        continue;
+                    }
+                    $existingSubjects = normalizeSubjectList((array) ($roomMeta[$roomIndex]['subjects'] ?? []));
+                    $overlap = count(array_intersect($comboSubjects, $existingSubjects));
+                    $penalty = count(array_diff($comboSubjects, $existingSubjects));
+                    $freeSeats = $capacityPerRoom - count((array) ($roomMeta[$roomIndex]['students'] ?? []));
+                    $score = ($overlap * 1000) - ($penalty * 10) + $freeSeats;
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $bestRoom = $roomIndex;
+                    }
+                }
+                if ($bestRoom <= 0) {
+                    // Fallback an toàn: nếu heuristic không chọn được phòng (do điểm số hoặc dữ liệu bất thường),
+                    // thử nhét vào phòng đầu tiên còn chỗ để tránh false-negative khi tổng sức chứa vẫn đủ.
+                    for ($fallbackRoom = 1; $fallbackRoom <= $maxRooms; $fallbackRoom++) {
+                        if (count((array) ($roomMeta[$fallbackRoom]['students'] ?? [])) < $capacityPerRoom) {
+                            $bestRoom = $fallbackRoom;
+                            break;
+                        }
+                    }
+                }
+                if ($bestRoom <= 0) {
+                    $assignedCount = count($roomAssignment);
+                    $maxCapacity = $maxRooms * $capacityPerRoom;
+                    throw new RuntimeException('Không thể xếp đủ phòng với cấu hình hiện tại (khối ' . $khoi . ', tối đa ' . $maxRooms . ' phòng, ' . $capacityPerRoom . ' HS/phòng, đã xếp ' . $assignedCount . '/' . $studentCount . ', sức chứa tối đa ' . $maxCapacity . '). Vui lòng tăng số phòng hoặc sĩ số/phòng.');
+                }
+                $roomAssignment[$sid] = $bestRoom;
+                $roomMeta[$bestRoom]['students'][] = $sid;
+                $roomMeta[$bestRoom]['subjects'] = normalizeSubjectList(array_merge(
+                    (array) ($roomMeta[$bestRoom]['subjects'] ?? []),
+                    $comboSubjects
+                ));
+            }
+        }
+
+        $roomAssignmentOut = [];
+        $roomStudentMap = [];
+        foreach ($roomAssignment as $sid => $roomIndex) {
             $roomKey = 'room_' . $roomIndex;
-            $roomAssignment[$sid] = $roomIndex;
+            $row = (array) ($studentRowsById[$sid] ?? []);
             $roomAssignmentOut[$roomKey][] = [
                 'student_id' => $sid,
-                'name' => (string) ($st['hoten'] ?? ''),
-                'sbd' => (string) ($st['sbd'] ?? ''),
-                'lop' => (string) ($st['lop'] ?? ''),
+                'name' => (string) ($row['hoten'] ?? ''),
+                'sbd' => (string) ($row['sbd'] ?? ''),
+                'lop' => (string) ($row['lop'] ?? ''),
             ];
             $roomStudentMap[$roomIndex][] = $sid;
         }
+        ksort($roomAssignmentOut);
+        ksort($roomStudentMap);
 
         $subjectRooms = [];
         $subjectStudentCount = [];
@@ -591,9 +696,39 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         foreach ($items as $item) {
             $subId = (int) $item['subject_id'];
             $roomSet = (array) ($subjectRooms[$subId] ?? []);
+            $isMandatory = isset($mandatorySubjectIds[$subId]);
+
+            if ($isMandatory) {
+                $sessions[] = ['subjects' => [$subId], 'rooms' => $roomSet];
+                continue;
+            }
             $placed = false;
 
             foreach ($sessions as &$session) {
+                $sessionSubjects = (array) ($session['subjects'] ?? []);
+                $hasMandatoryInSession = false;
+                foreach ($sessionSubjects as $ss) {
+                    if (isset($mandatorySubjectIds[(int) $ss])) {
+                        $hasMandatoryInSession = true;
+                        break;
+                    }
+                }
+                if ($hasMandatoryInSession) {
+                    continue;
+                }
+
+                // Mỗi phòng trong cùng một ca chỉ bóc 01 đề => không cho 2 môn dùng chung 1 phòng trong cùng session
+                $hasRoomConflict = false;
+                foreach ($roomSet as $roomIndex => $_flag) {
+                    if (!empty($session['rooms'][$roomIndex])) {
+                        $hasRoomConflict = true;
+                        break;
+                    }
+                }
+                if ($hasRoomConflict) {
+                    continue;
+                }
+
                 $unionRooms = (array) ($session['rooms'] ?? []);
                 foreach ($roomSet as $roomIndex => $_flag) {
                     $unionRooms[$roomIndex] = true;
@@ -616,10 +751,7 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         $day2Schedule = [];
         foreach ($sessions as $idx => $session) {
             $sessionNo = $idx + 1;
-            $halfDayIndex = intdiv($idx, 2);
-            $caInHalfDay = ($idx % 2) + 1;
-            $halfDayLabel = ($halfDayIndex % 2 === 0) ? 'Sáng' : 'Chiều';
-            $day2Label = 'Ngày 2 - ' . $halfDayLabel . ' - Ca ' . $caInHalfDay;
+            $day2Label = 'Ca thi ' . $sessionNo;
             $sessionKey = 'session_' . $sessionNo;
 
             $roomMap = [];
