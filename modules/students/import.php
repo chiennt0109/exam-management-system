@@ -200,7 +200,7 @@ require_once BASE_PATH . '/layout/header.php';
                             <table id="previewTable">
                                 <thead>
                                     <tr>
-                                        <th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><th>Trường</th>
+                                        <th>Mã định danh</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><th>Trường</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -232,7 +232,7 @@ require_once BASE_PATH . '/layout/header.php';
     let normalizedRows = [];
 
     const fieldDefs = [
-        { key: 'sbd', label: 'SBD *', aliases: ['sbd', 'mahs', 'mã hs', 'mã học sinh'] },
+        { key: 'sbd', label: 'Mã định danh *', aliases: ['sbd', 'mahs', 'mã hs', 'mã học sinh'] },
         { key: 'hoten', label: 'Họ tên *', aliases: ['hoten', 'họ tên', 'ho ten', 'fullname'] },
         { key: 'ngaysinh', label: 'Ngày sinh', aliases: ['ngaysinh', 'ngày sinh', 'dob'] },
         { key: 'lop', label: 'Lớp', aliases: ['lop', 'lớp', 'malop', 'mã lớp'] },
