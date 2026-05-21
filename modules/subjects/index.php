@@ -5,6 +5,11 @@ require_login();
 require_role(['admin']);
 require_once BASE_PATH . '/core/db.php';
 
+$subjectCols = array_column($pdo->query('PRAGMA table_info(subjects)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+if (!in_array('is_mandatory', $subjectCols, true)) {
+    $pdo->exec('ALTER TABLE subjects ADD COLUMN is_mandatory INTEGER DEFAULT 0');
+}
+
 $flash = $_GET['msg'] ?? '';
 $stmt = $pdo->query('SELECT id, ma_mon, ten_mon, he_so, COALESCE(is_mandatory,0) AS is_mandatory FROM subjects ORDER BY id DESC');
 $subjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
