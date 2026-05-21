@@ -596,6 +596,7 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         }
 
         $roomAssignment = [];
+        $activeRoomSet = [];
         foreach ($comboItems as $item) {
             $comboSubjects = normalizeSubjectList((array) ($item['subjects'] ?? []));
             $comboOptionalSubjects = array_values(array_filter(
@@ -611,7 +612,16 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                 }
                 $bestRoom = 0;
                 $bestScore = -1;
+                $candidateRooms = [];
                 for ($roomIndex = 1; $roomIndex <= $maxRooms; $roomIndex++) {
+                    $isActive = count((array) ($roomMeta[$roomIndex]['students'] ?? [])) > 0;
+                    // Ưu tiên phòng đã mở trước để tránh phòng cuối bị quá ít thí sinh.
+                    if (!$isActive && count($activeRoomSet) >= $neededRooms) {
+                        continue;
+                    }
+                    $candidateRooms[] = $roomIndex;
+                }
+                foreach ($candidateRooms as $roomIndex) {
                     if (count((array) ($roomMeta[$roomIndex]['students'] ?? [])) >= $capacityPerRoom) {
                         continue;
                     }
@@ -629,8 +639,9 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                     $penalty = count(array_diff($comboSubjects, $existingSubjects));
                     $currentLoad = count((array) ($roomMeta[$roomIndex]['students'] ?? []));
                     $freeSeats = $capacityPerRoom - $currentLoad;
+                    $isNewRoomPenalty = $currentLoad === 0 ? 80 : 0;
                     // Ưu tiên cân bằng sĩ số để tránh phòng quá ít thí sinh.
-                    $score = ($overlap * 1000) - ($penalty * 10) - ($currentLoad * 5) + $freeSeats;
+                    $score = ($overlap * 1000) - ($penalty * 10) - ($currentLoad * 5) + $freeSeats - $isNewRoomPenalty;
                     if ($score > $bestScore) {
                         $bestScore = $score;
                         $bestRoom = $roomIndex;
@@ -653,6 +664,7 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                 }
                 $roomAssignment[$sid] = $bestRoom;
                 $roomMeta[$bestRoom]['students'][] = $sid;
+                $activeRoomSet[$bestRoom] = true;
                 if ($comboSlot1 > 0 && (int) ($roomMeta[$bestRoom]['opt_slot_1'] ?? 0) === 0) {
                     $roomMeta[$bestRoom]['opt_slot_1'] = $comboSlot1;
                 }
