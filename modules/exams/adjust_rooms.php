@@ -177,6 +177,8 @@ $roomViewSubjectByStudent = [];
 $roomViewRoomByStudent = [];
 $roomViewMandatorySubjects = [];
 $roomViewOptionalSubjects = [];
+$roomViewOptionalSubjectIdsByStudent = [];
+$roomViewOptionalSlotsByRoom = [];
 $totalRows = 0;
 $totalPages = 1;
 $offset = 0;
@@ -303,6 +305,27 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
             if (!isset($roomViewRoomByStudent[$sid])) {
                 $roomViewRoomByStudent[$sid] = (string) ($row['ten_phong'] ?? '');
             }
+            if (empty($isMandatoryMap[$subId])) {
+                $roomViewOptionalSubjectIdsByStudent[$sid][$subId] = true;
+            }
+        }
+
+        // Xác định 2 môn tự chọn đại diện cho từng phòng để hiển thị cố định theo cột,
+        // tránh cùng 1 môn xuất hiện lẫn ở cả cột 1 và cột 2 giữa các dòng.
+        $optionalFreqByRoom = [];
+        foreach ($filteredStudents as $st) {
+            $sid = (int) ($st['student_id'] ?? 0);
+            $roomName = (string) ($roomViewRoomByStudent[$sid] ?? '');
+            if ($sid <= 0 || $roomName === '') {
+                continue;
+            }
+            foreach (array_keys((array) ($roomViewOptionalSubjectIdsByStudent[$sid] ?? [])) as $optSubId) {
+                $optionalFreqByRoom[$roomName][$optSubId] = (int) (($optionalFreqByRoom[$roomName][$optSubId] ?? 0) + 1);
+            }
+        }
+        foreach ($optionalFreqByRoom as $roomName => $freqMap) {
+            arsort($freqMap);
+            $roomViewOptionalSlotsByRoom[$roomName] = array_slice(array_map('intval', array_keys($freqMap)), 0, 2);
         }
     }
 
@@ -502,9 +525,17 @@ require_once BASE_PATH . '/layout/header.php';
                                         ?>
                                         <td><?= htmlspecialchars((string) ($mandatoryVals[0] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <td><?= htmlspecialchars((string) ($mandatoryVals[1] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars((string) ($optionalVals[0] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars((string) ($optionalVals[1] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td class="fw-bold text-center"><?= htmlspecialchars((string) ($roomViewRoomByStudent[$studentId] ?? ($roomMap[(int) ($st['room_id'] ?? 0)] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <?php
+                                        $roomName = (string) ($roomViewRoomByStudent[$studentId] ?? ($roomMap[(int) ($st['room_id'] ?? 0)] ?? ''));
+                                        $roomSlots = (array) ($roomViewOptionalSlotsByRoom[$roomName] ?? []);
+                                        $slot1SubId = (int) ($roomSlots[0] ?? 0);
+                                        $slot2SubId = (int) ($roomSlots[1] ?? 0);
+                                        $slot1Val = $slot1SubId > 0 ? (string) ($roomViewSubjectByStudent[$studentId][$slot1SubId] ?? '') : '';
+                                        $slot2Val = $slot2SubId > 0 ? (string) ($roomViewSubjectByStudent[$studentId][$slot2SubId] ?? '') : '';
+                                        ?>
+                                        <td><?= htmlspecialchars($slot1Val, ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($slot2Val, ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td class="fw-bold text-center"><?= htmlspecialchars($roomName, ENT_QUOTES, 'UTF-8') ?></td>
                                     <?php endif; ?>
                                 </tr>
                             <?php endforeach; endif; ?>
