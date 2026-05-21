@@ -11,47 +11,83 @@ $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rowsJson = $_POST['rows_json'] ?? '';
     $rows = json_decode($rowsJson, true);
+    $importMode = (string) ($_POST['import_mode'] ?? 'add_new');
+    if (!in_array($importMode, ['add_new', 'overwrite', 'replace_all'], true)) {
+        $importMode = 'add_new';
+    }
 
     if (!is_array($rows) || empty($rows)) {
         $errors[] = 'Không có dữ liệu hợp lệ để import.';
     } else {
-        $insertStmt = $pdo->prepare('INSERT INTO students (sbd, hoten, ngaysinh, lop, truong) VALUES (:sbd, :hoten, :ngaysinh, :lop, :truong)');
-        $inserted = 0;
-
-        foreach ($rows as $row) {
+        $seenSbdInFile = [];
+        $normalizedRows = [];
+        foreach ($rows as $idx => $row) {
             $sbd = trim((string) ($row['sbd'] ?? ''));
             $hoten = trim((string) ($row['hoten'] ?? ''));
             $ngaysinh = trim((string) ($row['ngaysinh'] ?? ''));
             $lop = trim((string) ($row['lop'] ?? ''));
             $truong = trim((string) ($row['truong'] ?? ''));
 
-            if ($sbd === '' || $hoten === '') {
+            if ($sbd === '' || $hoten === '') continue;
+            if (isset($seenSbdInFile[$sbd])) {
+                $errors[] = 'Trùng SBD trong file import: ' . $sbd . ' (dòng ' . ($idx + 2) . ').';
                 continue;
             }
+            $seenSbdInFile[$sbd] = true;
 
             if ($ngaysinh !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $ngaysinh)) {
                 $ngaysinh = '';
             }
 
-            $insertStmt->execute([
-                ':sbd' => $sbd,
-                ':hoten' => $hoten,
-                ':ngaysinh' => $ngaysinh,
-                ':lop' => $lop,
-                ':truong' => $truong
-            ]);
-            $inserted++;
+            $normalizedRows[] = [
+                'sbd' => $sbd,
+                'hoten' => $hoten,
+                'ngaysinh' => $ngaysinh,
+                'lop' => $lop,
+                'truong' => $truong,
+            ];
         }
+        if (empty($errors) && !empty($normalizedRows)) {
+            $inserted = 0;
+            $updated = 0;
+            $skipped = 0;
+            $existsStmt = $pdo->prepare('SELECT id FROM students WHERE sbd = :sbd LIMIT 1');
+            $insertStmt = $pdo->prepare('INSERT INTO students (sbd, hoten, ngaysinh, lop, truong) VALUES (:sbd, :hoten, :ngaysinh, :lop, :truong)');
+            $updateStmt = $pdo->prepare('UPDATE students SET hoten = :hoten, ngaysinh = :ngaysinh, lop = :lop, truong = :truong WHERE sbd = :sbd');
 
-        $syncResult = classes_sync_from_students($pdo);
-        $msg = $inserted > 0 ? 'created' : 'none_inserted';
-        $query = ['msg' => $msg];
-        if ((int) ($syncResult['created_count'] ?? 0) > 0) {
-            $query['classes_created'] = (int) $syncResult['created_count'];
+            if ($importMode === 'replace_all') {
+                $pdo->exec('DELETE FROM students');
+            }
+
+            foreach ($normalizedRows as $row) {
+                $existsStmt->execute([':sbd' => $row['sbd']]);
+                $exists = $existsStmt->fetch(PDO::FETCH_ASSOC);
+                if ($exists && $importMode === 'add_new') {
+                    $skipped++;
+                    continue;
+                }
+                if ($exists && $importMode === 'overwrite') {
+                    $updateStmt->execute($row);
+                    $updated += $updateStmt->rowCount() > 0 ? 1 : 0;
+                    continue;
+                }
+                $insertStmt->execute($row);
+                $inserted++;
+            }
+
+            $syncResult = classes_sync_from_students($pdo);
+            $query = [
+                'msg' => ($inserted + $updated) > 0 ? 'created' : 'none_inserted',
+                'import_inserted' => $inserted,
+                'import_updated' => $updated,
+                'import_skipped' => $skipped,
+            ];
+            if ((int) ($syncResult['created_count'] ?? 0) > 0) {
+                $query['classes_created'] = (int) $syncResult['created_count'];
+            }
+            header('Location: ' . BASE_URL . '/modules/students/index.php?' . http_build_query($query));
+            exit;
         }
-
-        header('Location: ' . BASE_URL . '/modules/students/index.php?' . http_build_query($query));
-        exit;
     }
 }
 
@@ -156,6 +192,7 @@ require_once BASE_PATH . '/layout/header.php';
 
                 <form method="post" id="importForm">
                     <input type="hidden" name="rows_json" id="rowsJson">
+                    <input type="hidden" name="import_mode" id="importMode" value="add_new">
 
                     <div class="card">
                         <h4 style="margin-top:0;">Bước 3: Xem trước dữ liệu</h4>
@@ -174,6 +211,11 @@ require_once BASE_PATH . '/layout/header.php';
                     </div>
 
                     <div style="display:flex; gap:8px;">
+                        <select id="importModeSelect" class="form-select" style="max-width:320px;">
+                            <option value="add_new">Thêm mới (bỏ qua SBD đã tồn tại)</option>
+                            <option value="overwrite">Ghi đè dữ liệu theo SBD đã tồn tại</option>
+                            <option value="replace_all">Xóa toàn bộ cũ rồi nhập mới</option>
+                        </select>
                         <button type="submit" id="saveBtn" class="btn btn-success" onclick="return beforeSubmit()" disabled>✅ Lưu vào cơ sở dữ liệu</button>
                         <a href="<?= BASE_URL ?>/modules/students/index.php" class="btn btn-secondary">↩ Quay lại danh sách</a>
                     </div>
@@ -367,7 +409,13 @@ require_once BASE_PATH . '/layout/header.php';
         }
 
         document.getElementById('rowsJson').value = JSON.stringify(normalizedRows);
-        return confirm(`Xác nhận import ${normalizedRows.length} học sinh vào cơ sở dữ liệu?`);
+        const mode = document.getElementById('importModeSelect').value;
+        document.getElementById('importMode').value = mode;
+        let msg = `Xác nhận import ${normalizedRows.length} học sinh?`;
+        if (mode === 'add_new') msg += '\n- Chế độ: Thêm mới, SBD trùng sẽ bỏ qua.';
+        if (mode === 'overwrite') msg += '\n- Chế độ: Ghi đè dữ liệu theo SBD trùng.';
+        if (mode === 'replace_all') msg += '\n- Chế độ: XÓA TOÀN BỘ dữ liệu học sinh cũ rồi nhập lại.';
+        return confirm(msg);
     }
 
     function escapeHtml(str) {
