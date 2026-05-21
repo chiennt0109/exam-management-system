@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($sbd === '' || $hoten === '') continue;
             if (isset($seenSbdInFile[$sbd])) {
-                $errors[] = 'Trùng Mã định danh trong file import: ' . $sbd . ' (dòng ' . ($idx + 2) . ').';
+                $errors[] = 'Trùng SBD trong file import: ' . $sbd . ' (dòng ' . ($idx + 2) . ').';
                 continue;
             }
             $seenSbdInFile[$sbd] = true;
@@ -212,8 +212,8 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div style="display:flex; gap:8px;">
                         <select id="importModeSelect" class="form-select" style="max-width:320px;">
-                            <option value="add_new">Thêm mới (bỏ qua Mã định danh đã tồn tại)</option>
-                            <option value="overwrite">Ghi đè dữ liệu theo Mã định danh đã tồn tại</option>
+                            <option value="add_new">Thêm mới (bỏ qua SBD đã tồn tại)</option>
+                            <option value="overwrite">Ghi đè dữ liệu theo SBD đã tồn tại</option>
                             <option value="replace_all">Xóa toàn bộ cũ rồi nhập mới</option>
                         </select>
                         <button type="submit" id="saveBtn" class="btn btn-success" onclick="return beforeSubmit()" disabled>✅ Lưu vào cơ sở dữ liệu</button>
