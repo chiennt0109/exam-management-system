@@ -5,13 +5,18 @@ require_login();
 require_role(['admin']);
 require_once BASE_PATH . '/core/db.php';
 
+$subjectCols = array_column($pdo->query('PRAGMA table_info(subjects)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+if (!in_array('is_mandatory', $subjectCols, true)) {
+    $pdo->exec('ALTER TABLE subjects ADD COLUMN is_mandatory INTEGER DEFAULT 0');
+}
+
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id) {
     header('Location: ' . BASE_URL . '/modules/subjects/index.php');
     exit;
 }
 
-$stmt = $pdo->prepare('SELECT id, ma_mon, ten_mon, he_so FROM subjects WHERE id = :id LIMIT 1');
+$stmt = $pdo->prepare('SELECT id, ma_mon, ten_mon, he_so, COALESCE(is_mandatory,0) AS is_mandatory FROM subjects WHERE id = :id LIMIT 1');
 $stmt->execute([':id' => $id]);
 $subject = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$subject) {
@@ -26,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $formData['ma_mon'] = trim($_POST['ma_mon'] ?? '');
     $formData['ten_mon'] = trim($_POST['ten_mon'] ?? '');
     $formData['he_so'] = trim($_POST['he_so'] ?? '1');
+    $formData['is_mandatory'] = isset($_POST['is_mandatory']) ? 1 : 0;
 
     if ($formData['ma_mon'] === '') $errors[] = 'Mã môn không được để trống.';
     if ($formData['ten_mon'] === '') $errors[] = 'Tên môn không được để trống.';
@@ -33,11 +39,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         try {
-            $update = $pdo->prepare('UPDATE subjects SET ma_mon = :ma_mon, ten_mon = :ten_mon, he_so = :he_so WHERE id = :id');
+            $update = $pdo->prepare('UPDATE subjects SET ma_mon = :ma_mon, ten_mon = :ten_mon, he_so = :he_so, is_mandatory = :is_mandatory WHERE id = :id');
             $update->execute([
                 ':ma_mon' => $formData['ma_mon'],
                 ':ten_mon' => $formData['ten_mon'],
                 ':he_so' => (float) $formData['he_so'],
+                ':is_mandatory' => (int) $formData['is_mandatory'],
                 ':id' => $id
             ]);
             header('Location: ' . BASE_URL . '/modules/subjects/index.php?msg=updated');
@@ -80,6 +87,7 @@ require_once BASE_PATH . '/layout/header.php';
                     <div class="field"><label>Mã môn *</label><input type="text" name="ma_mon" value="<?= htmlspecialchars($formData['ma_mon'], ENT_QUOTES, 'UTF-8') ?>" required></div>
                     <div class="field"><label>Tên môn *</label><input type="text" name="ten_mon" value="<?= htmlspecialchars($formData['ten_mon'], ENT_QUOTES, 'UTF-8') ?>" required></div>
                     <div class="field"><label>Hệ số *</label><input type="number" step="0.01" min="0.01" name="he_so" value="<?= htmlspecialchars((string)$formData['he_so'], ENT_QUOTES, 'UTF-8') ?>" required></div>
+                    <div class="field"><label><input type="checkbox" name="is_mandatory" value="1" <?= ((int)($formData['is_mandatory'] ?? 0) === 1) ? 'checked' : '' ?>> Môn bắt buộc</label></div>
                     <button class="btn btn-primary" type="submit">💾 Cập nhật</button>
                     <a class="btn btn-secondary" href="<?= BASE_URL ?>/modules/subjects/index.php">↩ Quay lại</a>
                 </form>
