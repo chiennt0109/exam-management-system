@@ -78,7 +78,6 @@ function buildMode2SubjectSlotMap(array $subjectRows): array
  * @param array<int,string> $subjectNameById
  * @param array<int,bool> $mandatorySubjectIds
  * @param array<int,int> $optionalSlotBySubject
- * @param array<string,bool> $studentSubjectNameSet
  * @return array{0: array<int,string>, 1: array<int,string>}
  */
 function splitMode2SubjectsForDisplay(
@@ -86,8 +85,7 @@ function splitMode2SubjectsForDisplay(
     array $studentSubjectIdsMap,
     array $subjectNameById,
     array $mandatorySubjectIds,
-    array $optionalSlotBySubject,
-    array $studentSubjectNameSet
+    array $optionalSlotBySubject
 ): array {
     $mandatory = [];
     $optional = [1 => [], 2 => []];
@@ -95,7 +93,7 @@ function splitMode2SubjectsForDisplay(
     foreach (array_keys((array) ($studentSubjectIdsMap[$studentId] ?? [])) as $subIdRaw) {
         $subId = (int) $subIdRaw;
         $name = trim((string) ($subjectNameById[$subId] ?? ''));
-        if ($name === '' || !isset($studentSubjectNameSet[$name])) {
+        if ($name === '') {
             continue;
         }
         if (isset($mandatorySubjectIds[$subId])) {
@@ -520,8 +518,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
                 foreach ($students as $i => $st) {
                     if ($examMode === 2) {
                         $stuId = (int) ($st['student_id'] ?? 0);
-                        $subjectNameSet = (array) ($st['subjects'] ?? []);
-                        [$mand, $optional] = splitMode2SubjectsForDisplay($stuId, $studentSubjectIdsMap, $subjectNameById, $mandatorySubjectIds, $optionalSlotBySubject, $subjectNameSet);
+                        [$mand, $optional] = splitMode2SubjectsForDisplay($stuId, $studentSubjectIdsMap, $subjectNameById, $mandatorySubjectIds, $optionalSlotBySubject);
                         echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($mand[0] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($mand[1] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape(implode(', ', (array) ($optional[1] ?? []))) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape(implode(', ', (array) ($optional[2] ?? []))) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) ($group['ten_phong'] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                     } else {
                         echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
@@ -601,8 +598,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
                     $classSize = $fitFontSize((string) ($st['lop'] ?? ''), 11, 8, 10);
                     if ($examMode === 2) {
                         $stuId = (int) ($st['student_id'] ?? 0);
-                        $subjectNameSet = (array) ($st['subjects'] ?? []);
-                        [$mand, $optional] = splitMode2SubjectsForDisplay($stuId, $studentSubjectIdsMap, $subjectNameById, $mandatorySubjectIds, $optionalSlotBySubject, $subjectNameSet);
+                        [$mand, $optional] = splitMode2SubjectsForDisplay($stuId, $studentSubjectIdsMap, $subjectNameById, $mandatorySubjectIds, $optionalSlotBySubject);
                         echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td>' . htmlspecialchars((string) ($mand[0] ?? '')) . '</td><td>' . htmlspecialchars((string) ($mand[1] ?? '')) . '</td><td>' . htmlspecialchars(implode(', ', (array) ($optional[1] ?? []))) . '</td><td>' . htmlspecialchars(implode(', ', (array) ($optional[2] ?? []))) . '</td><td></td></tr>';
                     } else {
                         echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td></td></tr>';
