@@ -492,17 +492,29 @@ require_once BASE_PATH . '/layout/header.php';
                                     <?php else: ?>
                                         <?php $studentId = (int) ($st['student_id'] ?? 0); ?>
                                         <?php
+                                        $allVals = [];
+                                        foreach ((array) ($roomViewSubjectByStudent[$studentId] ?? []) as $val) {
+                                            $name = trim((string) $val);
+                                            if ($name !== '' && !in_array($name, $allVals, true)) {
+                                                $allVals[] = $name;
+                                            }
+                                        }
                                         $mandatoryVals = [];
                                         foreach ($roomViewMandatorySubjects as $sub) {
                                             $subId = (int) ($sub['subject_id'] ?? 0);
                                             $val = trim((string) ($roomViewSubjectByStudent[$studentId][$subId] ?? ''));
-                                            if ($val !== '') $mandatoryVals[] = $val;
+                                            if ($val !== '' && !in_array($val, $mandatoryVals, true)) $mandatoryVals[] = $val;
+                                        }
+                                        // Fallback hiển thị: nếu cấu hình "môn bắt buộc" chưa đủ 2 môn, lấy thêm từ danh sách thực tế.
+                                        foreach ($allVals as $name) {
+                                            if (count($mandatoryVals) >= 2) break;
+                                            if (!in_array($name, $mandatoryVals, true)) $mandatoryVals[] = $name;
                                         }
                                         $optionalVals = [];
-                                        foreach ($roomViewOptionalSubjects as $sub) {
-                                            $subId = (int) ($sub['subject_id'] ?? 0);
-                                            $val = trim((string) ($roomViewSubjectByStudent[$studentId][$subId] ?? ''));
-                                            if ($val !== '' && !in_array($val, $optionalVals, true)) $optionalVals[] = $val;
+                                        foreach ($allVals as $name) {
+                                            if (!in_array($name, $mandatoryVals, true) && !in_array($name, $optionalVals, true)) {
+                                                $optionalVals[] = $name;
+                                            }
                                         }
                                         ?>
                                         <td><?= htmlspecialchars((string) ($mandatoryVals[0] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
