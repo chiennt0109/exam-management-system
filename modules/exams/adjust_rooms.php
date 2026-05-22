@@ -105,12 +105,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ((int) $check->fetchColumn() <= 0) {
                 throw new RuntimeException('Phòng đích không hợp lệ.');
             }
-            $up = $pdo->prepare('UPDATE exam_students SET room_id = :room_id WHERE id = :id AND exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
-            $up->execute([':room_id' => $roomId, ':id' => $esId, ':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
-            if ($up->rowCount() <= 0) {
-                throw new RuntimeException('Không thể chuyển thí sinh.');
+
+            // Mode 2: chuyển phòng phải chuyển đồng bộ toàn bộ các môn của thí sinh sang cùng tên phòng.
+            $modeStmt = $pdo->prepare('SELECT exam_mode FROM exams WHERE id = :id LIMIT 1');
+            $modeStmt->execute([':id' => $examId]);
+            $examMode = (int) ($modeStmt->fetchColumn() ?: 1);
+
+            $baseStudentStmt = $pdo->prepare('SELECT student_id FROM exam_students WHERE id = :id AND exam_id = :exam_id LIMIT 1');
+            $baseStudentStmt->execute([':id' => $esId, ':exam_id' => $examId]);
+            $studentId = (int) ($baseStudentStmt->fetchColumn() ?: 0);
+            if ($studentId <= 0) {
+                throw new RuntimeException('Không tìm thấy thí sinh cần chuyển.');
             }
-            exams_set_flash('success', 'Đã chuyển thí sinh sang phòng mới.');
+
+            if ($examMode === 2) {
+                $targetRoomNameStmt = $pdo->prepare('SELECT ten_phong FROM rooms WHERE id = :id AND exam_id = :exam_id LIMIT 1');
+                $targetRoomNameStmt->execute([':id' => $roomId, ':exam_id' => $examId]);
+                $targetRoomName = trim((string) ($targetRoomNameStmt->fetchColumn() ?: ''));
+                if ($targetRoomName === '') {
+                    throw new RuntimeException('Không xác định được tên phòng đích.');
+                }
+
+                $stuRowsStmt = $pdo->prepare('SELECT id, subject_id FROM exam_students WHERE exam_id = :exam_id AND khoi = :khoi AND student_id = :student_id AND subject_id IS NOT NULL');
+                $stuRowsStmt->execute([':exam_id' => $examId, ':khoi' => $khoi, ':student_id' => $studentId]);
+                $stuRows = $stuRowsStmt->fetchAll(PDO::FETCH_ASSOC);
+                if (empty($stuRows)) {
+                    throw new RuntimeException('Thí sinh chưa có dữ liệu môn để chuyển phòng.');
+                }
+
+                $findRoomByNameStmt = $pdo->prepare('SELECT id FROM rooms WHERE exam_id = :exam_id AND khoi = :khoi AND subject_id = :subject_id AND ten_phong = :ten_phong LIMIT 1');
+                $updateOneStmt = $pdo->prepare('UPDATE exam_students SET room_id = :room_id WHERE id = :id AND exam_id = :exam_id');
+
+                $changed = 0;
+                foreach ($stuRows as $row) {
+                    $sidSub = (int) ($row['subject_id'] ?? 0);
+                    $esSubId = (int) ($row['id'] ?? 0);
+                    if ($sidSub <= 0 || $esSubId <= 0) {
+                        continue;
+                    }
+                    $findRoomByNameStmt->execute([
+                        ':exam_id' => $examId,
+                        ':khoi' => $khoi,
+                        ':subject_id' => $sidSub,
+                        ':ten_phong' => $targetRoomName,
+                    ]);
+                    $targetRoomBySubject = (int) ($findRoomByNameStmt->fetchColumn() ?: 0);
+                    if ($targetRoomBySubject <= 0) {
+                        throw new RuntimeException('Thiếu phòng "' . $targetRoomName . '" cho một số môn của thí sinh. Không thể chuyển đồng bộ.');
+                    }
+                    $updateOneStmt->execute([':room_id' => $targetRoomBySubject, ':id' => $esSubId, ':exam_id' => $examId]);
+                    $changed += $updateOneStmt->rowCount();
+                }
+                if ($changed <= 0) {
+                    throw new RuntimeException('Không thể chuyển phòng đồng bộ cho thí sinh.');
+                }
+            } else {
+                $up = $pdo->prepare('UPDATE exam_students SET room_id = :room_id WHERE id = :id AND exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
+                $up->execute([':room_id' => $roomId, ':id' => $esId, ':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
+                if ($up->rowCount() <= 0) {
+                    throw new RuntimeException('Không thể chuyển thí sinh.');
+                }
+            }
+            exams_set_flash('success', $examMode === 2 ? 'Đã chuyển đồng bộ tất cả môn của thí sinh sang phòng mới.' : 'Đã chuyển thí sinh sang phòng mới.');
         } elseif ($action === 'remove_student') {
             $esId = (int) ($_POST['exam_student_id'] ?? 0);
             $up = $pdo->prepare('UPDATE exam_students SET room_id = NULL WHERE id = :id AND exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
