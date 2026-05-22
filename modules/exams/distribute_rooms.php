@@ -524,6 +524,43 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         }
     }
 
+    // Gán cố định slot tự chọn (1/2) cho từng môn để cùng 1 môn không xuất hiện ở 2 cột khác nhau.
+    $optionalAdj = [];
+    foreach ($subjectsByStudent as $sid => $subList) {
+        $optional = array_values(array_filter(normalizeSubjectList((array) $subList), static fn(int $subId): bool => !isset($mandatorySubjectIds[$subId])));
+        $n = count($optional);
+        for ($i = 0; $i < $n; $i++) {
+            for ($j = $i + 1; $j < $n; $j++) {
+                $a = $optional[$i];
+                $b = $optional[$j];
+                $optionalAdj[$a][$b] = true;
+                $optionalAdj[$b][$a] = true;
+            }
+        }
+    }
+    $optionalSlotBySubject = [];
+    foreach (array_keys($optionalAdj) as $startSub) {
+        if (isset($optionalSlotBySubject[(int) $startSub])) {
+            continue;
+        }
+        $queue = [[$startSub, 1]];
+        while (!empty($queue)) {
+            [$cur, $slot] = array_shift($queue);
+            $cur = (int) $cur;
+            $slot = (int) $slot;
+            if (isset($optionalSlotBySubject[$cur])) {
+                continue;
+            }
+            $optionalSlotBySubject[$cur] = $slot;
+            foreach (array_keys((array) ($optionalAdj[$cur] ?? [])) as $neiRaw) {
+                $nei = (int) $neiRaw;
+                if (!isset($optionalSlotBySubject[$nei])) {
+                    $queue[] = [$nei, $slot === 1 ? 2 : 1];
+                }
+            }
+        }
+    }
+
     $plan = [
         'feasible' => true,
         'total_rooms' => 0,
@@ -599,12 +636,23 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         $activeRoomSet = [];
         foreach ($comboItems as $item) {
             $comboSubjects = normalizeSubjectList((array) ($item['subjects'] ?? []));
-            $comboOptionalSubjects = array_values(array_filter(
-                $comboSubjects,
-                static fn(int $subId): bool => !isset($mandatorySubjectIds[$subId])
-            ));
-            $comboSlot1 = (int) ($comboOptionalSubjects[0] ?? 0);
-            $comboSlot2 = (int) ($comboOptionalSubjects[1] ?? 0);
+            $comboSlot1 = 0;
+            $comboSlot2 = 0;
+            foreach ($comboSubjects as $subId) {
+                if (isset($mandatorySubjectIds[$subId])) {
+                    continue;
+                }
+                $slotIdx = (int) ($optionalSlotBySubject[$subId] ?? 1);
+                if ($slotIdx === 1 && $comboSlot1 === 0) {
+                    $comboSlot1 = (int) $subId;
+                } elseif ($slotIdx === 2 && $comboSlot2 === 0) {
+                    $comboSlot2 = (int) $subId;
+                } elseif ($comboSlot1 === 0) {
+                    $comboSlot1 = (int) $subId;
+                } elseif ($comboSlot2 === 0) {
+                    $comboSlot2 = (int) $subId;
+                }
+            }
             foreach ((array) ($item['student_ids'] ?? []) as $sidRaw) {
                 $sid = (int) $sidRaw;
                 if ($sid <= 0) {

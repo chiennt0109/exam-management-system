@@ -178,6 +178,7 @@ $roomViewRoomByStudent = [];
 $roomViewMandatorySubjects = [];
 $roomViewOptionalSubjects = [];
 $roomViewOptionalSubjectIdsByStudent = [];
+$roomViewOptionalSlotBySubject = [];
 $totalRows = 0;
 $totalPages = 1;
 $offset = 0;
@@ -306,6 +307,39 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
             }
             if (empty($isMandatoryMap[$subId])) {
                 $roomViewOptionalSubjectIdsByStudent[$sid][$subId] = true;
+            }
+        }
+
+        // Gán slot tự chọn cố định theo môn để hiển thị nhất quán giữa 2 cột.
+        $optionalAdj = [];
+        foreach ($roomViewOptionalSubjectIdsByStudent as $sid => $subSet) {
+            $ids = array_values(array_map('intval', array_keys((array) $subSet)));
+            sort($ids);
+            $n = count($ids);
+            for ($i = 0; $i < $n; $i++) {
+                for ($j = $i + 1; $j < $n; $j++) {
+                    $a = $ids[$i];
+                    $b = $ids[$j];
+                    $optionalAdj[$a][$b] = true;
+                    $optionalAdj[$b][$a] = true;
+                }
+            }
+        }
+        foreach (array_keys($optionalAdj) as $startSub) {
+            if (isset($roomViewOptionalSlotBySubject[(int) $startSub])) continue;
+            $queue = [[$startSub, 1]];
+            while (!empty($queue)) {
+                [$cur, $slot] = array_shift($queue);
+                $cur = (int) $cur;
+                $slot = (int) $slot;
+                if (isset($roomViewOptionalSlotBySubject[$cur])) continue;
+                $roomViewOptionalSlotBySubject[$cur] = $slot;
+                foreach (array_keys((array) ($optionalAdj[$cur] ?? [])) as $neiRaw) {
+                    $nei = (int) $neiRaw;
+                    if (!isset($roomViewOptionalSlotBySubject[$nei])) {
+                        $queue[] = [$nei, $slot === 1 ? 2 : 1];
+                    }
+                }
             }
         }
 
@@ -510,17 +544,21 @@ require_once BASE_PATH . '/layout/header.php';
                                             if (count($mandatoryVals) >= 2) break;
                                             if (!in_array($name, $mandatoryVals, true)) $mandatoryVals[] = $name;
                                         }
-                                        $optionalVals = [];
-                                        foreach ($allVals as $name) {
-                                            if (!in_array($name, $mandatoryVals, true) && !in_array($name, $optionalVals, true)) {
-                                                $optionalVals[] = $name;
+                                        $optionalVals = [1 => '', 2 => ''];
+                                        foreach ((array) ($roomViewOptionalSubjectIdsByStudent[$studentId] ?? []) as $optSubIdRaw => $_f) {
+                                            $optSubId = (int) $optSubIdRaw;
+                                            $name = trim((string) ($roomViewSubjectByStudent[$studentId][$optSubId] ?? ''));
+                                            if ($name === '') continue;
+                                            $slot = (int) ($roomViewOptionalSlotBySubject[$optSubId] ?? 1);
+                                            if ($optionalVals[$slot] === '') {
+                                                $optionalVals[$slot] = $name;
                                             }
                                         }
                                         ?>
                                         <td><?= htmlspecialchars((string) ($mandatoryVals[0] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <td><?= htmlspecialchars((string) ($mandatoryVals[1] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars((string) ($optionalVals[0] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <td><?= htmlspecialchars((string) ($optionalVals[1] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($optionalVals[2] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <?php $roomName = (string) ($roomViewRoomByStudent[$studentId] ?? ($roomMap[(int) ($st['room_id'] ?? 0)] ?? '')); ?>
                                         <td class="fw-bold text-center"><?= htmlspecialchars($roomName, ENT_QUOTES, 'UTF-8') ?></td>
                                     <?php endif; ?>
