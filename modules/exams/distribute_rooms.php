@@ -579,6 +579,27 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         }
     }
 
+    // Đảm bảo slot 2 là nhóm ít thí sinh hơn (nếu ngược lại thì hoán đổi toàn bộ slot).
+    $slotStudentCount = [1 => 0, 2 => 0];
+    foreach ($subjectsByStudent as $sid => $subList) {
+        $seenSlot = [];
+        foreach (normalizeSubjectList((array) $subList) as $subId) {
+            if (isset($mandatorySubjectIds[$subId])) {
+                continue;
+            }
+            $slot = (int) ($optionalSlotBySubject[$subId] ?? 1);
+            $seenSlot[$slot] = true;
+        }
+        foreach (array_keys($seenSlot) as $slot) {
+            $slotStudentCount[(int) $slot] = (int) (($slotStudentCount[(int) $slot] ?? 0) + 1);
+        }
+    }
+    if (($slotStudentCount[2] ?? 0) > ($slotStudentCount[1] ?? 0)) {
+        foreach ($optionalSlotBySubject as $subId => $slot) {
+            $optionalSlotBySubject[(int) $subId] = ((int) $slot === 1) ? 2 : 1;
+        }
+    }
+
     $plan = [
         'feasible' => true,
         'total_rooms' => 0,
@@ -802,6 +823,57 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                 if (!$moved) {
                     break;
                 }
+            }
+        }
+
+        // Dồn phòng quá ít thí sinh sang phòng phù hợp khác để tránh phòng "đuôi" quá thưa.
+        $tinyThreshold = max(1, (int) floor($targetMin * 0.6));
+        for ($roomIdx = 1; $roomIdx <= $maxRooms; $roomIdx++) {
+            $tinyStudents = array_values((array) ($roomMeta[$roomIdx]['students'] ?? []));
+            if (count($tinyStudents) === 0 || count($tinyStudents) > $tinyThreshold) {
+                continue;
+            }
+
+            $canClose = true;
+            foreach ($tinyStudents as $sidRaw) {
+                $sid = (int) $sidRaw;
+                $moved = false;
+                $sidSubjects = normalizeSubjectList((array) ($subjectsByStudent[$sid] ?? []));
+                $sidSlot1 = 0;
+                $sidSlot2 = 0;
+                foreach ($sidSubjects as $subId) {
+                    if (isset($mandatorySubjectIds[$subId])) continue;
+                    $slot = (int) ($optionalSlotBySubject[$subId] ?? 1);
+                    if ($slot === 1 && $sidSlot1 === 0) $sidSlot1 = (int) $subId;
+                    if ($slot === 2 && $sidSlot2 === 0) $sidSlot2 = (int) $subId;
+                }
+
+                for ($targetRoom = 1; $targetRoom <= $maxRooms; $targetRoom++) {
+                    if ($targetRoom === $roomIdx) continue;
+                    $targetLoad = count((array) ($roomMeta[$targetRoom]['students'] ?? []));
+                    if ($targetLoad <= 0 || $targetLoad >= $capacityPerRoom) continue;
+                    $rSlot1 = (int) ($roomMeta[$targetRoom]['opt_slot_1'] ?? 0);
+                    $rSlot2 = (int) ($roomMeta[$targetRoom]['opt_slot_2'] ?? 0);
+                    if ($sidSlot1 > 0 && $rSlot1 > 0 && $sidSlot1 !== $rSlot1) continue;
+                    if ($sidSlot2 > 0 && $rSlot2 > 0 && $sidSlot2 !== $rSlot2) continue;
+
+                    $roomMeta[$targetRoom]['students'][] = $sid;
+                    if ($sidSlot1 > 0 && $rSlot1 === 0) $roomMeta[$targetRoom]['opt_slot_1'] = $sidSlot1;
+                    if ($sidSlot2 > 0 && $rSlot2 === 0) $roomMeta[$targetRoom]['opt_slot_2'] = $sidSlot2;
+                    $roomAssignment[$sid] = $targetRoom;
+                    $moved = true;
+                    break;
+                }
+                if (!$moved) {
+                    $canClose = false;
+                    break;
+                }
+            }
+
+            if ($canClose) {
+                $roomMeta[$roomIdx]['students'] = [];
+                $roomMeta[$roomIdx]['opt_slot_1'] = 0;
+                $roomMeta[$roomIdx]['opt_slot_2'] = 0;
             }
         }
 
