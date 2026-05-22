@@ -471,13 +471,14 @@ if (in_array($export, ['format1', 'format2'], true)) {
                 foreach ($students as $i => $st) {
                     if ($examMode === 2) {
                         $stuId = (int) ($st['student_id'] ?? 0);
+                        $allNames = array_values(array_keys((array) ($st['subjects'] ?? [])));
                         $mand = [];
                         $opt1 = '';
                         $opt2 = '';
                         foreach (array_keys((array) ($studentSubjectIdsMap[$stuId] ?? [])) as $subIdRaw) {
                             $subId = (int) $subIdRaw;
-                            $name = (string) ($subjectNameById[$subId] ?? '');
-                            if ($name === '') continue;
+                            $name = trim((string) ($subjectNameById[$subId] ?? ''));
+                            if ($name === '' || !isset(($st['subjects'] ?? [])[$name])) continue;
                             if (isset($mandatorySubjectIds[$subId])) {
                                 if (!in_array($name, $mand, true)) $mand[] = $name;
                             } else {
@@ -485,6 +486,10 @@ if (in_array($export, ['format1', 'format2'], true)) {
                                 if ($slot === 1 && $opt1 === '') $opt1 = $name;
                                 if ($slot === 2 && $opt2 === '') $opt2 = $name;
                             }
+                        }
+                        foreach ($allNames as $nm) {
+                            if (count($mand) >= 2) break;
+                            if ($nm !== '' && !in_array($nm, $mand, true)) $mand[] = $nm;
                         }
                         echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($mand[0] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($mand[1] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape($opt1) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape($opt2) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) ($group['ten_phong'] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                     } else {
