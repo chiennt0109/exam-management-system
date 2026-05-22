@@ -232,7 +232,7 @@ require_once BASE_PATH . '/layout/header.php';
     let normalizedRows = [];
 
     const fieldDefs = [
-        { key: 'sbd', label: 'Mã định danh *', aliases: ['sbd', 'mahs', 'mã hs', 'mã học sinh'] },
+        { key: 'sbd', label: 'SBD *', aliases: ['sbd', 'mahs', 'mã hs', 'mã học sinh', 'mã định danh', 'ma dinh danh', 'id', 'student_id', 'student id', 'so bao danh', 'số báo danh'] },
         { key: 'hoten', label: 'Họ tên *', aliases: ['hoten', 'họ tên', 'ho ten', 'fullname'] },
         { key: 'ngaysinh', label: 'Ngày sinh', aliases: ['ngaysinh', 'ngày sinh', 'dob'] },
         { key: 'lop', label: 'Lớp', aliases: ['lop', 'lớp', 'malop', 'mã lớp'] },
@@ -306,7 +306,8 @@ require_once BASE_PATH . '/layout/header.php';
             buildMappingUI();
             document.getElementById('mappingCard').style.display = 'block';
             document.getElementById('saveBtn').disabled = true;
-            renderPreview();
+            // Tự áp dụng mapping mặc định nếu nhận diện được, tránh tình trạng nút Lưu luôn bị disable.
+            applyMapping();
         };
 
         reader.readAsArrayBuffer(file);
