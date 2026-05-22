@@ -735,13 +735,21 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                     }
                 }
                 if ($bestRoom <= 0) {
-                    // Fallback an toàn: nếu heuristic không chọn được phòng (do điểm số hoặc dữ liệu bất thường),
-                    // thử nhét vào phòng đầu tiên còn chỗ để tránh false-negative khi tổng sức chứa vẫn đủ.
+                    // Fallback an toàn: vẫn phải giữ ràng buộc 1 phòng chỉ 1 môn/slot tự chọn.
                     for ($fallbackRoom = 1; $fallbackRoom <= $maxRooms; $fallbackRoom++) {
-                        if (count((array) ($roomMeta[$fallbackRoom]['students'] ?? [])) < $capacityPerRoom) {
-                            $bestRoom = $fallbackRoom;
-                            break;
+                        if (count((array) ($roomMeta[$fallbackRoom]['students'] ?? [])) >= $capacityPerRoom) {
+                            continue;
                         }
+                        $fallbackSlot1 = (int) ($roomMeta[$fallbackRoom]['opt_slot_1'] ?? 0);
+                        $fallbackSlot2 = (int) ($roomMeta[$fallbackRoom]['opt_slot_2'] ?? 0);
+                        if ($comboSlot1 > 0 && $fallbackSlot1 > 0 && $comboSlot1 !== $fallbackSlot1) {
+                            continue;
+                        }
+                        if ($comboSlot2 > 0 && $fallbackSlot2 > 0 && $comboSlot2 !== $fallbackSlot2) {
+                            continue;
+                        }
+                        $bestRoom = $fallbackRoom;
+                        break;
                     }
                 }
                 if ($bestRoom <= 0) {
@@ -795,12 +803,33 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                         $candidateSid = 0;
                         $bestGain = -PHP_INT_MAX;
                         $uSubjects = normalizeSubjectList((array) ($roomMeta[$uRoom]['subjects'] ?? []));
+                        $uSlot1 = (int) ($roomMeta[$uRoom]['opt_slot_1'] ?? 0);
+                        $uSlot2 = (int) ($roomMeta[$uRoom]['opt_slot_2'] ?? 0);
                         foreach ((array) ($roomMeta[$oRoom]['students'] ?? []) as $sidRaw) {
                             $sid = (int) $sidRaw;
                             if ($sid <= 0) {
                                 continue;
                             }
                             $sidSubjects = normalizeSubjectList((array) ($subjectsByStudent[$sid] ?? []));
+                            $sidSlot1 = 0;
+                            $sidSlot2 = 0;
+                            foreach ($sidSubjects as $subId) {
+                                if (isset($mandatorySubjectIds[$subId])) {
+                                    continue;
+                                }
+                                $slot = (int) ($optionalSlotBySubject[$subId] ?? 1);
+                                if ($slot === 1 && $sidSlot1 === 0) {
+                                    $sidSlot1 = (int) $subId;
+                                } elseif ($slot === 2 && $sidSlot2 === 0) {
+                                    $sidSlot2 = (int) $subId;
+                                }
+                            }
+                            if ($sidSlot1 > 0 && $uSlot1 > 0 && $sidSlot1 !== $uSlot1) {
+                                continue;
+                            }
+                            if ($sidSlot2 > 0 && $uSlot2 > 0 && $sidSlot2 !== $uSlot2) {
+                                continue;
+                            }
                             $gain = count(array_intersect($sidSubjects, $uSubjects)) * 100 - count(array_diff($sidSubjects, $uSubjects)) * 3;
                             if ($gain > $bestGain) {
                                 $bestGain = $gain;
@@ -817,6 +846,18 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                         ));
                         $roomMeta[$uRoom]['students'][] = $candidateSid;
                         $roomAssignment[$candidateSid] = $uRoom;
+                        $candidateSubjects = normalizeSubjectList((array) ($subjectsByStudent[$candidateSid] ?? []));
+                        foreach ($candidateSubjects as $subId) {
+                            if (isset($mandatorySubjectIds[$subId])) {
+                                continue;
+                            }
+                            $slot = (int) ($optionalSlotBySubject[$subId] ?? 1);
+                            if ($slot === 1 && (int) ($roomMeta[$uRoom]['opt_slot_1'] ?? 0) === 0) {
+                                $roomMeta[$uRoom]['opt_slot_1'] = (int) $subId;
+                            } elseif ($slot === 2 && (int) ($roomMeta[$uRoom]['opt_slot_2'] ?? 0) === 0) {
+                                $roomMeta[$uRoom]['opt_slot_2'] = (int) $subId;
+                            }
+                        }
                         $moved = true;
                     }
                 }
