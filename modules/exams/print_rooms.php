@@ -303,6 +303,35 @@ if (in_array($export, ['format1', 'format2'], true)) {
         }
     }
 
+    // Gom niêm yết theo phòng (không tách theo môn): mỗi học sinh 1 dòng, tổng hợp toàn bộ môn.
+    $roomNoticeGroups = [];
+    foreach ($allGroups as $group) {
+        $roomName = (string) ($group['ten_phong'] ?? '');
+        if (!isset($roomNoticeGroups[$roomName])) {
+            $roomNoticeGroups[$roomName] = [
+                'ten_phong' => $roomName,
+                'khoi' => (string) ($group['khoi'] ?? ''),
+                'students' => [],
+            ];
+        }
+        foreach ((array) ($group['students'] ?? []) as $st) {
+            $key = trim((string) ($st['sbd'] ?? '')) . '|' . trim((string) ($st['hoten'] ?? ''));
+            if (!isset($roomNoticeGroups[$roomName]['students'][$key])) {
+                $roomNoticeGroups[$roomName]['students'][$key] = [
+                    'sbd' => (string) ($st['sbd'] ?? ''),
+                    'hoten' => (string) ($st['hoten'] ?? ''),
+                    'ngaysinh' => (string) ($st['ngaysinh'] ?? ''),
+                    'lop' => (string) ($st['lop'] ?? ''),
+                    'subjects' => [],
+                ];
+            }
+            $subName = trim((string) ($group['ten_mon'] ?? ''));
+            if ($subName !== '') {
+                $roomNoticeGroups[$roomName]['students'][$key]['subjects'][$subName] = true;
+            }
+        }
+    }
+
     $filename = 'danh_sach_phong_' . $export . '_exam_' . $examId . ($examMode === 2 ? '_mode2_2025' : '') . ($isPdfExport ? '.html' : '.xls');
     if ($isPdfExport) {
         header('Content-Type: text/html; charset=UTF-8');
@@ -332,9 +361,11 @@ if (in_array($export, ['format1', 'format2'], true)) {
         echo '</Styles>';
 
         $usedSheetNames = [];
-        foreach ($allGroups as $group) {
-            $students = array_values($group['students']);
-            $sheetBase = preg_replace('/[^\p{L}\p{N}_-]+/u', '_', (string) ($group['ten_mon'] ?? '') . '_' . (string) ($group['ten_phong'] ?? '')) ?: ('Room_' . (string) $group['room_id']);
+        $sourceGroups = $export === 'format1' ? array_values($roomNoticeGroups) : array_values($allGroups);
+        foreach ($sourceGroups as $group) {
+            $students = array_values((array) ($group['students'] ?? []));
+            $sheetLabel = $export === 'format1' ? (string) ($group['ten_phong'] ?? '') : ((string) ($group['ten_mon'] ?? '') . '_' . (string) ($group['ten_phong'] ?? ''));
+            $sheetBase = preg_replace('/[^\p{L}\p{N}_-]+/u', '_', $sheetLabel) ?: ('Room_' . (string) ($group['ten_phong'] ?? ''));
             $sheetBase = substr((string) $sheetBase, 0, 28);
             $sheetName = $sheetBase;
             $suffix = 1;
@@ -357,7 +388,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             echo '<Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightTitle"><Data ss:Type="String">' . $xmlEscape($export === 'format1' ? 'DANH SÁCH NIÊM YẾT' : 'PHIẾU THU BÀI') . '</Data></Cell>';
             echo '</Row>';
             echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('PHÒNG: ' . (string) $group['ten_phong']) . '</Data></Cell></Row>';
-            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('Môn: ' . (string) $group['ten_mon']) . '</Data></Cell></Row>';
+            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('Môn: ' . ($export === 'format1' ? 'Tổng hợp theo phòng' : (string) ($group['ten_mon'] ?? ''))) . '</Data></Cell></Row>';
             echo '<Row ss:Height="10"></Row>';
 
             if ($export === 'format1') {
@@ -371,7 +402,8 @@ if (in_array($export, ['format1', 'format2'], true)) {
                 echo '</Row>';
                 foreach ($students as $i => $st) {
                     if ($examMode === 2) {
-                        echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($group['ten_mon'] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
+                        $subjectsText = isset($st['subjects']) ? implode(', ', array_keys((array) $st['subjects'])) : (string) ($group['ten_mon'] ?? '');
+                        echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape($subjectsText) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                     } else {
                         echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                     }
@@ -419,7 +451,8 @@ if (in_array($export, ['format1', 'format2'], true)) {
         echo '<xml><x:ExcelWorkbook xmlns:x="urn:schemas-microsoft-com:office:excel"><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Export</x:Name><x:WorksheetOptions><x:Print><x:ValidPrinterInfo/><x:PaperSizeIndex>9</x:PaperSizeIndex><x:Scale>100</x:Scale><x:FitWidth>1</x:FitWidth><x:FitHeight>0</x:FitHeight><x:HorizontalResolution>600</x:HorizontalResolution><x:VerticalResolution>600</x:VerticalResolution></x:Print><x:PageSetup><x:Layout x:Orientation="Portrait"/></x:PageSetup></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml>';
     }
 
-    foreach ($allGroups as $group) {
+    $sourceGroups = $export === 'format1' ? array_values($roomNoticeGroups) : array_values($allGroups);
+    foreach ($sourceGroups as $group) {
         $students = array_values($group['students']);
         $maxRows = $export === 'format1' ? 30 : 28;
         $studentChunks = empty($students) ? [[]] : array_chunk($students, $maxRows);
@@ -430,7 +463,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             if ($export === 'format1') {
                 echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">';
                 echo '<div class="header-left" style="text-align:left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="room-subject"><strong>' . htmlspecialchars($examName) . '</strong></div></div>';
-                echo '<div class="header-right" style="text-align:right"><div class="title-main">DANH SÁCH NIÊM YẾT</div><div class="room-subject"><strong>PHÒNG: ' . htmlspecialchars($group['ten_phong']) . '</strong> &nbsp; | &nbsp; <strong>Môn: ' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
+                echo '<div class="header-right" style="text-align:right"><div class="title-main">DANH SÁCH NIÊM YẾT</div><div class="room-subject"><strong>PHÒNG: ' . htmlspecialchars($group['ten_phong']) . '</strong> &nbsp; | &nbsp; <strong>Môn: ' . htmlspecialchars($export === 'format1' ? 'Tổng hợp theo phòng' : (string) ($group['ten_mon'] ?? '')) . '</strong></div></div>';
                 echo '</div>';
                 if ($examMode === 2) {
                     echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th class="col-tight">SBD</th><th style="width:28%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:10%">Lớp</th><th style="width:22%">Môn thi theo phòng</th><th style="width:12%">Ghi chú</th></tr></thead><tbody>';
@@ -441,7 +474,8 @@ if (in_array($export, ['format1', 'format2'], true)) {
                     $nameSize = $fitFontSize((string) ($st['hoten'] ?? ''));
                     $classSize = $fitFontSize((string) ($st['lop'] ?? ''), 11, 8, 10);
                     if ($examMode === 2) {
-                        echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td>' . htmlspecialchars((string) ($group['ten_mon'] ?? '')) . '</td><td></td></tr>';
+                        $subjectsText = isset($st['subjects']) ? implode(', ', array_keys((array) $st['subjects'])) : (string) ($group['ten_mon'] ?? '');
+                        echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td>' . htmlspecialchars($subjectsText) . '</td><td></td></tr>';
                     } else {
                         echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td></td></tr>';
                     }

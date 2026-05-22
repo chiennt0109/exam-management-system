@@ -539,11 +539,29 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
         }
     }
     $optionalSlotBySubject = [];
-    foreach (array_keys($optionalAdj) as $startSub) {
+    // Ưu tiên dồn các môn ít thí sinh về slot 2 để slot 1 ổn định hơn.
+    $optionalCount = [];
+    foreach ($subjectsByStudent as $sid => $subList) {
+        foreach (normalizeSubjectList((array) $subList) as $subId) {
+            if (!isset($mandatorySubjectIds[$subId])) {
+                $optionalCount[$subId] = (int) (($optionalCount[$subId] ?? 0) + 1);
+            }
+        }
+    }
+    $optionalNodes = array_keys($optionalAdj);
+    usort($optionalNodes, static function ($a, $b) use ($optionalCount): int {
+        $ca = (int) ($optionalCount[(int) $a] ?? 0);
+        $cb = (int) ($optionalCount[(int) $b] ?? 0);
+        return $cb <=> $ca;
+    });
+
+    foreach ($optionalNodes as $startSub) {
         if (isset($optionalSlotBySubject[(int) $startSub])) {
             continue;
         }
-        $queue = [[$startSub, 1]];
+        $startCount = (int) ($optionalCount[(int) $startSub] ?? 0);
+        $startSlot = $startCount <= 0 ? 2 : 1;
+        $queue = [[$startSub, $startSlot]];
         while (!empty($queue)) {
             [$cur, $slot] = array_shift($queue);
             $cur = (int) $cur;
