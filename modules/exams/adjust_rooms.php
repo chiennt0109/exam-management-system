@@ -615,6 +615,13 @@ require_once BASE_PATH . '/layout/header.php';
                                                 $optionalVals[$slot][] = $name;
                                             }
                                         }
+                                        // Nếu do dữ liệu/đồ thị slot bị lệch khiến dồn cùng 1 cột,
+                                        // cưỡng bức tách ra 2 cột để đúng nghiệp vụ hiển thị bài thi chọn.
+                                        if (count($optionalVals[1]) === 0 && count($optionalVals[2]) >= 2) {
+                                            $optionalVals[1][] = array_shift($optionalVals[2]);
+                                        } elseif (count($optionalVals[2]) === 0 && count($optionalVals[1]) >= 2) {
+                                            $optionalVals[2][] = array_pop($optionalVals[1]);
+                                        }
                                         $optionalText1 = implode(', ', (array) ($optionalVals[1] ?? []));
                                         $optionalText2 = implode(', ', (array) ($optionalVals[2] ?? []));
                                         ?>
