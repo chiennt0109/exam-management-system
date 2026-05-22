@@ -330,6 +330,7 @@ if (!empty($roomIds)) {
         $ts = strtotime($dob);
         $studentId = (int) ($st['student_id'] ?? 0);
         $roomGroups[$rid]['students'][] = [
+            'student_id' => $studentId,
             'sbd' => (string) ($st['sbd'] ?? ''),
             'hoten' => (string) ($st['hoten'] ?? ''),
             'lop' => (string) ($st['lop'] ?? ''),
