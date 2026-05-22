@@ -167,7 +167,7 @@ $offset = ($page - 1) * $perPage;
 $roomSql = 'SELECT r.id AS room_id, r.ten_phong, r.khoi, sub.ten_mon, sub.id AS subject_id
     FROM rooms r
     INNER JOIN subjects sub ON sub.id = r.subject_id' . $where . '
-    ORDER BY sub.ten_mon, r.khoi, r.ten_phong
+    ORDER BY CAST(r.ten_phong AS INTEGER), r.ten_phong, sub.ten_mon, r.khoi
     LIMIT :limit OFFSET :offset';
 $roomStmt = $pdo->prepare($roomSql);
 foreach ($params as $k => $v) {
@@ -255,7 +255,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
     $allRoomStmt = $pdo->prepare('SELECT r.id AS room_id, r.ten_phong, r.khoi, sub.ten_mon, sub.id AS subject_id
         FROM rooms r
         INNER JOIN subjects sub ON sub.id = r.subject_id' . $where . '
-        ORDER BY sub.ten_mon, r.khoi, r.ten_phong');
+        ORDER BY CAST(r.ten_phong AS INTEGER), r.ten_phong, sub.ten_mon, r.khoi');
     $allRoomStmt->execute($params);
     $allRooms = $allRoomStmt->fetchAll(PDO::FETCH_ASSOC);
     $allGroups = [];
@@ -362,6 +362,13 @@ if (in_array($export, ['format1', 'format2'], true)) {
 
         $usedSheetNames = [];
         $sourceGroups = $export === 'format1' ? array_values($roomNoticeGroups) : array_values($allGroups);
+        usort($sourceGroups, static function (array $a, array $b): int {
+            $ra = trim((string) ($a['ten_phong'] ?? ''));
+            $rb = trim((string) ($b['ten_phong'] ?? ''));
+            $na = (int) $ra;
+            $nb = (int) $rb;
+            return ($na <=> $nb) ?: strcmp($ra, $rb);
+        });
         foreach ($sourceGroups as $group) {
             $students = array_values((array) ($group['students'] ?? []));
             $sheetLabel = $export === 'format1' ? (string) ($group['ten_phong'] ?? '') : ((string) ($group['ten_mon'] ?? '') . '_' . (string) ($group['ten_phong'] ?? ''));
@@ -375,7 +382,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             }
             $usedSheetNames[$sheetName] = true;
 
-            $columnWidths = [5,10,30,14,12,20,14];
+            $columnWidths = [6,16,34,14,12,20,14];
             echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '">';
             echo '<Table ss:ExpandedColumnCount="' . count($columnWidths) . '" ss:DefaultRowHeight="18">';
             foreach ($columnWidths as $w) {
@@ -452,6 +459,13 @@ if (in_array($export, ['format1', 'format2'], true)) {
     }
 
     $sourceGroups = $export === 'format1' ? array_values($roomNoticeGroups) : array_values($allGroups);
+    usort($sourceGroups, static function (array $a, array $b): int {
+        $ra = trim((string) ($a['ten_phong'] ?? ''));
+        $rb = trim((string) ($b['ten_phong'] ?? ''));
+        $na = (int) $ra;
+        $nb = (int) $rb;
+        return ($na <=> $nb) ?: strcmp($ra, $rb);
+    });
     foreach ($sourceGroups as $group) {
         $students = array_values($group['students']);
         $maxRows = $export === 'format1' ? 30 : 28;
@@ -466,7 +480,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
                 echo '<div class="header-right" style="text-align:right"><div class="title-main">DANH SÁCH NIÊM YẾT</div><div class="room-subject"><strong>PHÒNG: ' . htmlspecialchars($group['ten_phong']) . '</strong> &nbsp; | &nbsp; <strong>Môn: ' . htmlspecialchars($export === 'format1' ? 'Tổng hợp theo phòng' : (string) ($group['ten_mon'] ?? '')) . '</strong></div></div>';
                 echo '</div>';
                 if ($examMode === 2) {
-                    echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th class="col-tight">SBD</th><th style="width:28%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:10%">Lớp</th><th style="width:22%">Môn thi theo phòng</th><th style="width:12%">Ghi chú</th></tr></thead><tbody>';
+                    echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th style="width:12%">SBD</th><th style="width:28%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:10%">Lớp</th><th style="width:22%">Môn thi theo phòng</th><th style="width:12%">Ghi chú</th></tr></thead><tbody>';
                 } else {
                     echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th class="col-tight">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:13%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
                 }
@@ -475,7 +489,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
                     $classSize = $fitFontSize((string) ($st['lop'] ?? ''), 11, 8, 10);
                     if ($examMode === 2) {
                         $subjectsText = isset($st['subjects']) ? implode(', ', array_keys((array) $st['subjects'])) : (string) ($group['ten_mon'] ?? '');
-                        echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td>' . htmlspecialchars($subjectsText) . '</td><td></td></tr>';
+                        echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td>' . htmlspecialchars($subjectsText) . '</td><td></td></tr>';
                     } else {
                         echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td></td></tr>';
                     }
