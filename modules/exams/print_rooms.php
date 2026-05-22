@@ -199,7 +199,20 @@ foreach ($roomRows as $row) {
 }
 
 $studentSubjectsMap = [];
+$studentSubjectIdsMap = [];
+$subjectNameById = [];
+$mandatorySubjectIds = [];
+$optionalSlotBySubject = [];
 if ($examMode === 2) {
+    $subMetaStmt = $pdo->query('SELECT id, ten_mon, COALESCE(is_mandatory,0) AS is_mandatory FROM subjects');
+    foreach ($subMetaStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $sid = (int) ($r['id'] ?? 0);
+        if ($sid <= 0) continue;
+        $subjectNameById[$sid] = (string) ($r['ten_mon'] ?? '');
+        if ((int) ($r['is_mandatory'] ?? 0) === 1) {
+            $mandatorySubjectIds[$sid] = true;
+        }
+    }
     $subMapStmt = $pdo->prepare('SELECT ess.student_id, GROUP_CONCAT(sub.ten_mon, ", ") AS mon_thi
         FROM exam_student_subjects ess
         INNER JOIN subjects sub ON sub.id = ess.subject_id
@@ -208,6 +221,47 @@ if ($examMode === 2) {
     $subMapStmt->execute([':exam_id' => $examId]);
     foreach ($subMapStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $studentSubjectsMap[(int) ($r['student_id'] ?? 0)] = (string) ($r['mon_thi'] ?? '');
+    }
+
+    $subIdsStmt = $pdo->prepare('SELECT student_id, subject_id FROM exam_student_subjects WHERE exam_id = :exam_id ORDER BY student_id, subject_id');
+    $subIdsStmt->execute([':exam_id' => $examId]);
+    foreach ($subIdsStmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $stuId = (int) ($r['student_id'] ?? 0);
+        $subId = (int) ($r['subject_id'] ?? 0);
+        if ($stuId <= 0 || $subId <= 0) continue;
+        $studentSubjectIdsMap[$stuId][$subId] = true;
+    }
+
+    // Tính slot tự chọn cố định theo môn để cột chọn 1/2 luôn đúng.
+    $optionalAdj = [];
+    foreach ($studentSubjectIdsMap as $subSet) {
+        $optIds = array_values(array_filter(array_map('intval', array_keys((array) $subSet)), static fn(int $v): bool => !isset($mandatorySubjectIds[$v])));
+        sort($optIds);
+        $n = count($optIds);
+        for ($i = 0; $i < $n; $i++) {
+            for ($j = $i + 1; $j < $n; $j++) {
+                $a = $optIds[$i];
+                $b = $optIds[$j];
+                $optionalAdj[$a][$b] = true;
+                $optionalAdj[$b][$a] = true;
+            }
+        }
+    }
+    foreach (array_keys($optionalAdj) as $startSub) {
+        if (isset($optionalSlotBySubject[(int) $startSub])) continue;
+        $queue = [[$startSub, 1]];
+        while (!empty($queue)) {
+            [$cur, $slot] = array_shift($queue);
+            $cur = (int) $cur; $slot = (int) $slot;
+            if (isset($optionalSlotBySubject[$cur])) continue;
+            $optionalSlotBySubject[$cur] = $slot;
+            foreach (array_keys((array) ($optionalAdj[$cur] ?? [])) as $neiRaw) {
+                $nei = (int) $neiRaw;
+                if (!isset($optionalSlotBySubject[$nei])) {
+                    $queue[] = [$nei, $slot === 1 ? 2 : 1];
+                }
+            }
+        }
     }
 }
 
@@ -416,9 +470,23 @@ if (in_array($export, ['format1', 'format2'], true)) {
                 echo '</Row>';
                 foreach ($students as $i => $st) {
                     if ($examMode === 2) {
-                        $subjectsText = isset($st['subjects']) ? implode(', ', array_keys((array) $st['subjects'])) : (string) ($group['ten_mon'] ?? '');
-                        $parts = array_values(array_filter(array_map('trim', explode(',', $subjectsText)), static fn(string $v): bool => $v !== ''));
-                        echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($parts[0] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($parts[1] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($parts[2] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($parts[3] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) ($group['ten_phong'] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
+                        $stuId = (int) ($st['student_id'] ?? 0);
+                        $mand = [];
+                        $opt1 = '';
+                        $opt2 = '';
+                        foreach (array_keys((array) ($studentSubjectIdsMap[$stuId] ?? [])) as $subIdRaw) {
+                            $subId = (int) $subIdRaw;
+                            $name = (string) ($subjectNameById[$subId] ?? '');
+                            if ($name === '') continue;
+                            if (isset($mandatorySubjectIds[$subId])) {
+                                if (!in_array($name, $mand, true)) $mand[] = $name;
+                            } else {
+                                $slot = (int) ($optionalSlotBySubject[$subId] ?? 1);
+                                if ($slot === 1 && $opt1 === '') $opt1 = $name;
+                                if ($slot === 2 && $opt2 === '') $opt2 = $name;
+                            }
+                        }
+                        echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($mand[0] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($mand[1] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape($opt1) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape($opt2) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) ($group['ten_phong'] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                     } else {
                         echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                     }
