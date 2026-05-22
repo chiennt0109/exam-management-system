@@ -310,7 +310,7 @@ if ($export === '1') {
     foreach ($classesToExport as $lop) {
         $rows = $allRowsByClass[$lop] ?? [];
         $classSubjects = $subjectsForClassFromMap($rows, $allRoomByStudentSubject);
-        echo '<section class="page"><div class="header"><div class="sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="sub">' . htmlspecialchars($examName, ENT_QUOTES, 'UTF-8') . '</div><div class="title">DANH SÁCH PHÒNG THI TỪNG HỌC SINH THEO LỚP</div><div class="meta">Lớp: <strong>' . htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') . '</strong></div></div>';
+        echo '<section class="page"><div class="header"><div class="sub">THPT CHUYÊN ĐIỆN BIÊN</div><div class="sub">' . htmlspecialchars($examName, ENT_QUOTES, 'UTF-8') . '</div><div class="title">DANH SÁCH PHÒNG THI TỪNG HỌC SINH THEO LỚP</div><div class="meta">Lớp: <strong>' . htmlspecialchars($lop, ENT_QUOTES, 'UTF-8') . '</strong></div></div>';
         echo '<table><thead><tr><th style="width:6%">STT</th><th style="width:10%">SBD</th><th style="width:24%">Họ tên</th><th style="width:12%">Ngày sinh</th>';
         foreach ($classSubjects as $sub) {
             echo '<th>' . htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') . '</th>';
