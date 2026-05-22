@@ -87,3 +87,7 @@ require_once BASE_PATH . '/layout/header.php';
 </div>
 
 <?php require_once BASE_PATH . '/layout/footer.php'; ?>
+$subjectCols = array_column($pdo->query('PRAGMA table_info(subjects)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+if (!in_array('is_mandatory', $subjectCols, true)) {
+    $pdo->exec('ALTER TABLE subjects ADD COLUMN is_mandatory INTEGER DEFAULT 0');
+}
