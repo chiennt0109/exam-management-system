@@ -873,13 +873,16 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                 $sid = (int) $sidRaw;
                 $moved = false;
                 $sidSubjects = normalizeSubjectList((array) ($subjectsByStudent[$sid] ?? []));
-                $sidSlot1 = 0;
-                $sidSlot2 = 0;
+                $sidSlot1Subjects = [];
+                $sidSlot2Subjects = [];
                 foreach ($sidSubjects as $subId) {
                     if (isset($mandatorySubjectIds[$subId])) continue;
                     $slot = (int) ($optionalSlotBySubject[$subId] ?? 1);
-                    if ($slot === 1 && $sidSlot1 === 0) $sidSlot1 = (int) $subId;
-                    if ($slot === 2 && $sidSlot2 === 0) $sidSlot2 = (int) $subId;
+                    if ($slot === 1) {
+                        $sidSlot1Subjects[(int) $subId] = true;
+                    } else {
+                        $sidSlot2Subjects[(int) $subId] = true;
+                    }
                 }
 
                 for ($targetRoom = 1; $targetRoom <= $maxRooms; $targetRoom++) {
@@ -888,12 +891,17 @@ function buildMode2FixedRoomPlan(PDO $pdo, int $examId, int $maxRooms, int $capa
                     if ($targetLoad <= 0 || $targetLoad >= $capacityPerRoom) continue;
                     $rSlot1Subjects = (array) ($roomMeta[$targetRoom]['opt_slot_1_subjects'] ?? []);
                     $rSlot2Subjects = (array) ($roomMeta[$targetRoom]['opt_slot_2_subjects'] ?? []);
-                    if ($sidSlot1 > 0 && !empty($rSlot2Subjects[$sidSlot1])) continue;
-                    if ($sidSlot2 > 0 && !empty($rSlot1Subjects[$sidSlot2])) continue;
+                    $tinyCrossConflict1 = count(array_intersect(array_keys($sidSlot1Subjects), array_keys($rSlot2Subjects))) > 0;
+                    $tinyCrossConflict2 = count(array_intersect(array_keys($sidSlot2Subjects), array_keys($rSlot1Subjects))) > 0;
+                    if ($tinyCrossConflict1 || $tinyCrossConflict2) continue;
 
                     $roomMeta[$targetRoom]['students'][] = $sid;
-                    if ($sidSlot1 > 0) $roomMeta[$targetRoom]['opt_slot_1_subjects'][$sidSlot1] = true;
-                    if ($sidSlot2 > 0) $roomMeta[$targetRoom]['opt_slot_2_subjects'][$sidSlot2] = true;
+                    foreach (array_keys($sidSlot1Subjects) as $slotSubId) {
+                        $roomMeta[$targetRoom]['opt_slot_1_subjects'][(int) $slotSubId] = true;
+                    }
+                    foreach (array_keys($sidSlot2Subjects) as $slotSubId) {
+                        $roomMeta[$targetRoom]['opt_slot_2_subjects'][(int) $slotSubId] = true;
+                    }
                     $roomAssignment[$sid] = $targetRoom;
                     $moved = true;
                     break;
