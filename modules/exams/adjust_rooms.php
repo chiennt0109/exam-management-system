@@ -325,7 +325,8 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
         $subColsStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
             FROM exam_student_subjects ess
             INNER JOIN subjects sub ON sub.id = ess.subject_id
-            WHERE ess.exam_id = :exam_id AND ess.khoi = :khoi
+            INNER JOIN exam_students es0 ON es0.exam_id = ess.exam_id AND es0.student_id = ess.student_id AND es0.subject_id IS NULL
+            WHERE ess.exam_id = :exam_id AND es0.khoi = :khoi
             ORDER BY sub.ten_mon');
         $subColsStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
         $roomViewSubjects = $subColsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -348,7 +349,8 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
         $roomMapStmt = $pdo->prepare('SELECT ess.student_id, ess.subject_id, sub.ten_mon
             FROM exam_student_subjects ess
             INNER JOIN subjects sub ON sub.id = ess.subject_id
-            WHERE ess.exam_id = :exam_id AND ess.khoi = :khoi');
+            INNER JOIN exam_students es0 ON es0.exam_id = ess.exam_id AND es0.student_id = ess.student_id AND es0.subject_id IS NULL
+            WHERE ess.exam_id = :exam_id AND es0.khoi = :khoi');
         $roomMapStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
         foreach ($assignedStudents as $asRow) {
             $sid = (int) ($asRow['student_id'] ?? 0);
