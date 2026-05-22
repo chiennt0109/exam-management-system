@@ -321,11 +321,11 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
             $filteredStudents = array_values(array_filter($filteredStudents, static fn(array $st): bool => (string) ($st['lop'] ?? '') === $filterClass));
         }
 
-        // In room view: still show all subjects each student registered in this exam/khoi.
+        // In room view: show all subjects each student registered in this exam/khoi (from registration matrix).
         $subColsStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
-            FROM exam_students es
-            INNER JOIN subjects sub ON sub.id = es.subject_id
-            WHERE es.exam_id = :exam_id AND es.khoi = :khoi AND es.subject_id IS NOT NULL
+            FROM exam_student_subjects ess
+            INNER JOIN subjects sub ON sub.id = ess.subject_id
+            WHERE ess.exam_id = :exam_id AND ess.khoi = :khoi
             ORDER BY sub.ten_mon');
         $subColsStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
         $roomViewSubjects = $subColsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -345,12 +345,18 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
             }
         }
 
-        $roomMapStmt = $pdo->prepare('SELECT es.student_id, es.subject_id, sub.ten_mon, r.ten_phong
-            FROM exam_students es
-            INNER JOIN subjects sub ON sub.id = es.subject_id
-            LEFT JOIN rooms r ON r.id = es.room_id
-            WHERE es.exam_id = :exam_id AND es.khoi = :khoi AND es.subject_id IS NOT NULL');
+        $roomMapStmt = $pdo->prepare('SELECT ess.student_id, ess.subject_id, sub.ten_mon
+            FROM exam_student_subjects ess
+            INNER JOIN subjects sub ON sub.id = ess.subject_id
+            WHERE ess.exam_id = :exam_id AND ess.khoi = :khoi');
         $roomMapStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+        foreach ($assignedStudents as $asRow) {
+            $sid = (int) ($asRow['student_id'] ?? 0);
+            $rid = (int) ($asRow['room_id'] ?? 0);
+            if ($sid > 0 && $rid > 0 && !isset($roomViewRoomByStudent[$sid])) {
+                $roomViewRoomByStudent[$sid] = (string) ($roomMap[$rid] ?? '');
+            }
+        }
         foreach ($roomMapStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $sid = (int) ($row['student_id'] ?? 0);
             $subId = (int) ($row['subject_id'] ?? 0);
@@ -358,9 +364,6 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
                 continue;
             }
             $roomViewSubjectByStudent[$sid][$subId] = (string) ($row['ten_mon'] ?? '');
-            if (!isset($roomViewRoomByStudent[$sid])) {
-                $roomViewRoomByStudent[$sid] = (string) ($row['ten_phong'] ?? '');
-            }
             if (empty($isMandatoryMap[$subId])) {
                 $roomViewOptionalSubjectIdsByStudent[$sid][$subId] = true;
             }
