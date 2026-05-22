@@ -396,6 +396,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             $ts = strtotime($dob);
             $studentId = (int) ($st['student_id'] ?? 0);
             $allGroups[$rid]['students'][] = [
+                'student_id' => $studentId,
                 'sbd' => (string) ($st['sbd'] ?? ''),
                 'hoten' => (string) ($st['hoten'] ?? ''),
                 'lop' => (string) ($st['lop'] ?? ''),
@@ -420,6 +421,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
             $key = trim((string) ($st['sbd'] ?? '')) . '|' . trim((string) ($st['hoten'] ?? ''));
             if (!isset($roomNoticeGroups[$roomName]['students'][$key])) {
                 $roomNoticeGroups[$roomName]['students'][$key] = [
+                    'student_id' => (int) ($st['student_id'] ?? 0),
                     'sbd' => (string) ($st['sbd'] ?? ''),
                     'hoten' => (string) ($st['hoten'] ?? ''),
                     'ngaysinh' => (string) ($st['ngaysinh'] ?? ''),
