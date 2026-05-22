@@ -605,21 +605,23 @@ require_once BASE_PATH . '/layout/header.php';
                                             if (count($mandatoryVals) >= 2) break;
                                             if (!in_array($name, $mandatoryVals, true)) $mandatoryVals[] = $name;
                                         }
-                                        $optionalVals = [1 => '', 2 => ''];
+                                        $optionalVals = [1 => [], 2 => []];
                                         foreach ((array) ($roomViewOptionalSubjectIdsByStudent[$studentId] ?? []) as $optSubIdRaw => $_f) {
                                             $optSubId = (int) $optSubIdRaw;
                                             $name = trim((string) ($roomViewSubjectByStudent[$studentId][$optSubId] ?? ''));
                                             if ($name === '') continue;
                                             $slot = (int) ($roomViewOptionalSlotBySubject[$optSubId] ?? 1);
-                                            if ($optionalVals[$slot] === '') {
-                                                $optionalVals[$slot] = $name;
+                                            if (!in_array($name, $optionalVals[$slot], true)) {
+                                                $optionalVals[$slot][] = $name;
                                             }
                                         }
+                                        $optionalText1 = implode(', ', (array) ($optionalVals[1] ?? []));
+                                        $optionalText2 = implode(', ', (array) ($optionalVals[2] ?? []));
                                         ?>
                                         <td><?= htmlspecialchars((string) ($mandatoryVals[0] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <td><?= htmlspecialchars((string) ($mandatoryVals[1] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars((string) ($optionalVals[1] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                        <td><?= htmlspecialchars((string) ($optionalVals[2] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($optionalText1, ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars($optionalText2, ENT_QUOTES, 'UTF-8') ?></td>
                                         <?php $roomName = (string) ($roomViewRoomByStudent[$studentId] ?? ($roomMap[(int) ($st['room_id'] ?? 0)] ?? '')); ?>
                                         <td class="fw-bold text-center"><?= htmlspecialchars($roomName, ENT_QUOTES, 'UTF-8') ?></td>
                                     <?php endif; ?>
