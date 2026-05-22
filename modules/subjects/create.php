@@ -6,12 +6,18 @@ require_role(['admin']);
 require_once BASE_PATH . '/core/db.php';
 
 $errors = [];
-$formData = ['ma_mon' => '', 'ten_mon' => '', 'he_so' => '1'];
+$subjectCols = array_column($pdo->query('PRAGMA table_info(subjects)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+if (!in_array('is_mandatory', $subjectCols, true)) {
+    $pdo->exec('ALTER TABLE subjects ADD COLUMN is_mandatory INTEGER DEFAULT 0');
+}
+
+$formData = ['ma_mon' => '', 'ten_mon' => '', 'he_so' => '1', 'is_mandatory' => '0'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $formData['ma_mon'] = trim($_POST['ma_mon'] ?? '');
     $formData['ten_mon'] = trim($_POST['ten_mon'] ?? '');
     $formData['he_so'] = trim($_POST['he_so'] ?? '1');
+    $formData['is_mandatory'] = isset($_POST['is_mandatory']) ? '1' : '0';
 
     if ($formData['ma_mon'] === '') $errors[] = 'Mã môn không được để trống.';
     if ($formData['ten_mon'] === '') $errors[] = 'Tên môn không được để trống.';
@@ -19,11 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         try {
-            $stmt = $pdo->prepare('INSERT INTO subjects (ma_mon, ten_mon, he_so) VALUES (:ma_mon, :ten_mon, :he_so)');
+            $stmt = $pdo->prepare('INSERT INTO subjects (ma_mon, ten_mon, he_so, is_mandatory) VALUES (:ma_mon, :ten_mon, :he_so, :is_mandatory)');
             $stmt->execute([
                 ':ma_mon' => $formData['ma_mon'],
                 ':ten_mon' => $formData['ten_mon'],
-                ':he_so' => (float) $formData['he_so']
+                ':he_so' => (float) $formData['he_so'],
+                ':is_mandatory' => (int) $formData['is_mandatory'],
             ]);
             header('Location: ' . BASE_URL . '/modules/subjects/index.php?msg=created');
             exit;
@@ -65,6 +72,7 @@ require_once BASE_PATH . '/layout/header.php';
                     <div class="field"><label>Mã môn *</label><input type="text" name="ma_mon" value="<?= htmlspecialchars($formData['ma_mon'], ENT_QUOTES, 'UTF-8') ?>" required></div>
                     <div class="field"><label>Tên môn *</label><input type="text" name="ten_mon" value="<?= htmlspecialchars($formData['ten_mon'], ENT_QUOTES, 'UTF-8') ?>" required></div>
                     <div class="field"><label>Hệ số *</label><input type="number" step="0.01" min="0.01" name="he_so" value="<?= htmlspecialchars($formData['he_so'], ENT_QUOTES, 'UTF-8') ?>" required></div>
+                    <div class="field"><label><input type="checkbox" name="is_mandatory" value="1" <?= $formData['is_mandatory'] === '1' ? 'checked' : '' ?>> Môn bắt buộc</label></div>
                     <button class="btn btn-primary" type="submit">💾 Lưu</button>
                     <a class="btn btn-secondary" href="<?= BASE_URL ?>/modules/subjects/index.php">↩ Quay lại</a>
                 </form>

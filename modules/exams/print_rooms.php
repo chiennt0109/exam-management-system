@@ -48,11 +48,11 @@ function buildMode2SubjectSlotMap(array $subjectRows): array
         }
         $norm = normalizeVietnameseText($subjectName);
         if (str_contains($norm, 'ngu van')) {
-            $map[$subjectId] = ['label' => 'Ngày 1 - Sáng - Ca 1', 'duration' => '120 phút', 'form' => 'Tự luận'];
+            $map[$subjectId] = ['label' => 'Ca thi 1', 'duration' => '120 phút', 'form' => 'Tự luận'];
             continue;
         }
         if (preg_match('/\btoan\b/', $norm) === 1) {
-            $map[$subjectId] = ['label' => 'Ngày 1 - Chiều - Ca 1', 'duration' => '90 phút', 'form' => 'Trắc nghiệm'];
+            $map[$subjectId] = ['label' => 'Ca thi 2', 'duration' => '90 phút', 'form' => 'Trắc nghiệm'];
             continue;
         }
         $remaining[] = ['id' => $subjectId, 'name' => $subjectName];
@@ -60,10 +60,10 @@ function buildMode2SubjectSlotMap(array $subjectRows): array
 
     usort($remaining, static fn(array $a, array $b): int => strcmp((string) $a['name'], (string) $b['name']));
     $slots = [
-        ['label' => 'Ngày 2 - Sáng - Ca 1', 'duration' => '50 phút', 'form' => 'Trắc nghiệm'],
-        ['label' => 'Ngày 2 - Sáng - Ca 2', 'duration' => '50 phút', 'form' => 'Trắc nghiệm'],
-        ['label' => 'Ngày 2 - Chiều - Ca 1', 'duration' => '50 phút', 'form' => 'Trắc nghiệm'],
-        ['label' => 'Ngày 2 - Chiều - Ca 2', 'duration' => '50 phút', 'form' => 'Trắc nghiệm'],
+        ['label' => 'Ca thi 3', 'duration' => '50 phút', 'form' => 'Trắc nghiệm'],
+        ['label' => 'Ca thi 4', 'duration' => '50 phút', 'form' => 'Trắc nghiệm'],
+        ['label' => 'Ca thi 5', 'duration' => '50 phút', 'form' => 'Trắc nghiệm'],
+        ['label' => 'Ca thi 6', 'duration' => '50 phút', 'form' => 'Trắc nghiệm'],
     ];
 
     foreach ($remaining as $idx => $item) {
@@ -71,6 +71,17 @@ function buildMode2SubjectSlotMap(array $subjectRows): array
     }
 
     return $map;
+}
+
+function extractSessionNumberLabel(string $slotLabel): string
+{
+    if (preg_match('/Ca\s*thi\s*(\d+)/iu', $slotLabel, $m) === 1) {
+        return (string) $m[1];
+    }
+    if (preg_match('/Ca\s*(\d+)/iu', $slotLabel, $m) === 1) {
+        return (string) $m[1];
+    }
+    return trim($slotLabel);
 }
 
 $lockState = exams_get_lock_state($pdo, $examId);
@@ -156,7 +167,7 @@ $offset = ($page - 1) * $perPage;
 $roomSql = 'SELECT r.id AS room_id, r.ten_phong, r.khoi, sub.ten_mon, sub.id AS subject_id
     FROM rooms r
     INNER JOIN subjects sub ON sub.id = r.subject_id' . $where . '
-    ORDER BY sub.ten_mon, r.khoi, r.ten_phong
+    ORDER BY CAST(r.ten_phong AS INTEGER), r.ten_phong, sub.ten_mon, r.khoi
     LIMIT :limit OFFSET :offset';
 $roomStmt = $pdo->prepare($roomSql);
 foreach ($params as $k => $v) {
@@ -244,7 +255,7 @@ if (in_array($export, ['format1', 'format2'], true)) {
     $allRoomStmt = $pdo->prepare('SELECT r.id AS room_id, r.ten_phong, r.khoi, sub.ten_mon, sub.id AS subject_id
         FROM rooms r
         INNER JOIN subjects sub ON sub.id = r.subject_id' . $where . '
-        ORDER BY sub.ten_mon, r.khoi, r.ten_phong');
+        ORDER BY CAST(r.ten_phong AS INTEGER), r.ten_phong, sub.ten_mon, r.khoi');
     $allRoomStmt->execute($params);
     $allRooms = $allRoomStmt->fetchAll(PDO::FETCH_ASSOC);
     $allGroups = [];
@@ -292,6 +303,35 @@ if (in_array($export, ['format1', 'format2'], true)) {
         }
     }
 
+    // Gom niêm yết theo phòng (không tách theo môn): mỗi học sinh 1 dòng, tổng hợp toàn bộ môn.
+    $roomNoticeGroups = [];
+    foreach ($allGroups as $group) {
+        $roomName = (string) ($group['ten_phong'] ?? '');
+        if (!isset($roomNoticeGroups[$roomName])) {
+            $roomNoticeGroups[$roomName] = [
+                'ten_phong' => $roomName,
+                'khoi' => (string) ($group['khoi'] ?? ''),
+                'students' => [],
+            ];
+        }
+        foreach ((array) ($group['students'] ?? []) as $st) {
+            $key = trim((string) ($st['sbd'] ?? '')) . '|' . trim((string) ($st['hoten'] ?? ''));
+            if (!isset($roomNoticeGroups[$roomName]['students'][$key])) {
+                $roomNoticeGroups[$roomName]['students'][$key] = [
+                    'sbd' => (string) ($st['sbd'] ?? ''),
+                    'hoten' => (string) ($st['hoten'] ?? ''),
+                    'ngaysinh' => (string) ($st['ngaysinh'] ?? ''),
+                    'lop' => (string) ($st['lop'] ?? ''),
+                    'subjects' => [],
+                ];
+            }
+            $subName = trim((string) ($group['ten_mon'] ?? ''));
+            if ($subName !== '') {
+                $roomNoticeGroups[$roomName]['students'][$key]['subjects'][$subName] = true;
+            }
+        }
+    }
+
     $filename = 'danh_sach_phong_' . $export . '_exam_' . $examId . ($examMode === 2 ? '_mode2_2025' : '') . ($isPdfExport ? '.html' : '.xls');
     if ($isPdfExport) {
         header('Content-Type: text/html; charset=UTF-8');
@@ -321,9 +361,18 @@ if (in_array($export, ['format1', 'format2'], true)) {
         echo '</Styles>';
 
         $usedSheetNames = [];
-        foreach ($allGroups as $group) {
-            $students = array_values($group['students']);
-            $sheetBase = preg_replace('/[^\p{L}\p{N}_-]+/u', '_', (string) ($group['ten_mon'] ?? '') . '_' . (string) ($group['ten_phong'] ?? '')) ?: ('Room_' . (string) $group['room_id']);
+        $sourceGroups = $export === 'format1' ? array_values($roomNoticeGroups) : array_values($allGroups);
+        usort($sourceGroups, static function (array $a, array $b): int {
+            $ra = trim((string) ($a['ten_phong'] ?? ''));
+            $rb = trim((string) ($b['ten_phong'] ?? ''));
+            $na = (int) $ra;
+            $nb = (int) $rb;
+            return ($na <=> $nb) ?: strcmp($ra, $rb);
+        });
+        foreach ($sourceGroups as $group) {
+            $students = array_values((array) ($group['students'] ?? []));
+            $sheetLabel = $export === 'format1' ? (string) ($group['ten_phong'] ?? '') : ((string) ($group['ten_mon'] ?? '') . '_' . (string) ($group['ten_phong'] ?? ''));
+            $sheetBase = preg_replace('/[^\p{L}\p{N}_-]+/u', '_', $sheetLabel) ?: ('Room_' . (string) ($group['ten_phong'] ?? ''));
             $sheetBase = substr((string) $sheetBase, 0, 28);
             $sheetName = $sheetBase;
             $suffix = 1;
@@ -333,26 +382,33 @@ if (in_array($export, ['format1', 'format2'], true)) {
             }
             $usedSheetNames[$sheetName] = true;
 
-            $columnWidths = [5,10,28,12,12,8,8,18];
+            $isFormat1Mode2 = $export === 'format1' && $examMode === 2;
+            $columnWidths = $isFormat1Mode2
+                ? [6,14,30,14,12,14,14,16,16,10,14]
+                : [6,16,34,14,12,20,14,12];
             echo '<Worksheet ss:Name="' . $xmlEscape($sheetName) . '">';
             echo '<Table ss:ExpandedColumnCount="' . count($columnWidths) . '" ss:DefaultRowHeight="18">';
             foreach ($columnWidths as $w) {
                 echo '<Column ss:Width="' . ($w * 6.5) . '"/>';
             }
 
+            $headerMergeAcross = count($columnWidths) - 5;
+            if ($headerMergeAcross < 0) {
+                $headerMergeAcross = 0;
+            }
             echo '<Row ss:Height="24">';
             echo '<Cell ss:MergeAcross="3" ss:MergeDown="1" ss:StyleID="HeaderLeft"><Data ss:Type="String">' . $xmlEscape("TRƯỜNG THPT CHUYÊN TRẦN PHÚ
 " . $examName) . '</Data></Cell>';
-            echo '<Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightTitle"><Data ss:Type="String">' . $xmlEscape($export === 'format1' ? 'DANH SÁCH NIÊM YẾT' : 'PHIẾU THU BÀI') . '</Data></Cell>';
+            echo '<Cell ss:Index="5" ss:MergeAcross="' . $headerMergeAcross . '" ss:StyleID="HeaderRightTitle"><Data ss:Type="String">' . $xmlEscape($export === 'format1' ? 'DANH SÁCH NIÊM YẾT' : 'PHIẾU THU BÀI') . '</Data></Cell>';
             echo '</Row>';
-            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('PHÒNG: ' . (string) $group['ten_phong']) . '</Data></Cell></Row>';
-            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="3" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('Môn: ' . (string) $group['ten_mon']) . '</Data></Cell></Row>';
+            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="' . $headerMergeAcross . '" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('PHÒNG: ' . (string) $group['ten_phong']) . '</Data></Cell></Row>';
+            echo '<Row ss:Height="20"><Cell ss:Index="5" ss:MergeAcross="' . $headerMergeAcross . '" ss:StyleID="HeaderRightSub"><Data ss:Type="String">' . $xmlEscape('Môn: ' . ($export === 'format1' ? 'Tổng hợp theo phòng' : (string) ($group['ten_mon'] ?? ''))) . '</Data></Cell></Row>';
             echo '<Row ss:Height="10"></Row>';
 
             if ($export === 'format1') {
                 echo '<Row>';
                 $headers = $examMode === 2
-                    ? ['STT','SBD','Họ và tên','Ngày sinh','Lớp','Môn thi theo phòng','Ca thi','Ký nhận']
+                    ? ['STT','SBD','Họ và tên','Ngày sinh','Lớp','Môn bắt buộc 1','Môn bắt buộc 2','Bài thi chọn số 1','Bài thi chọn số 2','Phòng','Ghi chú']
                     : ['STT','SBD','Họ và tên','Ngày sinh','Lớp','Ghi chú'];
                 foreach ($headers as $h) {
                     echo '<Cell ss:StyleID="TableHead"><Data ss:Type="String">' . $xmlEscape($h) . '</Data></Cell>';
@@ -360,7 +416,9 @@ if (in_array($export, ['format1', 'format2'], true)) {
                 echo '</Row>';
                 foreach ($students as $i => $st) {
                     if ($examMode === 2) {
-                        echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($group['ten_mon'] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($group['slot_label'] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
+                        $subjectsText = isset($st['subjects']) ? implode(', ', array_keys((array) $st['subjects'])) : (string) ($group['ten_mon'] ?? '');
+                        $parts = array_values(array_filter(array_map('trim', explode(',', $subjectsText)), static fn(string $v): bool => $v !== ''));
+                        echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($parts[0] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($parts[1] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($parts[2] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) ($parts[3] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) ($group['ten_phong'] ?? '')) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                     } else {
                         echo '<Row><Cell ss:StyleID="CellCenter"><Data ss:Type="Number">' . ($i + 1) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['sbd']) . '</Data></Cell><Cell ss:StyleID="CellLeft"><Data ss:Type="String">' . $xmlEscape((string) $st['hoten']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['ngaysinh']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String">' . $xmlEscape((string) $st['lop']) . '</Data></Cell><Cell ss:StyleID="CellCenter"><Data ss:Type="String"></Data></Cell></Row>';
                     }
@@ -408,7 +466,15 @@ if (in_array($export, ['format1', 'format2'], true)) {
         echo '<xml><x:ExcelWorkbook xmlns:x="urn:schemas-microsoft-com:office:excel"><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Export</x:Name><x:WorksheetOptions><x:Print><x:ValidPrinterInfo/><x:PaperSizeIndex>9</x:PaperSizeIndex><x:Scale>100</x:Scale><x:FitWidth>1</x:FitWidth><x:FitHeight>0</x:FitHeight><x:HorizontalResolution>600</x:HorizontalResolution><x:VerticalResolution>600</x:VerticalResolution></x:Print><x:PageSetup><x:Layout x:Orientation="Portrait"/></x:PageSetup></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml>';
     }
 
-    foreach ($allGroups as $group) {
+    $sourceGroups = $export === 'format1' ? array_values($roomNoticeGroups) : array_values($allGroups);
+    usort($sourceGroups, static function (array $a, array $b): int {
+        $ra = trim((string) ($a['ten_phong'] ?? ''));
+        $rb = trim((string) ($b['ten_phong'] ?? ''));
+        $na = (int) $ra;
+        $nb = (int) $rb;
+        return ($na <=> $nb) ?: strcmp($ra, $rb);
+    });
+    foreach ($sourceGroups as $group) {
         $students = array_values($group['students']);
         $maxRows = $export === 'format1' ? 30 : 28;
         $studentChunks = empty($students) ? [[]] : array_chunk($students, $maxRows);
@@ -419,10 +485,10 @@ if (in_array($export, ['format1', 'format2'], true)) {
             if ($export === 'format1') {
                 echo '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">';
                 echo '<div class="header-left" style="text-align:left"><div class="title-sub">TRƯỜNG THPT CHUYÊN TRẦN PHÚ</div><div class="room-subject"><strong>' . htmlspecialchars($examName) . '</strong></div></div>';
-                echo '<div class="header-right" style="text-align:right"><div class="title-main">' . ($examMode === 2 ? 'DANH SÁCH NIÊM YẾT (MẪU 2025)' : 'DANH SÁCH NIÊM YẾT') . '</div><div class="room-subject"><strong>PHÒNG: ' . htmlspecialchars($group['ten_phong']) . '</strong> &nbsp; | &nbsp; <strong>Môn: ' . htmlspecialchars($group['ten_mon']) . '</strong></div></div>';
+                echo '<div class="header-right" style="text-align:right"><div class="title-main">DANH SÁCH NIÊM YẾT</div><div class="room-subject"><strong>PHÒNG: ' . htmlspecialchars($group['ten_phong']) . '</strong> &nbsp; | &nbsp; <strong>Môn: ' . htmlspecialchars($export === 'format1' ? 'Tổng hợp theo phòng' : (string) ($group['ten_mon'] ?? '')) . '</strong></div></div>';
                 echo '</div>';
                 if ($examMode === 2) {
-                    echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th class="col-tight">SBD</th><th>Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:10%">Lớp</th><th style="width:18%">Môn thi theo phòng</th><th style="width:15%">Ca thi</th><th style="width:10%">Ký nhận</th></tr></thead><tbody>';
+                    echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th style="width:12%">SBD</th><th style="width:28%">Họ và tên</th><th style="width:14%">Ngày sinh</th><th style="width:10%">Lớp</th><th style="width:22%">Môn thi theo phòng</th><th style="width:12%">Ghi chú</th></tr></thead><tbody>';
                 } else {
                     echo '<div class="table-wrap"><table><thead><tr><th class="col-tight">STT</th><th class="col-tight">SBD</th><th>Họ và tên</th><th style="width:17%">Ngày sinh</th><th style="width:13%">Lớp</th><th style="width:18%">Ghi chú</th></tr></thead><tbody>';
                 }
@@ -430,13 +496,14 @@ if (in_array($export, ['format1', 'format2'], true)) {
                     $nameSize = $fitFontSize((string) ($st['hoten'] ?? ''));
                     $classSize = $fitFontSize((string) ($st['lop'] ?? ''), 11, 8, 10);
                     if ($examMode === 2) {
-                        echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td>' . htmlspecialchars((string) ($group['ten_mon'] ?? '')) . '</td><td>' . htmlspecialchars((string) ($group['slot_label'] ?? '')) . '</td><td></td></tr>';
+                        $subjectsText = isset($st['subjects']) ? implode(', ', array_keys((array) $st['subjects'])) : (string) ($group['ten_mon'] ?? '');
+                        echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td>' . htmlspecialchars($subjectsText) . '</td><td></td></tr>';
                     } else {
                         echo '<tr><td class="center col-tight">' . ($sttOffset + $i + 1) . '</td><td class="center nowrap col-tight">' . htmlspecialchars($st['sbd']) . '</td><td class="name-cell" style="font-size:' . $nameSize . 'px">' . htmlspecialchars($st['hoten']) . '</td><td class="center">' . htmlspecialchars($st['ngaysinh']) . '</td><td class="center class-cell" style="font-size:' . $classSize . 'px">' . htmlspecialchars($st['lop']) . '</td><td></td></tr>';
                     }
                 }
                 if (empty($displayStudents)) {
-                    echo '<tr><td class="center" colspan="' . ($examMode === 2 ? '8' : '6') . '">(Phòng trống)</td></tr>';
+                    echo '<tr><td class="center" colspan="' . ($examMode === 2 ? '7' : '6') . '">(Phòng trống)</td></tr>';
                 }
                 echo '</tbody></table></div>';
                 echo '<div class="footer-right"><div class="footer-signature"><div><em>Hải Phòng, ngày ... tháng ... năm ' . $year . '</em></div><div><strong>CHỦ TỊCH HỘI ĐỒNG</strong></div><div class="sig-space"></div></div></div>';
@@ -471,28 +538,33 @@ if (in_array($export, ['format1', 'format2'], true)) {
 
 
 $filterRoom = trim((string) ($_GET['filter_room'] ?? ''));
-$filterDay = trim((string) ($_GET['filter_day'] ?? ''));
 $filterSession = trim((string) ($_GET['filter_session'] ?? ''));
 $mode2QuickRows = [];
+$mode2RoomNoticeRows = [];
 if ($examMode === 2) {
+    $roomRosterMap = [];
     foreach ($roomGroups as $room) {
         $roomName = (string) ($room['ten_phong'] ?? '');
         $slotLabel = (string) ($room['slot_label'] ?? '');
-        $dayLabel = str_contains($slotLabel, 'Ngày 1') ? 'Ngày 1' : (str_contains($slotLabel, 'Ngày 2') ? 'Ngày 2' : '');
         $caLabel = '';
         if (preg_match('/Ca\s*\d+/u', $slotLabel, $m) === 1) {
             $caLabel = (string) $m[0];
-        } elseif (str_contains($slotLabel, 'Sáng')) {
-            $caLabel = 'Sáng';
-        } elseif (str_contains($slotLabel, 'Chiều')) {
-            $caLabel = 'Chiều';
         }
 
         foreach ((array) ($room['students'] ?? []) as $st) {
-            if ($filterRoom !== '' && $filterRoom !== $roomName) {
-                continue;
+            $sid = trim((string) ($st['sbd'] ?? ''));
+            $roomKey = $roomName . '|' . $sid;
+            if (!isset($roomRosterMap[$roomKey])) {
+                $roomRosterMap[$roomKey] = [
+                    'room' => $roomName,
+                    'hoten' => (string) ($st['hoten'] ?? ''),
+                    'sbd' => $sid,
+                    'subjects' => [],
+                ];
             }
-            if ($filterDay !== '' && $filterDay !== $dayLabel) {
+            $roomRosterMap[$roomKey]['subjects'][(string) ($room['ten_mon'] ?? '')] = true;
+
+            if ($filterRoom !== '' && $filterRoom !== $roomName) {
                 continue;
             }
             if ($filterSession !== '' && $filterSession !== $caLabel) {
@@ -502,15 +574,27 @@ if ($examMode === 2) {
                 'room' => $roomName,
                 'hoten' => (string) ($st['hoten'] ?? ''),
                 'sbd' => (string) ($st['sbd'] ?? ''),
-                'day' => $dayLabel,
                 'session' => $caLabel,
                 'subject' => (string) ($room['ten_mon'] ?? ''),
             ];
         }
     }
+    foreach ($roomRosterMap as $row) {
+        $subjects = array_keys((array) ($row['subjects'] ?? []));
+        sort($subjects);
+        $mode2RoomNoticeRows[] = [
+            'room' => (string) $row['room'],
+            'hoten' => (string) $row['hoten'],
+            'sbd' => (string) $row['sbd'],
+            'subjects' => implode(', ', $subjects),
+        ];
+    }
 
     usort($mode2QuickRows, static function (array $a, array $b): int {
-        return (($a['room'] <=> $b['room']) ?: ($a['day'] <=> $b['day']) ?: ($a['session'] <=> $b['session']) ?: ($a['sbd'] <=> $b['sbd']));
+        return (($a['room'] <=> $b['room']) ?: ($a['session'] <=> $b['session']) ?: ($a['sbd'] <=> $b['sbd']));
+    });
+    usort($mode2RoomNoticeRows, static function (array $a, array $b): int {
+        return (($a['room'] <=> $b['room']) ?: ($a['sbd'] <=> $b['sbd']));
     });
 }
 
@@ -520,7 +604,6 @@ $baseQuery = [
     'search' => $search,
     'per_page' => $perPage,
     'filter_room' => $filterRoom,
-    'filter_day' => $filterDay,
     'filter_session' => $filterSession,
 ];
 
@@ -589,21 +672,15 @@ require_once BASE_PATH . '/layout/header.php';
         <input class="form-control" name="filter_room" value="<?= htmlspecialchars($filterRoom, ENT_QUOTES, 'UTF-8') ?>" placeholder="VD: 01">
     </div>
     <div class="col-md-3">
-        <label class="form-label">Filter ngày</label>
-        <select class="form-select" name="filter_day">
-            <option value="">-- Tất cả --</option>
-            <option value="Ngày 1" <?= $filterDay === 'Ngày 1' ? 'selected' : '' ?>>Ngày 1</option>
-            <option value="Ngày 2" <?= $filterDay === 'Ngày 2' ? 'selected' : '' ?>>Ngày 2</option>
-        </select>
-    </div>
-    <div class="col-md-3">
         <label class="form-label">Filter ca</label>
         <select class="form-select" name="filter_session">
             <option value="">-- Tất cả --</option>
-            <option value="Sáng" <?= $filterSession === 'Sáng' ? 'selected' : '' ?>>Sáng</option>
-            <option value="Chiều" <?= $filterSession === 'Chiều' ? 'selected' : '' ?>>Chiều</option>
             <option value="Ca 1" <?= $filterSession === 'Ca 1' ? 'selected' : '' ?>>Ca 1</option>
             <option value="Ca 2" <?= $filterSession === 'Ca 2' ? 'selected' : '' ?>>Ca 2</option>
+            <option value="Ca 3" <?= $filterSession === 'Ca 3' ? 'selected' : '' ?>>Ca 3</option>
+            <option value="Ca 4" <?= $filterSession === 'Ca 4' ? 'selected' : '' ?>>Ca 4</option>
+            <option value="Ca 5" <?= $filterSession === 'Ca 5' ? 'selected' : '' ?>>Ca 5</option>
+            <option value="Ca 6" <?= $filterSession === 'Ca 6' ? 'selected' : '' ?>>Ca 6</option>
         </select>
     </div>
     <div class="col-md-3 d-flex align-items-end gap-2">
@@ -613,16 +690,15 @@ require_once BASE_PATH . '/layout/header.php';
 </form>
 <div class="table-responsive mb-3">
     <table class="table table-bordered table-sm">
-        <thead><tr><th>Phòng</th><th>Họ tên</th><th>SBD</th><th>Ngày</th><th>Ca</th><th>Môn thi</th></tr></thead>
+        <thead><tr><th>Phòng</th><th>Họ tên</th><th>SBD</th><th>Ca</th><th>Môn thi</th></tr></thead>
         <tbody>
         <?php if (empty($mode2QuickRows)): ?>
-            <tr><td colspan="6" class="text-center text-muted">Không có dữ liệu theo điều kiện lọc.</td></tr>
+            <tr><td colspan="5" class="text-center text-muted">Không có dữ liệu theo điều kiện lọc.</td></tr>
         <?php else: foreach ($mode2QuickRows as $r): ?>
             <tr>
                 <td><?= htmlspecialchars($r['room'], ENT_QUOTES, 'UTF-8') ?></td>
                 <td><?= htmlspecialchars($r['hoten'], ENT_QUOTES, 'UTF-8') ?></td>
                 <td><?= htmlspecialchars($r['sbd'], ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars($r['day'], ENT_QUOTES, 'UTF-8') ?></td>
                 <td><?= htmlspecialchars($r['session'], ENT_QUOTES, 'UTF-8') ?></td>
                 <td><?= htmlspecialchars($r['subject'], ENT_QUOTES, 'UTF-8') ?></td>
             </tr>
@@ -630,15 +706,33 @@ require_once BASE_PATH . '/layout/header.php';
         </tbody>
     </table>
 </div>
+<div class="table-responsive mb-3">
+    <h6>Danh sách niêm yết theo phòng (tổng hợp toàn bộ môn của từng học sinh)</h6>
+    <table class="table table-bordered table-sm">
+        <thead><tr><th>Phòng</th><th>SBD</th><th>Họ tên</th><th>Danh sách môn đăng ký</th></tr></thead>
+        <tbody>
+        <?php if (empty($mode2RoomNoticeRows)): ?>
+            <tr><td colspan="4" class="text-center text-muted">Không có dữ liệu.</td></tr>
+        <?php else: foreach ($mode2RoomNoticeRows as $r): ?>
+            <tr>
+                <td><?= htmlspecialchars($r['room'], ENT_QUOTES, 'UTF-8') ?></td>
+                <td><?= htmlspecialchars($r['sbd'], ENT_QUOTES, 'UTF-8') ?></td>
+                <td><?= htmlspecialchars($r['hoten'], ENT_QUOTES, 'UTF-8') ?></td>
+                <td><?= htmlspecialchars($r['subjects'], ENT_QUOTES, 'UTF-8') ?></td>
+            </tr>
+        <?php endforeach; endif; ?>
+        </tbody>
+    </table>
+</div>
 <div class="alert alert-info py-2">
-    <strong>Lịch phân ca mode 2 (theo quy định):</strong> Ngày 1: Sáng Ngữ văn (120 phút), Chiều Toán (90 phút). Ngày 2: các môn còn lại thi trắc nghiệm 50 phút, sắp vào tối đa 2 ca/buổi (Sáng Ca 1-2, Chiều Ca 1-2).
+    <strong>Lịch phân ca mode 2:</strong> sử dụng định dạng ca thi chung (Ca 1, Ca 2, ...), không phân theo ngày thi.
 </div>
 <?php endif; ?>
 <?php foreach ($roomGroups as $room): ?>
-<div class="border rounded p-3 mb-3"><h5><?= $examMode === 2 ? 'NIÊM YẾT THEO MẪU BỘ GDĐT 2025 - ' : '' ?>Phòng: <?= htmlspecialchars($room['ten_phong'], ENT_QUOTES, 'UTF-8') ?> | Môn: <?= htmlspecialchars($room['ten_mon'], ENT_QUOTES, 'UTF-8') ?> | Khối: <?= htmlspecialchars($room['khoi'], ENT_QUOTES, 'UTF-8') ?></h5><?php if ($examMode === 2): ?><div class="small text-muted mb-2">Ngày 1 Sáng: Ngữ văn | Ngày 1 Chiều: Toán | <?= htmlspecialchars((string)($room['slot_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>: <?= htmlspecialchars((string)$room['ten_mon'], ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
-<table class="table table-sm table-bordered"><thead><tr><th>#</th><th>SBD</th><th>Họ tên</th><th>Lớp</th><th>Ngày sinh</th><?php if ($examMode === 2): ?><th>Môn thi theo phòng</th><th>Ngày/Ca thi</th><th>Ký nhận</th><?php endif; ?></tr></thead><tbody>
-<?php foreach($room['students'] as $i=>$st): ?><tr><td><?= $i+1 ?></td><td><?= htmlspecialchars($st['sbd'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($st['hoten'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($st['lop'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($st['ngaysinh'], ENT_QUOTES, 'UTF-8') ?></td><?php if ($examMode === 2): ?><td><?= htmlspecialchars((string)$room['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string)($room['slot_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td><td></td><?php endif; ?></tr><?php endforeach; ?>
-<?php if (empty($room['students'])): ?><tr><td colspan="<?= $examMode === 2 ? 8 : 5 ?>" class="text-center text-muted">(Phòng trống)</td></tr><?php endif; ?>
+<div class="border rounded p-3 mb-3"><h5>Phòng: <?= htmlspecialchars($room['ten_phong'], ENT_QUOTES, 'UTF-8') ?> | Môn: <?= htmlspecialchars($room['ten_mon'], ENT_QUOTES, 'UTF-8') ?> | Khối: <?= htmlspecialchars($room['khoi'], ENT_QUOTES, 'UTF-8') ?></h5><?php if ($examMode === 2): ?><div class="small text-muted mb-2"><?= htmlspecialchars((string)($room['slot_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>: <?= htmlspecialchars((string)$room['ten_mon'], ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
+<table class="table table-sm table-bordered"><thead><tr><th>#</th><th>SBD</th><th>Họ tên</th><th>Lớp</th><th>Ngày sinh</th><?php if ($examMode === 2): ?><th>Môn thi theo phòng</th><th>Ghi chú</th><?php endif; ?></tr></thead><tbody>
+<?php foreach($room['students'] as $i=>$st): ?><tr><td><?= $i+1 ?></td><td><?= htmlspecialchars($st['sbd'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($st['hoten'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($st['lop'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars($st['ngaysinh'], ENT_QUOTES, 'UTF-8') ?></td><?php if ($examMode === 2): ?><td><?= htmlspecialchars((string)$room['ten_mon'], ENT_QUOTES, 'UTF-8') ?></td><td></td><?php endif; ?></tr><?php endforeach; ?>
+<?php if (empty($room['students'])): ?><tr><td colspan="<?= $examMode === 2 ? 7 : 5 ?>" class="text-center text-muted">(Phòng trống)</td></tr><?php endif; ?>
 </tbody></table></div>
 <?php endforeach; ?>
 
