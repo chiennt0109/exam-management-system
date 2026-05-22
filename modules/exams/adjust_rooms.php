@@ -105,12 +105,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ((int) $check->fetchColumn() <= 0) {
                 throw new RuntimeException('Phòng đích không hợp lệ.');
             }
-            $up = $pdo->prepare('UPDATE exam_students SET room_id = :room_id WHERE id = :id AND exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
-            $up->execute([':room_id' => $roomId, ':id' => $esId, ':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
-            if ($up->rowCount() <= 0) {
-                throw new RuntimeException('Không thể chuyển thí sinh.');
+
+            // Mode 2: chuyển phòng phải chuyển đồng bộ toàn bộ các môn của thí sinh sang cùng tên phòng.
+            $modeStmt = $pdo->prepare('SELECT exam_mode FROM exams WHERE id = :id LIMIT 1');
+            $modeStmt->execute([':id' => $examId]);
+            $examMode = (int) ($modeStmt->fetchColumn() ?: 1);
+
+            $baseStudentStmt = $pdo->prepare('SELECT student_id FROM exam_students WHERE id = :id AND exam_id = :exam_id LIMIT 1');
+            $baseStudentStmt->execute([':id' => $esId, ':exam_id' => $examId]);
+            $studentId = (int) ($baseStudentStmt->fetchColumn() ?: 0);
+            if ($studentId <= 0) {
+                throw new RuntimeException('Không tìm thấy thí sinh cần chuyển.');
             }
-            exams_set_flash('success', 'Đã chuyển thí sinh sang phòng mới.');
+
+            if ($examMode === 2) {
+                $targetRoomNameStmt = $pdo->prepare('SELECT ten_phong FROM rooms WHERE id = :id AND exam_id = :exam_id LIMIT 1');
+                $targetRoomNameStmt->execute([':id' => $roomId, ':exam_id' => $examId]);
+                $targetRoomName = trim((string) ($targetRoomNameStmt->fetchColumn() ?: ''));
+                if ($targetRoomName === '') {
+                    throw new RuntimeException('Không xác định được tên phòng đích.');
+                }
+
+                $stuRowsStmt = $pdo->prepare('SELECT id, subject_id FROM exam_students WHERE exam_id = :exam_id AND khoi = :khoi AND student_id = :student_id AND subject_id IS NOT NULL');
+                $stuRowsStmt->execute([':exam_id' => $examId, ':khoi' => $khoi, ':student_id' => $studentId]);
+                $stuRows = $stuRowsStmt->fetchAll(PDO::FETCH_ASSOC);
+                if (empty($stuRows)) {
+                    throw new RuntimeException('Thí sinh chưa có dữ liệu môn để chuyển phòng.');
+                }
+
+                $findRoomByNameStmt = $pdo->prepare('SELECT id FROM rooms WHERE exam_id = :exam_id AND khoi = :khoi AND subject_id = :subject_id AND ten_phong = :ten_phong LIMIT 1');
+                $updateOneStmt = $pdo->prepare('UPDATE exam_students SET room_id = :room_id WHERE id = :id AND exam_id = :exam_id');
+
+                $changed = 0;
+                foreach ($stuRows as $row) {
+                    $sidSub = (int) ($row['subject_id'] ?? 0);
+                    $esSubId = (int) ($row['id'] ?? 0);
+                    if ($sidSub <= 0 || $esSubId <= 0) {
+                        continue;
+                    }
+                    $findRoomByNameStmt->execute([
+                        ':exam_id' => $examId,
+                        ':khoi' => $khoi,
+                        ':subject_id' => $sidSub,
+                        ':ten_phong' => $targetRoomName,
+                    ]);
+                    $targetRoomBySubject = (int) ($findRoomByNameStmt->fetchColumn() ?: 0);
+                    if ($targetRoomBySubject <= 0) {
+                        throw new RuntimeException('Thiếu phòng "' . $targetRoomName . '" cho một số môn của thí sinh. Không thể chuyển đồng bộ.');
+                    }
+                    $updateOneStmt->execute([':room_id' => $targetRoomBySubject, ':id' => $esSubId, ':exam_id' => $examId]);
+                    $changed += $updateOneStmt->rowCount();
+                }
+                if ($changed <= 0) {
+                    throw new RuntimeException('Không thể chuyển phòng đồng bộ cho thí sinh.');
+                }
+            } else {
+                $up = $pdo->prepare('UPDATE exam_students SET room_id = :room_id WHERE id = :id AND exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
+                $up->execute([':room_id' => $roomId, ':id' => $esId, ':exam_id' => $examId, ':subject_id' => $subjectId, ':khoi' => $khoi]);
+                if ($up->rowCount() <= 0) {
+                    throw new RuntimeException('Không thể chuyển thí sinh.');
+                }
+            }
+            exams_set_flash('success', $examMode === 2 ? 'Đã chuyển đồng bộ tất cả môn của thí sinh sang phòng mới.' : 'Đã chuyển thí sinh sang phòng mới.');
         } elseif ($action === 'remove_student') {
             $esId = (int) ($_POST['exam_student_id'] ?? 0);
             $up = $pdo->prepare('UPDATE exam_students SET room_id = NULL WHERE id = :id AND exam_id = :exam_id AND subject_id = :subject_id AND khoi = :khoi');
@@ -172,6 +228,13 @@ $filteredStudents = [];
 $pagedStudents = [];
 $classViewSubjects = [];
 $classViewSubjectByStudent = [];
+$roomViewSubjects = [];
+$roomViewSubjectByStudent = [];
+$roomViewRoomByStudent = [];
+$roomViewMandatorySubjects = [];
+$roomViewOptionalSubjects = [];
+$roomViewOptionalSubjectIdsByStudent = [];
+$roomViewOptionalSlotBySubject = [];
 $totalRows = 0;
 $totalPages = 1;
 $offset = 0;
@@ -257,6 +320,90 @@ if ($examId > 0 && $subjectId > 0 && $khoi !== '') {
         if ($filterClass !== '') {
             $filteredStudents = array_values(array_filter($filteredStudents, static fn(array $st): bool => (string) ($st['lop'] ?? '') === $filterClass));
         }
+
+        // In room view: show all subjects each student registered in this exam/khoi (from registration matrix).
+        $subColsStmt = $pdo->prepare('SELECT DISTINCT sub.id AS subject_id, sub.ten_mon
+            FROM exam_student_subjects ess
+            INNER JOIN subjects sub ON sub.id = ess.subject_id
+            INNER JOIN exam_students es0 ON es0.exam_id = ess.exam_id AND es0.student_id = ess.student_id AND es0.subject_id IS NULL
+            WHERE ess.exam_id = :exam_id AND es0.khoi = :khoi
+            ORDER BY sub.ten_mon');
+        $subColsStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+        $roomViewSubjects = $subColsStmt->fetchAll(PDO::FETCH_ASSOC);
+        $subTypeStmt = $pdo->prepare('SELECT id, COALESCE(is_mandatory,0) AS is_mandatory FROM subjects');
+        $subTypeStmt->execute();
+        $isMandatoryMap = [];
+        foreach ($subTypeStmt->fetchAll(PDO::FETCH_ASSOC) as $srow) {
+            $isMandatoryMap[(int) ($srow['id'] ?? 0)] = ((int) ($srow['is_mandatory'] ?? 0)) === 1;
+        }
+        foreach ($roomViewSubjects as $sub) {
+            $sid = (int) ($sub['subject_id'] ?? 0);
+            if ($sid <= 0) continue;
+            if (!empty($isMandatoryMap[$sid])) {
+                $roomViewMandatorySubjects[] = $sub;
+            } else {
+                $roomViewOptionalSubjects[] = $sub;
+            }
+        }
+
+        $roomMapStmt = $pdo->prepare('SELECT ess.student_id, ess.subject_id, sub.ten_mon
+            FROM exam_student_subjects ess
+            INNER JOIN subjects sub ON sub.id = ess.subject_id
+            INNER JOIN exam_students es0 ON es0.exam_id = ess.exam_id AND es0.student_id = ess.student_id AND es0.subject_id IS NULL
+            WHERE ess.exam_id = :exam_id AND es0.khoi = :khoi');
+        $roomMapStmt->execute([':exam_id' => $examId, ':khoi' => $khoi]);
+        foreach ($assignedStudents as $asRow) {
+            $sid = (int) ($asRow['student_id'] ?? 0);
+            $rid = (int) ($asRow['room_id'] ?? 0);
+            if ($sid > 0 && $rid > 0 && !isset($roomViewRoomByStudent[$sid])) {
+                $roomViewRoomByStudent[$sid] = (string) ($roomMap[$rid] ?? '');
+            }
+        }
+        foreach ($roomMapStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $sid = (int) ($row['student_id'] ?? 0);
+            $subId = (int) ($row['subject_id'] ?? 0);
+            if ($sid <= 0 || $subId <= 0) {
+                continue;
+            }
+            $roomViewSubjectByStudent[$sid][$subId] = (string) ($row['ten_mon'] ?? '');
+            if (empty($isMandatoryMap[$subId])) {
+                $roomViewOptionalSubjectIdsByStudent[$sid][$subId] = true;
+            }
+        }
+
+        // Gán slot tự chọn cố định theo môn để hiển thị nhất quán giữa 2 cột.
+        $optionalAdj = [];
+        foreach ($roomViewOptionalSubjectIdsByStudent as $sid => $subSet) {
+            $ids = array_values(array_map('intval', array_keys((array) $subSet)));
+            sort($ids);
+            $n = count($ids);
+            for ($i = 0; $i < $n; $i++) {
+                for ($j = $i + 1; $j < $n; $j++) {
+                    $a = $ids[$i];
+                    $b = $ids[$j];
+                    $optionalAdj[$a][$b] = true;
+                    $optionalAdj[$b][$a] = true;
+                }
+            }
+        }
+        foreach (array_keys($optionalAdj) as $startSub) {
+            if (isset($roomViewOptionalSlotBySubject[(int) $startSub])) continue;
+            $queue = [[$startSub, 1]];
+            while (!empty($queue)) {
+                [$cur, $slot] = array_shift($queue);
+                $cur = (int) $cur;
+                $slot = (int) $slot;
+                if (isset($roomViewOptionalSlotBySubject[$cur])) continue;
+                $roomViewOptionalSlotBySubject[$cur] = $slot;
+                foreach (array_keys((array) ($optionalAdj[$cur] ?? [])) as $neiRaw) {
+                    $nei = (int) $neiRaw;
+                    if (!isset($roomViewOptionalSlotBySubject[$nei])) {
+                        $queue[] = [$nei, $slot === 1 ? 2 : 1];
+                    }
+                }
+            }
+        }
+
     }
 
     $totalRows = count($filteredStudents);
@@ -420,10 +567,10 @@ require_once BASE_PATH . '/layout/header.php';
 
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered table-sm">
-                            <thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><?php if ($viewMode === 'class'): ?><?php foreach ($classViewSubjects as $sub): ?><th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?><?php endif; ?></tr></thead>
+                            <thead><tr><th>STT</th><th>SBD</th><th>Họ tên</th><th>Ngày sinh</th><th>Lớp</th><?php if ($viewMode === 'class'): ?><?php foreach ($classViewSubjects as $sub): ?><th><?= htmlspecialchars((string) ($sub['ten_mon'] ?? ''), ENT_QUOTES, 'UTF-8') ?></th><?php endforeach; ?><?php else: ?><th>Môn bắt buộc 1</th><th>Môn bắt buộc 2</th><th>Bài thi chọn số 1</th><th>Bài thi chọn số 2</th><th>Phòng thi</th><?php endif; ?></tr></thead>
                             <tbody>
                             <?php if (empty($pagedStudents)): ?>
-                                <tr><td colspan="<?= $viewMode === 'class' ? 5 + count($classViewSubjects) : 5 ?>" class="text-center">Không có dữ liệu phù hợp.</td></tr>
+                                <tr><td colspan="<?= $viewMode === 'class' ? 5 + count($classViewSubjects) : 10 ?>" class="text-center">Không có dữ liệu phù hợp.</td></tr>
                             <?php else: foreach ($pagedStudents as $idx => $st): ?>
                                 <tr>
                                     <td><?= $offset + $idx + 1 ?></td>
@@ -437,6 +584,44 @@ require_once BASE_PATH . '/layout/header.php';
                                             <?php $subId = (int) ($sub['subject_id'] ?? 0); ?>
                                             <td><?= htmlspecialchars((string) ($classViewSubjectByStudent[$studentId][$subId] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                         <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <?php $studentId = (int) ($st['student_id'] ?? 0); ?>
+                                        <?php
+                                        $allVals = [];
+                                        foreach ((array) ($roomViewSubjectByStudent[$studentId] ?? []) as $val) {
+                                            $name = trim((string) $val);
+                                            if ($name !== '' && !in_array($name, $allVals, true)) {
+                                                $allVals[] = $name;
+                                            }
+                                        }
+                                        $mandatoryVals = [];
+                                        foreach ($roomViewMandatorySubjects as $sub) {
+                                            $subId = (int) ($sub['subject_id'] ?? 0);
+                                            $val = trim((string) ($roomViewSubjectByStudent[$studentId][$subId] ?? ''));
+                                            if ($val !== '' && !in_array($val, $mandatoryVals, true)) $mandatoryVals[] = $val;
+                                        }
+                                        // Fallback hiển thị: nếu cấu hình "môn bắt buộc" chưa đủ 2 môn, lấy thêm từ danh sách thực tế.
+                                        foreach ($allVals as $name) {
+                                            if (count($mandatoryVals) >= 2) break;
+                                            if (!in_array($name, $mandatoryVals, true)) $mandatoryVals[] = $name;
+                                        }
+                                        $optionalVals = [1 => '', 2 => ''];
+                                        foreach ((array) ($roomViewOptionalSubjectIdsByStudent[$studentId] ?? []) as $optSubIdRaw => $_f) {
+                                            $optSubId = (int) $optSubIdRaw;
+                                            $name = trim((string) ($roomViewSubjectByStudent[$studentId][$optSubId] ?? ''));
+                                            if ($name === '') continue;
+                                            $slot = (int) ($roomViewOptionalSlotBySubject[$optSubId] ?? 1);
+                                            if ($optionalVals[$slot] === '') {
+                                                $optionalVals[$slot] = $name;
+                                            }
+                                        }
+                                        ?>
+                                        <td><?= htmlspecialchars((string) ($mandatoryVals[0] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($mandatoryVals[1] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($optionalVals[1] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <td><?= htmlspecialchars((string) ($optionalVals[2] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                                        <?php $roomName = (string) ($roomViewRoomByStudent[$studentId] ?? ($roomMap[(int) ($st['room_id'] ?? 0)] ?? '')); ?>
+                                        <td class="fw-bold text-center"><?= htmlspecialchars($roomName, ENT_QUOTES, 'UTF-8') ?></td>
                                     <?php endif; ?>
                                 </tr>
                             <?php endforeach; endif; ?>
