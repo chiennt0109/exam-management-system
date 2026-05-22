@@ -110,14 +110,8 @@ function splitMode2SubjectsForDisplay(
         }
     }
 
-    foreach (array_keys($studentSubjectNameSet) as $name) {
-        if (count($mandatory) >= 2) {
-            break;
-        }
-        if ($name !== '' && !in_array($name, $mandatory, true)) {
-            $mandatory[] = $name;
-        }
-    }
+    // Không tự động "bù" môn bắt buộc từ danh sách môn chung.
+    // 2 cột môn bắt buộc chỉ lấy đúng các môn được đánh dấu bắt buộc trong bảng subjects.
 
     if (count($optional[1]) === 0 && count($optional[2]) >= 2) {
         $optional[1][] = array_shift($optional[2]);
