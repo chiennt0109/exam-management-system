@@ -256,7 +256,7 @@ require_once BASE_PATH . '/layout/header.php';
                 <?php elseif ($flash === 'deleted_one'): ?>
                     <div class="notice success">Đã xóa học sinh.</div>
                 <?php elseif ($flash === 'none_inserted'): ?>
-                    <div class="notice error">Không có dòng hợp lệ được import (yêu cầu tối thiểu: SBD + Họ tên).</div>
+                    <div class="notice error">Không có dòng hợp lệ được import (yêu cầu tối thiểu: Mã định danh + Họ tên).</div>
                 <?php endif; ?>
 
                 <?php if (!empty($errors)): ?>
@@ -293,7 +293,7 @@ require_once BASE_PATH . '/layout/header.php';
                 </div>
 
                 <form method="get" class="search-row">
-                    <input type="text" name="q" value="<?= htmlspecialchars($keyword, ENT_QUOTES, 'UTF-8') ?>" placeholder="Lọc theo SBD hoặc họ tên...">
+                    <input type="text" name="q" value="<?= htmlspecialchars($keyword, ENT_QUOTES, 'UTF-8') ?>" placeholder="Lọc theo Mã định danh hoặc họ tên...">
                     <button type="submit">Tìm</button>
                     <a href="<?= BASE_URL ?>/modules/students/index.php">Làm mới</a>
                 </form>
@@ -310,7 +310,7 @@ require_once BASE_PATH . '/layout/header.php';
                             <tr>
                                 <th style="width:40px; text-align:center;"></th>
                                 <th>ID</th>
-                                <th>SBD</th>
+                                <th>Mã định danh</th>
                                 <th>Họ tên</th>
                                 <th>Ngày sinh</th>
                                 <th>Lớp</th>
